@@ -1,0 +1,30 @@
+{
+  "name": "@marmalade-v2/api",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./src/index.ts"
+    },
+    "./*": {
+      "default": "./src/*.ts"
+    }
+  },
+  "scripts": {},
+  "dependencies": {
+    "@marmalade-v2/auth": "workspace:*",
+    "@marmalade-v2/db": "workspace:*",
+    "@marmalade-v2/env": "workspace:*",
+    "@orpc/client": "catalog:",
+    "@orpc/openapi": "catalog:",
+    "@orpc/server": "catalog:",
+    "@orpc/zod": "catalog:",
+    "@types/pg": "catalog:",
+    "dotenv": "catalog:",
+    "drizzle-orm": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@marmalade-v2/config": "workspace:*",
+    "typescript": "catalog:"
+  }
+}

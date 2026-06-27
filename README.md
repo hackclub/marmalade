@@ -14,7 +14,7 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
-- **Tauri** - Build native desktop applications
+<!-- - **Tauri** - Build native desktop applications -->
 - **Turborepo** - Optimized monorepo build system
 
 ## Getting Started
@@ -111,8 +111,8 @@ marmalade-v2/
 - `pnpm run db:generate`: Generate database client/types
 - `pnpm run db:migrate`: Run database migrations
 - `pnpm run db:studio`: Open database studio UI
-- `cd apps/web && pnpm run desktop:dev`: Start Tauri desktop app in development
-- `cd apps/web && pnpm run desktop:build`: Build Tauri desktop app
+<!-- - `cd apps/web && pnpm run desktop:dev`: Start Tauri desktop app in development
+- `cd apps/web && pnpm run desktop:build`: Build Tauri desktop app -->
 - Note: Desktop builds package static web assets. TanStack Start needs a static/export build configuration before desktop packaging will work.
 - `pnpm run docker:build`: Build the Docker Compose images
 - `pnpm run docker:up`: Build and start the Docker Compose stack

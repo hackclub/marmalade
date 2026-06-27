@@ -19,7 +19,7 @@
   "backend": "self",
   "runtime": "none",
   "frontend": ["tanstack-start", "native-unistyles"],
-  "addons": ["tauri", "turborepo"],
+  "addons": [", "turborepo"],
   "examples": ["todo"],
   "auth": "better-auth",
   "payments": "none",

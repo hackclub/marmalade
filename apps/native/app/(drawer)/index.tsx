@@ -4,7 +4,6 @@ import { StyleSheet } from "react-native-unistyles";
 
 import { Container } from "@/components/container";
 import { SignIn } from "@/components/sign-in";
-import { SignUp } from "@/components/sign-up";
 import { authClient } from "@/lib/auth-client";
 import { queryClient, orpc } from "@/utils/orpc";
 
@@ -17,7 +16,7 @@ export default function Home() {
     <Container>
       <ScrollView>
         <View style={styles.pageContainer}>
-          <Text style={styles.headerTitle}>BETTER T STACK</Text>
+          <Text style={styles.headerTitle}>MARMALADE</Text>
           {session?.user ? (
             <View style={styles.sessionInfoCard}>
               <View style={styles.sessionUserRow}>
@@ -64,12 +63,7 @@ export default function Home() {
               </View>
             )}
           </View>
-          {!session?.user && (
-            <>
-              <SignIn />
-              <SignUp />
-            </>
-          )}
+          {!session?.user && <SignIn />}
         </View>
       </ScrollView>
     </Container>

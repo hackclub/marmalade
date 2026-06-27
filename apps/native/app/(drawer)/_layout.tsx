@@ -53,10 +53,10 @@ const DrawerLayout = () => {
         }}
       />
       <Drawer.Screen
-        name="todos"
+        name="mailboxes"
         options={{
-          headerTitle: "Todos",
-          drawerLabel: "Todos",
+          headerTitle: "Mailboxes",
+          drawerLabel: "Mailboxes",
           drawerIcon: ({ size, color }) => (
             <Ionicons name="checkbox-outline" size={size} color={color} />
           ),

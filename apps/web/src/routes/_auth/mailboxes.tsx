@@ -11,18 +11,20 @@ import { Input } from "@marmalade-v2/ui/components/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2, Trash2 } from "lucide-react";
+import { Badge } from "@marmalade-v2/ui/components/badge";
 import { useState, type FormEvent } from "react";
 
 import { orpc } from "@/utils/orpc";
 
-type MailboxId = number;
+type JellyMailboxId = string;
 
-export const Route = createFileRoute("/todos")({
+export const Route = createFileRoute("/_auth/mailboxes")({
   component: MailboxesRoute,
 });
 
 function MailboxesRoute() {
   // const [newMailboxText, setNewMailboxText] = useState("");
+  const { teamMember } = Route.useRouteContext();
 
   const mailboxes = useQuery(orpc.mailbox.list.queryOptions());
   // const createMutation = useMutation(
@@ -48,12 +50,25 @@ function MailboxesRoute() {
   //   }),
   // );
 
-  // const handleAddMailbox = (e: FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-  //   if (newMailboxText.trim()) {
-  //     createMutation.mutate({ text: newMailboxText });
-  //   }
-  // };
+  const resyncMutation = useMutation(
+    orpc.mailbox.resync.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      }
+    }),
+  );
+
+  const createMutation = useMutation(
+    orpc.mailbox.create.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      }
+    }),
+  );
+
+  const handleCreateMailbox = (id: JellyMailboxId) => {
+      createMutation.mutate({ jellyMailboxId: id  });
+  };
 
   // const handleToggleMailbox = (id: MailboxId, completed: boolean) => {
   //   toggleMutation.mutate({ id, completed: !completed });
@@ -63,14 +78,20 @@ function MailboxesRoute() {
   //   deleteMutation.mutate({ id });
   // };
 
+  const handleResyncMailboxes = () => {
+    resyncMutation.mutate({});
+  }
+
   return (
     <div className="mx-auto w-full max-w-md py-10">
       <Card>
         <CardHeader>
-          <CardTitle>Mailbox List</CardTitle>
-          <CardDescription>Manage your tasks efficiently</CardDescription>
+          <CardTitle>Your Mailboxes</CardTitle>
         </CardHeader>
         <CardContent>
+        <Button onClick={handleResyncMailboxes} className="mb-4">
+          Resync Mailboxes
+        </Button>
           {/* <form onSubmit={handleAddMailbox} className="mb-6 flex items-center space-x-2">
             <Input
               value={newMailboxText}
@@ -94,9 +115,9 @@ function MailboxesRoute() {
               {mailboxes.data?.map((mailbox) => (
                 <li
                   key={mailbox.jellyMailbox.id}
-                  className="flex items-center justify-between rounded-md border p-2"
+                  className="flex flex-col justify-between rounded-md border p-2"
                 >
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1">
                     {/* <Checkbox
                       checked={mailbox.completed}
                       onCheckedChange={() => handleToggleMailbox(mailbox.id, mailbox.completed)}
@@ -104,10 +125,43 @@ function MailboxesRoute() {
                     /> */}
                     <label
                       htmlFor={`mailbox-${mailbox.jellyMailbox.id}`}
-                      className={`${mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? "line-through" : ""}`}
+                      // className={`${mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? "line-through" : ""}`}
                     >
                       {mailbox.jellyMailbox.name}
+                     
                     </label>
+                                        <span className="text-gray-500">({mailbox.jellyMailbox.jellyMailboxId})</span>
+
+                     <Badge variant={(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "destructive" : (mailbox.marmaladeMailbox) ? "secondary" : "outline"}>
+                        {(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "Paused" : (mailbox.marmaladeMailbox) ? "🍊 Linked" : "Unlinked"}
+                      </Badge>
+                                            </div>
+
+                    
+                   <div className="flex flex-row justify-end items-center gap-2">
+                       {(!mailbox.marmaladeMailbox && (teamMember.role == "admin" || teamMember.role == "owner")) ?   (
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleCreateMailbox(mailbox.jellyMailbox.jellyMailboxId)}
+                        aria-label="Setup mailbox"
+                      >
+                        🍊 Link
+                      </Button>
+                    ) : null}
+                                    {!mailbox.marmaladeMailbox ? (teamMember.role == "owner" || teamMember.role == "admin") ? <Button variant="outline">🍊 Link</Button> : <Button variant="outline">🍊 Request Linkage</Button> : null}
+                    
+                  
+                  {(teamMember.role == "owner") ? (
+                    <>
+                                   <Button
+                      variant="outline"
+                      >💤 Deactivate</Button>
+                              <Button
+                      variant="outline"
+                      >❌ Delete</Button>
+                      </>
+                    
+                  ) : null}
                   </div>
                   {/* <Button
                     variant="ghost"

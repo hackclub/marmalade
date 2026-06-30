@@ -1,7 +1,11 @@
-import type { RouterClient } from "@orpc/server";
+import { ORPCError, type RouterClient } from "@orpc/server";
 
 import { protectedProcedure, publicProcedure } from "../index";
-import { todoRouter } from "./todo";
+import { mailboxRouter } from "./mailbox";
+import { teamRouter } from "./team";
+import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { eq } from "drizzle-orm";
+import { db } from "@marmalade-v2/db";
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -13,7 +17,21 @@ export const appRouter = {
       user: context.session?.user,
     };
   }),
-  todo: todoRouter,
+  membershipInfo: protectedProcedure.handler(async ({ context }) => {
+     const teamMember = await db.select()
+      .from(jellyTeamMember)
+      .where(eq(jellyTeamMember.email, context.session?.user.email ?? ""))
+
+    if (!teamMember || teamMember.length === 0 || !teamMember[0]) {
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "User is not a member of the team",
+      });
+    }
+    return teamMember[0];
+  }),
+
+  mailbox: mailboxRouter,
+  team: teamRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

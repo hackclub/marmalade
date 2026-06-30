@@ -12,7 +12,7 @@ catalog:
   typescript: ^6
   "@types/node": ^22.13.14
   next-themes: ^0.4.6
-  "@orpc/server": ^1.13.14
+  "@orpc/server": ^1.14.6
   "@orpc/client": ^1.13.14
   "@orpc/openapi": ^1.13.14
   "@orpc/zod": ^1.13.14

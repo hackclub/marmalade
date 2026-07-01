@@ -1,10 +1,10 @@
 import { ORPCError, os } from "@orpc/server";
 
-import type { Context } from "./context";
-import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { db } from "@marmalade-v2/db";
+import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
-import {eq, and} from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import type { Context } from "./context";
 
 export const o = os.$context<Context>();
 
@@ -22,27 +22,37 @@ const requireAuth = o.middleware(async ({ context, next }) => {
 });
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
-export const teamAdminProtectedProcedure = protectedProcedure.use(async ({ context, next }) => {
-  const userEmail = context.session.user.email;
-  let role;
-  try {
-    const teamMember = await db.select().from(jellyTeamMember).where(and(eq(jellyTeamMember.email, userEmail), eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID)));
-    console.log('teamMember', teamMember)
-    if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
+export const teamAdminProtectedProcedure = protectedProcedure.use(
+  async ({ context, next }) => {
+    const userEmail = context.session.user.email;
+    let role;
+    try {
+      const teamMember = await db
+        .select()
+        .from(jellyTeamMember)
+        .where(
+          and(
+            eq(jellyTeamMember.email, userEmail),
+            eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
+          ),
+        );
+      console.log("teamMember", teamMember);
+      if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
+        throw new ORPCError("FORBIDDEN");
+      }
+      role = teamMember[0].role;
+      console.log("role", role);
+      if (role !== "admin" && role !== "owner") {
+        throw new ORPCError("FORBIDDEN");
+      }
+      return next({
+        context: {
+          session: context.session,
+        },
+      });
+    } catch (e) {
+      console.log(e);
       throw new ORPCError("FORBIDDEN");
     }
-    role = teamMember[0].role;
-    console.log('role', role)
-    if (role !== 'admin' &&  role !== 'owner') {
-      throw new ORPCError("FORBIDDEN");
-    }
-    return next({
-      context: {
-        session: context.session,
-      },
-    });
-  } catch (e) {
-    console.log(e)
-    throw new ORPCError("FORBIDDEN");
-  }
-});
+  },
+);

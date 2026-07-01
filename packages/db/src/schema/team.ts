@@ -1,6 +1,4 @@
-import { exists } from "drizzle-orm";
-import { pgTable, text, boolean, serial } from "drizzle-orm/pg-core";
-import { email } from "zod";
+import { boolean, pgTable, text } from "drizzle-orm/pg-core";
 
 export const jellyTeamMember = pgTable("jelly_team_member", {
   id: text("id").notNull().primaryKey(),
@@ -9,5 +7,7 @@ export const jellyTeamMember = pgTable("jelly_team_member", {
   role: text("role").notNull(),
   active: boolean("active").default(true).notNull(),
   jellyTeamId: text("jelly_team_id").notNull(),
-  existsInJelly: boolean("exists_in_jelly").notNull().$default(() => true),
+  existsInJelly: boolean("exists_in_jelly")
+    .notNull()
+    .$default(() => true),
 });

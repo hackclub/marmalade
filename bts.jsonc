@@ -27,5 +27,5 @@
   "dbSetup": "docker",
   "api": "orpc",
   "webDeploy": "docker",
-  "serverDeploy": "none"
+  "serverDeploy": "none",
 }

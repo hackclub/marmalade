@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, serial, integer } from "drizzle-orm/pg-core";
+import { boolean, integer, pgTable, serial, text } from "drizzle-orm/pg-core";
 
 export const jellyMailbox = pgTable("jelly_mailbox", {
   id: serial("id").primaryKey(),
@@ -8,7 +8,9 @@ export const jellyMailbox = pgTable("jelly_mailbox", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   isDefault: boolean("is_default").notNull(),
-  existsInJelly: boolean("exists_in_jelly").notNull().$default(() => true),
+  existsInJelly: boolean("exists_in_jelly")
+    .notNull()
+    .$default(() => true),
 });
 
 export const jellyMailboxMember = pgTable("jelly_mailbox_member", {

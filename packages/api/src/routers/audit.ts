@@ -11,7 +11,16 @@ export const auditRouter = {
     return await db.select().from(auditLog);
   }),
   create: protectedProcedure
-    .input(z.object({ resource: z.string().min(1), action: z.string().min(1), resourceId: z.number().optional(), status: z.string().optional(), changes: z.any().optional(), metadata: z.any().optional() }))
+    .input(
+      z.object({
+        resource: z.string().min(1),
+        action: z.string().min(1),
+        resourceId: z.number().optional(),
+        status: z.string().optional(),
+        changes: z.any().optional(),
+        metadata: z.any().optional(),
+      }),
+    )
     .handler(async ({ input, context }) => {
       const ipAddress = context.session.session.ipAddress;
       const userAgent = context.session.session.userAgent;
@@ -26,7 +35,7 @@ export const auditRouter = {
         changes: input.changes ?? null,
         metadata: input.metadata ?? null,
         ipAddress,
-        userAgent
+        userAgent,
       });
     }),
 };

@@ -1,8 +1,18 @@
-import { text, serial, varchar, integer, timestamp, pgTable, jsonb } from "drizzle-orm/pg-core";
+import {
+  integer,
+  jsonb,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+} from "drizzle-orm/pg-core";
 
 export const auditLog = pgTable("audit_log", {
   id: serial("id").primaryKey(),
-  timestamp: timestamp("timestamp").notNull().$default(() => new Date()),
+  timestamp: timestamp("timestamp")
+    .notNull()
+    .$default(() => new Date()),
   userId: text("user_id").notNull(),
   teamId: text("team_id").notNull(),
   action: text("action").notNull(),

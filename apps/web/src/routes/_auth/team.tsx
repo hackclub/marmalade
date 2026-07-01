@@ -1,3 +1,4 @@
+import { Badge } from "@marmalade-v2/ui/components/badge";
 import { Button } from "@marmalade-v2/ui/components/button";
 import {
   Card,
@@ -5,7 +6,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@marmalade-v2/ui/components/card";
-import { Badge } from "@marmalade-v2/ui/components/badge";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
@@ -17,8 +17,8 @@ export const Route = createFileRoute("/_auth/team")({
 });
 
 function MembersRoute() {
-    const { teamMember } = Route.useRouteContext();
-  
+  const { teamMember } = Route.useRouteContext();
+
   // const [newMemberText, setNewMemberText] = useState("");
 
   const members = useQuery(orpc.team.list.queryOptions());
@@ -49,7 +49,7 @@ function MembersRoute() {
     orpc.team.resync.mutationOptions({
       onSuccess: () => {
         members.refetch();
-      }
+      },
     }),
   );
 
@@ -70,7 +70,7 @@ function MembersRoute() {
 
   const handleResyncMembers = () => {
     resyncMutation.mutate({});
-  }
+  };
 
   return (
     <div className="mx-auto w-full max-w-md py-10">
@@ -79,9 +79,9 @@ function MembersRoute() {
           <CardTitle>Your Team</CardTitle>
         </CardHeader>
         <CardContent>
-        <Button onClick={handleResyncMembers} className="mb-4">
-          Resync Members
-        </Button>
+          <Button onClick={handleResyncMembers} className="mb-4">
+            Resync Members
+          </Button>
           {/* <form onSubmit={handleAddMember} className="mb-6 flex items-center space-x-2">
             <Input
               value={newMemberText}
@@ -94,7 +94,7 @@ function MembersRoute() {
             </Button>
           </form> */}
 
-          {(members.isLoading ? (
+          {members.isLoading ? (
             <div className="flex justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
@@ -118,36 +118,34 @@ function MembersRoute() {
                       className={`${!member.jelly.existsInJelly ? "line-through" : ""}`}
                     >
                       {member.jelly.name}
-                      
                     </label>
-                    <span className="text-gray-500">({member.jelly.email})</span>
-                      <Badge variant={!member.jelly.existsInJelly ? "destructive" : member.marmalade ? "secondary" : "outline"}>
-                        {member.marmalade ? "🍊 Linked" : "Unlinked"}
-                      </Badge> 
-                      <Badge>
-                      {member.jelly.role}
-                      </Badge>
-
+                    <span className="text-gray-500">
+                      ({member.jelly.email})
+                    </span>
+                    <Badge
+                      variant={
+                        !member.jelly.existsInJelly
+                          ? "destructive"
+                          : member.marmalade
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {member.marmalade ? "🍊 Linked" : "Unlinked"}
+                    </Badge>
+                    <Badge>{member.jelly.role}</Badge>
                   </div>
                   <div className="flex flex-row justify-end items-center gap-2">
-     
-                  {!member.marmalade ? (
-  
-     <Button
-    variant="outline"
-    >🍊 Invite</Button>
-) : (teamMember.role == "owner" || teamMember.role == "admin") ? (
-  <>
-                 <Button
-    variant="outline"
-    >💤 Deactivate</Button>
-            <Button
-    variant="outline"
-    >❌ Ban</Button>
-    </>
-  
-) : null}
-</div>
+                    {!member.marmalade ? (
+                      <Button variant="outline">🍊 Invite</Button>
+                    ) : teamMember.role == "owner" ||
+                      teamMember.role == "admin" ? (
+                      <>
+                        <Button variant="outline">💤 Deactivate</Button>
+                        <Button variant="outline">❌ Ban</Button>
+                      </>
+                    ) : null}
+                  </div>
                   {/* <Button
                     variant="ghost"
                     size="icon"
@@ -159,7 +157,7 @@ function MembersRoute() {
                 </li>
               ))}
             </ul>
-          ))}
+          )}
         </CardContent>
       </Card>
     </div>

@@ -23,8 +23,12 @@ export default function SignInForm() {
 
   return (
     <div className="mx-auto w-full mt-10 max-w-md p-6">
-      <h1 className="mb-6 text-center text-3xl font-bold">Welcome to Marmalade</h1>
-      <p className="mb-8 text-center text-gray-600">Sign in with your Hack Club account to continue</p>
+      <h1 className="mb-6 text-center text-3xl font-bold">
+        Welcome to Marmalade
+      </h1>
+      <p className="mb-8 text-center text-gray-600">
+        Sign in with your Hack Club account to continue
+      </p>
 
       <Button
         className="w-full"

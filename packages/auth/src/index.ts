@@ -37,13 +37,12 @@ export function createAuth() {
               });
               // Check if this is a new user (e.g., by checking creation timestamp or a custom flag)
               if (user && true) {
-                // Create an example note for the user
                 await call(
                   mailboxRouter.resync,
                   {},
                   {
                     path: ["/mailboxes"],
-                    context: { session: { user: { id: user.id } } },
+                    context: { auth: null, session: { user, session: {...account, expiresAt: new Date(), token: "uwu" } }},
                   },
                 );
               }

@@ -42,7 +42,17 @@ export function createAuth() {
                   {},
                   {
                     path: ["/mailboxes"],
-                    context: { auth: null, session: { user, session: {...account, expiresAt: new Date(), token: "uwu" } }},
+                    context: {
+                      auth: null,
+                      session: {
+                        user,
+                        session: {
+                          ...account,
+                          expiresAt: new Date(),
+                          token: "uwu",
+                        },
+                      },
+                    },
                   },
                 );
               }

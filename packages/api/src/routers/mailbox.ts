@@ -7,7 +7,7 @@ import {
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { getJellyClient } from "../lib/jelly";
 
 import { env } from "@marmalade-v2/env/server";
@@ -22,6 +22,28 @@ import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 
+const jellyMailboxMemberCounts = db
+  .select({
+    jellyMailboxId: jellyMailboxMember.jellyMailboxId,
+    jellyMailboxMemberCount: sql<number>`count(*)`
+      .mapWith(Number)
+      .as("jellyMailboxMemberCount"),
+  })
+  .from(jellyMailboxMember)
+  .groupBy(jellyMailboxMember.jellyMailboxId)
+  .as("jelly_mailbox_member_counts");
+
+const marmaladeMailboxMemberCounts = db
+  .select({
+    marmaladeMailboxId: marmaladeMailboxMember.marmaladeMailboxId,
+    marmaladeMailboxMemberCount: sql<number>`count(*)`
+      .mapWith(Number)
+      .as("marmaladeMailboxMemberCount"),
+  })
+  .from(marmaladeMailboxMember)
+  .groupBy(marmaladeMailboxMember.marmaladeMailboxId)
+  .as("marmalade_mailbox_member_counts");
+
 export const mailboxRouter = {
   list: protectedProcedure.handler(async ({ context }) => {
     const requesterId = context.session.user.id;
@@ -35,7 +57,13 @@ export const mailboxRouter = {
       (await db
         .select({
           jellyMailbox: jellyMailbox,
+          jellyMailboxMemberCount: sql<number>`coalesce(${jellyMailboxMemberCounts.jellyMailboxMemberCount}, 0)`.mapWith(
+            Number,
+          ),
           marmaladeMailbox: marmaladeMailbox,
+          marmaladeMailboxMemberCount: sql<number>`coalesce(${marmaladeMailboxMemberCounts.marmaladeMailboxMemberCount}, 0)`.mapWith(
+            Number,
+          ),
           marmaladeMailboxMembership: marmaladeMailboxMember,
         })
         .from(jellyMailbox)
@@ -51,9 +79,23 @@ export const mailboxRouter = {
             eq(jellyTeamMember.email, requesterEmail),
           ),
         )
+        .innerJoin(
+          jellyMailboxMemberCounts,
+          eq(
+            jellyMailbox.jellyMailboxId,
+            jellyMailboxMemberCounts.jellyMailboxId,
+          ),
+        )
         .leftJoin(
           marmaladeMailbox,
           eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+        )
+        .leftJoin(
+          marmaladeMailboxMemberCounts,
+          eq(
+            marmaladeMailbox.id,
+            marmaladeMailboxMemberCounts.marmaladeMailboxId,
+          ),
         )
         .leftJoin(
           marmaladeMailboxMember,
@@ -62,8 +104,19 @@ export const mailboxRouter = {
             eq(marmaladeMailboxMember.marmaladeUserId, requesterId),
           ),
         )) || [];
-    console.log("results", results);
-    return results;
+    return results.map((result) => ({
+      jellyMailbox: {
+            ...result.jellyMailbox,
+            memberCount: result.jellyMailboxMemberCount,
+          },
+      marmaladeMailbox: result.marmaladeMailbox
+        ? {
+            ...result.marmaladeMailbox,
+            memberCount: result.marmaladeMailboxMemberCount,
+          }
+        : null,
+      marmaladeMailboxMembership: result.marmaladeMailboxMembership,
+    }));
   }),
   create: teamAdminProtectedProcedure
     .input(z.object({ jellyMailboxId: z.string().min(1) }))

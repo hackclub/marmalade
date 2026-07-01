@@ -111,7 +111,7 @@ function MailboxesRoute() {
               {mailboxes.data?.map((mailbox) => (
                 <li
                   key={mailbox.jellyMailbox.id}
-                  className="flex flex-col justify-between rounded-md border p-2"
+                  className="flex flex-col gap-3 justify-between rounded-md border p-2"
                 >
                   <div className="flex items-center space-x-1">
                     {/* <Checkbox
@@ -146,11 +146,11 @@ function MailboxesRoute() {
                           ? "🍊 Linked"
                           : "Unlinked"}
                     </Badge>
-                    {/* {mailbox.marmaladeMailbox && (
+                    {mailbox.marmaladeMailbox && (
                         <Badge variant={(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "destructive" : (mailbox.marmaladeMailbox) ? "secondary" : "outline"}>
-                        {mailbox.marmaladeMailbox.memberCount} / {mailbox.jellyMailbox.memberCount} members
+                        {mailbox.marmaladeMailbox.memberCount} / {mailbox.jellyMailbox.memberCount} members perm'd
                        </Badge>
-                      )} */}
+                      )}
                   </div>
 
                   <div className="flex flex-row justify-end items-center gap-2">
@@ -171,6 +171,10 @@ function MailboxesRoute() {
                         <Button variant="outline">🍊 Request Linkage</Button>
                       )
                     ) : null}
+
+                    {mailbox.marmaladeMailbox && (
+                      <Button variant="outline">👀 Show Members</Button>
+                    )}
 
                     {teamMember.role == "owner" ||
                     teamMember.role == "admin" ? (

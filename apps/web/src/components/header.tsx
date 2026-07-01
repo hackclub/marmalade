@@ -8,7 +8,7 @@ export default function Header() {
     { to: "/dashboard", label: "Admin" },
     { to: "/mailboxes", label: "Mailboxes" },
     { to: "/team", label: "Team" },
-    { to: "/api", label: "API Keys" },
+    { to: "/keys", label: "Keys" },
   ] as const;
 
   return (

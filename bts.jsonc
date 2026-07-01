@@ -18,8 +18,8 @@
   "orm": "drizzle",
   "backend": "self",
   "runtime": "none",
-  "frontend": ["tanstack-start", "native-unistyles"],
-  "addons": [", "turborepo"],
+  "frontend": ["tanstack-start"],
+  "addons": ["turborepo"],
   "examples": ["todo"],
   "auth": "better-auth",
   "payments": "none",
@@ -27,5 +27,5 @@
   "dbSetup": "docker",
   "api": "orpc",
   "webDeploy": "docker",
-  "serverDeploy": "none",
+  "serverDeploy": "none"
 }

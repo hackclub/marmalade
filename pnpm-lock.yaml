@@ -75,6 +75,12 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.0
+      prettier:
+        specifier: ^3.9.3
+        version: 3.9.3
+      prettier-plugin-organize-imports:
+        specifier: ^4.3.0
+        version: 4.3.0(prettier@3.9.3)(typescript@6.0.3)
       turbo:
         specifier: ^2.9.16
         version: 2.10.0
@@ -163,9 +169,6 @@ importers:
       '@marmalade-v2/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@marmalade-v2/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@tanstack/react-query-devtools':
         specifier: ^5.91.1
         version: 5.101.1(@tanstack/react-query@5.101.1(react@19.2.7))(react@19.2.7)
@@ -3427,8 +3430,23 @@ packages:
     resolution: {integrity: sha512-dM0jVuXJPsDN6DvRpea484tCUaMiXWjuCn++HGTqUWzGDjv5tZkEZldAJ/UMlqRYGFrD/etByo4/xOuC/snX2A==}
     engines: {node: '>=20'}
 
+  prettier-plugin-organize-imports@4.3.0:
+    resolution: {integrity: sha512-FxFz0qFhyBsGdIsb697f/EkvHzi5SZOhWAjxcx2dLt+Q532bAlhswcXGYB1yzjZ69kW8UoadFBw7TyNwlq96Iw==}
+    peerDependencies:
+      prettier: '>=2.0'
+      typescript: '>=2.9'
+      vue-tsc: ^2.1.0 || 3
+    peerDependenciesMeta:
+      vue-tsc:
+        optional: true
+
   prettier@3.8.4:
     resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  prettier@3.9.3:
+    resolution: {integrity: sha512-HWmu+K+zvHNpaMfSnYeqdqrDbR16cuIXaPx8WoHaviQkDJh1/0BNtOZmHVQI5jc3wXv0H1yXc9wjvFdXh+n3hQ==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -6804,7 +6822,14 @@ snapshots:
 
   powershell-utils@0.1.0: {}
 
+  prettier-plugin-organize-imports@4.3.0(prettier@3.9.3)(typescript@6.0.3):
+    dependencies:
+      prettier: 3.9.3
+      typescript: 6.0.3
+
   prettier@3.8.4: {}
+
+  prettier@3.9.3: {}
 
   pretty-format@27.5.1:
     dependencies:

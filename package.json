@@ -10,6 +10,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "format": "prettier . --write",
     "dev:native": "turbo -F native dev",
     "dev:web": "turbo -F web dev",
     "db:push": "turbo -F @marmalade-v2/db db:push",
@@ -33,6 +34,8 @@
   "devDependencies": {
     "@marmalade-v2/config": "workspace:*",
     "@types/node": "catalog:",
+    "prettier": "^3.9.3",
+    "prettier-plugin-organize-imports": "^4.3.0",
     "turbo": "^2.9.16",
     "typescript": "catalog:"
   },

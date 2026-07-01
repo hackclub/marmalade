@@ -36,12 +36,10 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
             eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
           ),
         );
-      console.log("teamMember", teamMember);
       if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
         throw new ORPCError("FORBIDDEN");
       }
       role = teamMember[0].role;
-      console.log("role", role);
       if (role !== "admin" && role !== "owner") {
         throw new ORPCError("FORBIDDEN");
       }
@@ -51,7 +49,6 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
         },
       });
     } catch (e) {
-      console.log(e);
       throw new ORPCError("FORBIDDEN");
     }
   },

@@ -105,7 +105,7 @@ function MembersRoute() {
               {members.data?.map((member) => (
                 <li
                   key={member.jelly.id}
-                  className="flex flex-col gap-3 justify-between rounded-md border p-2"
+                  className="flex flex-col justify-between gap-3 rounded-md border p-2"
                 >
                   <div className="flex items-center space-x-1">
                     {/* <Checkbox
@@ -135,7 +135,7 @@ function MembersRoute() {
                     </Badge>
                     <Badge>{member.jelly.role}</Badge>
                   </div>
-                  <div className="flex flex-row justify-end items-center gap-2">
+                  <div className="flex flex-row items-center justify-end gap-2">
                     {!member.marmalade ? (
                       <Button variant="outline">🍊 Invite</Button>
                     ) : teamMember.role == "owner" ||

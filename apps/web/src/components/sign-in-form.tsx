@@ -22,7 +22,7 @@ export default function SignInForm() {
   }
 
   return (
-    <div className="mx-auto w-full mt-10 max-w-md p-6">
+    <div className="mx-auto mt-10 w-full max-w-md p-6">
       <h1 className="mb-6 text-center text-3xl font-bold">
         Welcome to Marmalade
       </h1>

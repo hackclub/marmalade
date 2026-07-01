@@ -41,12 +41,10 @@ function MailboxCard({
   return (
     <li
       key={mailbox.jellyMailbox.id}
-      className="flex flex-col gap-3 justify-between rounded-md border p-2"
+      className="flex flex-col justify-between gap-3 rounded-md border p-2"
     >
       <div className="flex items-center space-x-1">
-        <label
-          htmlFor={`mailbox-${mailbox.jellyMailbox.id}`}
-        >
+        <label htmlFor={`mailbox-${mailbox.jellyMailbox.id}`}>
           {mailbox.jellyMailbox.name}
         </label>
         <span className="text-gray-500">
@@ -84,7 +82,7 @@ function MailboxCard({
         )}
       </div>
 
-      <div className="flex flex-row justify-end items-center gap-2">
+      <div className="flex flex-row items-center justify-end gap-2">
         {!mailbox.marmaladeMailbox ? (
           teamMember.role == "owner" || teamMember.role == "admin" ? (
             <Button onClick={handleCreateMailbox} variant="outline">
@@ -114,17 +112,22 @@ function MailboxCard({
           </>
         ) : null}
       </div>
-      {(membersShowing && mailbox.marmaladeMailbox) && (
+      {membersShowing && mailbox.marmaladeMailbox && (
         <>
-        <p className="font-semibold">Members</p>
-      <ul className="list-disc pl-5">
-        {mailbox.jellyMailbox.members.map((member: any) => (
-        <li>
-          {member.name} ({member.email}) - team {member.role} - {mailbox.marmaladeMailbox.members.find((m: any) => m.email === member.email) ? "🍊 perm'd" : "unperm'd"}
-        </li>
-        ))}
-      </ul>
-      </>
+          <p className="font-semibold">Members</p>
+          <ul className="list-disc pl-5">
+            {mailbox.jellyMailbox.members.map((member: any) => (
+              <li>
+                {member.name} ({member.email}) - team {member.role} -{" "}
+                {mailbox.marmaladeMailbox.members.find(
+                  (m: any) => m.email === member.email,
+                )
+                  ? "🍊 perm'd"
+                  : "unperm'd"}
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </li>
   );
@@ -165,14 +168,13 @@ function MailboxesRoute() {
       },
     }),
   );
-    const createMutation = useMutation(
+  const createMutation = useMutation(
     orpc.mailbox.create.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
       },
     }),
   );
-
 
   // const handleToggleMailbox = (id: MailboxId, completed: boolean) => {
   //   toggleMutation.mutate({ id, completed: !completed });

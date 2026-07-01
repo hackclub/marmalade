@@ -2,7 +2,9 @@ import { Badge } from "@marmalade-v2/ui/components/badge";
 import { Button } from "@marmalade-v2/ui/components/button";
 import {
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@marmalade-v2/ui/components/card";
@@ -15,6 +17,63 @@ import { orpc } from "@/utils/orpc";
 export const Route = createFileRoute("/_auth/team")({
   component: MembersRoute,
 });
+
+export function MemberCard({
+  member,
+  teamMemberRole,
+  extraBadges,
+  extraActions,
+}: {
+  member: any;
+  teamMemberRole: string;
+  extraBadges?: React.ReactNode;
+  extraActions?: React.ReactNode;
+}) {
+  return (
+    <li className="flex flex-col justify-between gap-3 rounded-md border p-2">
+      <div className="flex items-center space-x-1">
+        <label
+          htmlFor={`member-${member.jelly.id}`}
+          className={`${!member.jelly.existsInJelly ? "line-through" : ""}`}
+        >
+          {member.jelly.name}
+        </label>
+        <span className="text-gray-500">({member.jelly.email})</span>
+        <Badge
+          variant={
+            !member.jelly.existsInJelly
+              ? "destructive"
+              : member.marmalade
+                ? "secondary"
+                : "outline"
+          }
+        >
+          {member.marmalade ? "🍊 Linked" : "Unlinked"}
+        </Badge>
+        <Badge>{member.jelly.role}</Badge>
+        {extraBadges}
+      </div>
+      <div className="flex flex-row items-center justify-end gap-2">
+        {!member.marmalade ? (
+          <Button disabled variant="outline">
+            🍊 Invite
+          </Button>
+        ) : teamMemberRole == "owner" || teamMemberRole == "admin" ? (
+          <>
+            <Button disabled variant="outline">
+              💤 Deactivate
+            </Button>
+            <Button disabled variant="outline">
+              ❌ Ban
+            </Button>
+          </>
+        ) : null}
+
+        {extraActions}
+      </div>
+    </li>
+  );
+}
 
 function MembersRoute() {
   const { teamMember } = Route.useRouteContext();
@@ -77,11 +136,16 @@ function MembersRoute() {
       <Card>
         <CardHeader>
           <CardTitle>Your Team</CardTitle>
+          <CardDescription>
+            View and manage your team as a <u>team {teamMember.role}</u>
+          </CardDescription>
+          <CardAction>
+            <Button onClick={handleResyncMembers} className="mb-4">
+              Resync Members
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleResyncMembers} className="mb-4">
-            Resync Members
-          </Button>
           {/* <form onSubmit={handleAddMember} className="mb-6 flex items-center space-x-2">
             <Input
               value={newMemberText}
@@ -103,58 +167,11 @@ function MembersRoute() {
           ) : (
             <ul className="space-y-2">
               {members.data?.map((member) => (
-                <li
+                <MemberCard
                   key={member.jelly.id}
-                  className="flex flex-col justify-between gap-3 rounded-md border p-2"
-                >
-                  <div className="flex items-center space-x-1">
-                    {/* <Checkbox
-                      checked={member.completed}
-                      onCheckedChange={() => handleToggleMember(member.jelly.id, member.jelly.completed)}
-                      id={`member-${member.jelly.id}`}
-                    /> */}
-                    <label
-                      htmlFor={`member-${member.jelly.id}`}
-                      className={`${!member.jelly.existsInJelly ? "line-through" : ""}`}
-                    >
-                      {member.jelly.name}
-                    </label>
-                    <span className="text-gray-500">
-                      ({member.jelly.email})
-                    </span>
-                    <Badge
-                      variant={
-                        !member.jelly.existsInJelly
-                          ? "destructive"
-                          : member.marmalade
-                            ? "secondary"
-                            : "outline"
-                      }
-                    >
-                      {member.marmalade ? "🍊 Linked" : "Unlinked"}
-                    </Badge>
-                    <Badge>{member.jelly.role}</Badge>
-                  </div>
-                  <div className="flex flex-row items-center justify-end gap-2">
-                    {!member.marmalade ? (
-                      <Button variant="outline">🍊 Invite</Button>
-                    ) : teamMember.role == "owner" ||
-                      teamMember.role == "admin" ? (
-                      <>
-                        <Button variant="outline">💤 Deactivate</Button>
-                        <Button variant="outline">❌ Ban</Button>
-                      </>
-                    ) : null}
-                  </div>
-                  {/* <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteMember(member.id)}
-                    aria-label="Delete member"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button> */}
-                </li>
+                  member={member}
+                  teamMemberRole={teamMember.role}
+                />
               ))}
             </ul>
           )}

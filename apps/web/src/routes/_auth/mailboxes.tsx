@@ -2,7 +2,9 @@ import { Badge } from "@marmalade-v2/ui/components/badge";
 import { Button } from "@marmalade-v2/ui/components/button";
 import {
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@marmalade-v2/ui/components/card";
@@ -10,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { MemberCard } from "./team";
 
 import { orpc } from "@/utils/orpc";
 
@@ -107,24 +110,40 @@ function MailboxCard({
 
         {teamMember.role == "owner" || teamMember.role == "admin" ? (
           <>
-            <Button variant="outline">💤 Deactivate</Button>
-            <Button variant="outline">❌ Delete</Button>
+            <Button disabled variant="outline">
+              💤 Deactivate
+            </Button>
+            <Button disabled variant="outline">
+              ❌ Delete
+            </Button>
           </>
         ) : null}
       </div>
       {membersShowing && mailbox.marmaladeMailbox && (
         <>
-          <p className="font-semibold">Members</p>
+          <p className="font-semibold">
+            Members ({mailbox.jellyMailbox.memberCount})
+          </p>
           <ul className="list-disc pl-5">
             {mailbox.jellyMailbox.members.map((member: any) => (
-              <li>
-                {member.name} ({member.email}) - team {member.role} -{" "}
-                {mailbox.marmaladeMailbox.members.find(
-                  (m: any) => m.email === member.email,
-                )
-                  ? "🍊 perm'd"
-                  : "unperm'd"}
-              </li>
+              <MemberCard
+                member={{ jelly: member }}
+                teamMemberRole={teamMember.role}
+                extraBadges={
+                  <Badge variant="destructive">
+                    {mailbox.marmaladeMailbox.members.find(
+                      (m: any) => m.email === member.email,
+                    )
+                      ? "🍊 perm'd"
+                      : "unperm'd"}
+                  </Badge>
+                }
+                extraActions={
+                  teamMember.role == "owner" || teamMember.role == "admin" ? (
+                    <Button variant="secondary">Grant perms</Button>
+                  ) : null
+                }
+              />
             ))}
           </ul>
         </>
@@ -191,13 +210,18 @@ function MailboxesRoute() {
   return (
     <div className="mx-auto w-full max-w-md py-10">
       <Card>
-        <CardHeader>
+        <CardHeader className="items-center justify-between">
           <CardTitle>Your Mailboxes</CardTitle>
+          <CardDescription>
+            View and manage your mailboxes as a <u>team {teamMember.role}</u>
+          </CardDescription>
+          <CardAction>
+            <Button onClick={handleResyncMailboxes} className="mb-4">
+              Resync Mailboxes
+            </Button>
+          </CardAction>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleResyncMailboxes} className="mb-4">
-            Resync Mailboxes
-          </Button>
           {/* <form onSubmit={handleAddMailbox} className="mb-6 flex items-center space-x-2">
             <Input
               value={newMailboxText}

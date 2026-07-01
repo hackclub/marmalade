@@ -5,7 +5,7 @@ import { eq, and, inArray } from "drizzle-orm";
 import { getJellyClient } from '../lib/jelly';
 import { call } from '@orpc/server'
 
-import { protectedProcedure, publicProcedure } from "../index";
+import { protectedProcedure, teamAdminProtectedProcedure, publicProcedure } from "../index";
 import { ORPCError } from "@orpc/client";
 import { auditRouter } from "./audit";
 import { env } from "@marmalade-v2/env/server";
@@ -52,7 +52,7 @@ export const mailboxRouter = {
       console.log('results', results)
       return results;
     }),
-    create: protectedProcedure.input(z.object({ jellyMailboxId: z.string().min(1) }))
+    create: teamAdminProtectedProcedure.input(z.object({ jellyMailboxId: z.string().min(1) }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;

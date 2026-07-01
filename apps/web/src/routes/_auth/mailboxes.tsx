@@ -2,17 +2,13 @@ import { Button } from "@marmalade-v2/ui/components/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@marmalade-v2/ui/components/card";
-import { Checkbox } from "@marmalade-v2/ui/components/checkbox";
-import { Input } from "@marmalade-v2/ui/components/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Badge } from "@marmalade-v2/ui/components/badge";
-import { useState, type FormEvent } from "react";
 
 import { orpc } from "@/utils/orpc";
 
@@ -135,23 +131,20 @@ function MailboxesRoute() {
                      <Badge variant={(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "destructive" : (mailbox.marmaladeMailbox) ? "secondary" : "outline"}>
                         {(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "Paused" : (mailbox.marmaladeMailbox) ? "🍊 Linked" : "Unlinked"}
                       </Badge>
+                      {/* {mailbox.marmaladeMailbox && (
+                        <Badge variant={(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "destructive" : (mailbox.marmaladeMailbox) ? "secondary" : "outline"}>
+                        {mailbox.marmaladeMailbox.memberCount} / {mailbox.jellyMailbox.memberCount} members
+                       </Badge>
+                      )} */}
                                             </div>
 
                     
                    <div className="flex flex-row justify-end items-center gap-2">
-                       {(!mailbox.marmaladeMailbox && (teamMember.role == "admin" || teamMember.role == "owner")) ?   (
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleCreateMailbox(mailbox.jellyMailbox.jellyMailboxId)}
-                        aria-label="Setup mailbox"
-                      >
-                        🍊 Link
-                      </Button>
-                    ) : null}
-                                    {!mailbox.marmaladeMailbox ? (teamMember.role == "owner" || teamMember.role == "admin") ? <Button variant="outline">🍊 Link</Button> : <Button variant="outline">🍊 Request Linkage</Button> : null}
+                      
+                                    {!mailbox.marmaladeMailbox ? (teamMember.role == "owner" || teamMember.role == "admin") ? <Button onClick={()=> {handleCreateMailbox(mailbox.jellyMailbox.jellyMailboxId)}} variant="outline">🍊 Link</Button> : <Button variant="outline">🍊 Request Linkage</Button> : null}
                     
                   
-                  {(teamMember.role == "owner") ? (
+                  {(teamMember.role == "owner" || teamMember.role == "admin") ? (
                     <>
                                    <Button
                       variant="outline"

@@ -1,14 +1,14 @@
 import { ORPCError, os } from "@orpc/server";
 
 import type { Context } from "./context";
-import { getJellyClient } from './lib/jelly';
+import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { db } from "@marmalade-v2/db";
+import { env } from "@marmalade-v2/env/server";
+import {eq, and} from "drizzle-orm";
 
 export const o = os.$context<Context>();
 
 export const publicProcedure = o;
-
-const jelly = getJellyClient();
-
 
 const requireAuth = o.middleware(async ({ context, next }) => {
   if (!context.session?.user) {
@@ -23,10 +23,16 @@ const requireAuth = o.middleware(async ({ context, next }) => {
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
 export const teamAdminProtectedProcedure = protectedProcedure.use(async ({ context, next }) => {
-  const userId = context.session.user.id;
+  const userEmail = context.session.user.email;
   let role;
   try {
-    role = (await jelly.getMember(userId)).role;
+    const teamMember = await db.select().from(jellyTeamMember).where(and(eq(jellyTeamMember.email, userEmail), eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID)));
+    console.log('teamMember', teamMember)
+    if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
+      throw new ORPCError("FORBIDDEN");
+    }
+    role = teamMember[0].role;
+    console.log('role', role)
     if (role !== 'admin' &&  role !== 'owner') {
       throw new ORPCError("FORBIDDEN");
     }
@@ -36,6 +42,7 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(async ({ conte
       },
     });
   } catch (e) {
+    console.log(e)
     throw new ORPCError("FORBIDDEN");
   }
 });

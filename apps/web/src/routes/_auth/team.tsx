@@ -143,7 +143,7 @@ function MembersRoute() {
     >💤 Deactivate</Button>
             <Button
     variant="outline"
-    >❌ Delete</Button>
+    >❌ Ban</Button>
     </>
   
 ) : null}

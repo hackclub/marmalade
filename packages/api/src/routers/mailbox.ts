@@ -1,4 +1,5 @@
 import { db } from "@marmalade-v2/db";
+import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import {
   jellyMailbox,
   jellyMailboxMember,
@@ -7,7 +8,8 @@ import {
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { aliasedTable } from "drizzle-orm/alias";
+import { and, eq, inArray } from "drizzle-orm";
 import { getJellyClient } from "../lib/jelly";
 
 import { env } from "@marmalade-v2/env/server";
@@ -21,28 +23,47 @@ import {
 import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
+const jellyMailboxMembersAll = aliasedTable(
+  jellyMailboxMember,
+  "jelly_mailbox_members_all",
+);
 
-const jellyMailboxMemberCounts = db
-  .select({
-    jellyMailboxId: jellyMailboxMember.jellyMailboxId,
-    jellyMailboxMemberCount: sql<number>`count(*)`
-      .mapWith(Number)
-      .as("jellyMailboxMemberCount"),
-  })
-  .from(jellyMailboxMember)
-  .groupBy(jellyMailboxMember.jellyMailboxId)
-  .as("jelly_mailbox_member_counts");
+const marmaladeMailboxMembersAll = aliasedTable(
+  marmaladeMailboxMember,
+  "marmalade_mailbox_members_all",
+);
 
-const marmaladeMailboxMemberCounts = db
-  .select({
-    marmaladeMailboxId: marmaladeMailboxMember.marmaladeMailboxId,
-    marmaladeMailboxMemberCount: sql<number>`count(*)`
-      .mapWith(Number)
-      .as("marmaladeMailboxMemberCount"),
-  })
-  .from(marmaladeMailboxMember)
-  .groupBy(marmaladeMailboxMember.marmaladeMailboxId)
-  .as("marmalade_mailbox_member_counts");
+const jellyMailboxMemberTeamMember = aliasedTable(
+  jellyTeamMember,
+  "jelly_mailbox_member_team_member",
+);
+
+const marmaladeMailboxMemberUser = aliasedTable(
+  authUser,
+  "marmalade_mailbox_member_user",
+);
+
+const marmaladeMailboxMemberTeamMember = aliasedTable(
+  jellyTeamMember,
+  "marmalade_mailbox_member_team_member",
+);
+
+type JellyMailboxRow = typeof jellyMailbox.$inferSelect;
+type JellyMailboxMemberRow = typeof jellyMailboxMember.$inferSelect;
+type MarmaladeMailboxRow = typeof marmaladeMailbox.$inferSelect;
+type MarmaladeMailboxMemberRow = typeof marmaladeMailboxMember.$inferSelect;
+type TeamMemberRow = typeof jellyTeamMember.$inferSelect;
+
+type MailboxListQueryRow = {
+  jellyMailbox: JellyMailboxRow;
+  jellyMailboxMember: JellyMailboxMemberRow | null;
+  jellyMailboxMemberTeamMember: TeamMemberRow | null;
+  marmaladeMailbox: MarmaladeMailboxRow | null;
+  marmaladeMailboxMember: MarmaladeMailboxMemberRow | null;
+  marmaladeMailboxMemberUser: typeof authUser.$inferSelect | null;
+  marmaladeMailboxMemberTeamMember: TeamMemberRow | null;
+  marmaladeMailboxMembership: MarmaladeMailboxMemberRow | null;
+};
 
 export const mailboxRouter = {
   list: protectedProcedure.handler(async ({ context }) => {
@@ -53,17 +74,15 @@ export const mailboxRouter = {
         message: "User is not authenticated",
       });
     }
-    const results =
-      (await db
+    const results = ((await db
         .select({
           jellyMailbox: jellyMailbox,
-          jellyMailboxMemberCount: sql<number>`coalesce(${jellyMailboxMemberCounts.jellyMailboxMemberCount}, 0)`.mapWith(
-            Number,
-          ),
+          jellyMailboxMember: jellyMailboxMembersAll,
+          jellyMailboxMemberTeamMember: jellyMailboxMemberTeamMember,
           marmaladeMailbox: marmaladeMailbox,
-          marmaladeMailboxMemberCount: sql<number>`coalesce(${marmaladeMailboxMemberCounts.marmaladeMailboxMemberCount}, 0)`.mapWith(
-            Number,
-          ),
+          marmaladeMailboxMember: marmaladeMailboxMembersAll,
+          marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
+          marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
           marmaladeMailboxMembership: marmaladeMailboxMember,
         })
         .from(jellyMailbox)
@@ -79,11 +98,24 @@ export const mailboxRouter = {
             eq(jellyTeamMember.email, requesterEmail),
           ),
         )
-        .innerJoin(
-          jellyMailboxMemberCounts,
+        .leftJoin(
+          jellyMailboxMembersAll,
           eq(
             jellyMailbox.jellyMailboxId,
-            jellyMailboxMemberCounts.jellyMailboxId,
+            jellyMailboxMembersAll.jellyMailboxId,
+          ),
+        )
+        .leftJoin(
+          jellyMailboxMemberTeamMember,
+          and(
+            eq(
+              jellyMailboxMembersAll.jellyMemberId,
+              jellyMailboxMemberTeamMember.id,
+            ),
+            eq(
+              jellyMailboxMembersAll.jellyTeamId,
+              jellyMailboxMemberTeamMember.jellyTeamId,
+            ),
           ),
         )
         .leftJoin(
@@ -91,10 +123,30 @@ export const mailboxRouter = {
           eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
         )
         .leftJoin(
-          marmaladeMailboxMemberCounts,
+          marmaladeMailboxMembersAll,
           eq(
             marmaladeMailbox.id,
-            marmaladeMailboxMemberCounts.marmaladeMailboxId,
+            marmaladeMailboxMembersAll.marmaladeMailboxId,
+          ),
+        )
+        .leftJoin(
+          marmaladeMailboxMemberUser,
+          eq(
+            marmaladeMailboxMembersAll.marmaladeUserId,
+            marmaladeMailboxMemberUser.id,
+          ),
+        )
+        .leftJoin(
+          marmaladeMailboxMemberTeamMember,
+          and(
+            eq(
+              marmaladeMailboxMemberUser.email,
+              marmaladeMailboxMemberTeamMember.email,
+            ),
+            eq(
+              marmaladeMailboxMemberUser.email,
+              marmaladeMailboxMemberTeamMember.email,
+            ),
           ),
         )
         .leftJoin(
@@ -103,19 +155,72 @@ export const mailboxRouter = {
             eq(marmaladeMailbox.id, marmaladeMailboxMember.marmaladeMailboxId),
             eq(marmaladeMailboxMember.marmaladeUserId, requesterId),
           ),
-        )) || [];
-    return results.map((result) => ({
-      jellyMailbox: {
+          )) ?? []) as MailboxListQueryRow[];
+
+    const mailboxById = new Map<number, any>();
+
+    for (const result of results as any[]) {
+      const mailboxId = result.jellyMailbox.id;
+      const existing = mailboxById.get(mailboxId);
+      const entry =
+        existing ??
+        {
+          jellyMailbox: {
             ...result.jellyMailbox,
-            memberCount: result.jellyMailboxMemberCount,
+            memberCount: 0,
+            members: [],
           },
-      marmaladeMailbox: result.marmaladeMailbox
-        ? {
-            ...result.marmaladeMailbox,
-            memberCount: result.marmaladeMailboxMemberCount,
-          }
-        : null,
-      marmaladeMailboxMembership: result.marmaladeMailboxMembership,
+          marmaladeMailbox: result.marmaladeMailbox
+            ? {
+                ...result.marmaladeMailbox,
+                memberCount: 0,
+                members: [],
+              }
+            : null,
+          marmaladeMailboxMembership: result.marmaladeMailboxMembership,
+          jellyMemberIds: new Set<number>(),
+          marmaladeMemberIds: new Set<number>(),
+        };
+
+      if (!existing) {
+        mailboxById.set(mailboxId, entry);
+      }
+
+      if (
+        result.jellyMailboxMemberTeamMember &&
+        !entry.jellyMemberIds.has(result.jellyMailboxMemberTeamMember.id)
+      ) {
+        entry.jellyMemberIds.add(result.jellyMailboxMemberTeamMember.id);
+        entry.jellyMailbox.members.push(result.jellyMailboxMemberTeamMember);
+        entry.jellyMailbox.memberCount = entry.jellyMailbox.members.length;
+      }
+
+      if (
+        result.marmaladeMailboxMemberTeamMember &&
+        entry.marmaladeMailbox &&
+        !entry.marmaladeMemberIds.has(result.marmaladeMailboxMemberTeamMember.id)
+      ) {
+        entry.marmaladeMemberIds.add(result.marmaladeMailboxMemberTeamMember.id);
+        entry.marmaladeMailbox.members.push(
+          result.marmaladeMailboxMemberTeamMember,
+        );
+        entry.marmaladeMailbox.memberCount = entry.marmaladeMailbox.members.length;
+      }
+
+      if (result.marmaladeMailboxMembership) {
+        entry.marmaladeMailboxMembership = result.marmaladeMailboxMembership;
+      }
+    }
+
+    console.log('Mailbox list results:', Array.from(mailboxById.values()).map(entry => ({
+      jellyMailbox: entry.jellyMailbox,
+      marmaladeMailbox: entry.marmaladeMailbox,
+      marmaladeMailboxMembership: entry.marmaladeMailboxMembership,
+    })));
+    return Array.from(mailboxById.values()).map((entry) => ({
+      jellyMailbox: entry.jellyMailbox,
+      marmaladeMailbox: entry.marmaladeMailbox,
+      marmaladeMailboxMembership: entry.marmaladeMailboxMembership,
     }));
   }),
   create: teamAdminProtectedProcedure

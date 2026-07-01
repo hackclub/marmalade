@@ -9,14 +9,126 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 import { orpc } from "@/utils/orpc";
-
-type JellyMailboxId = string;
 
 export const Route = createFileRoute("/_auth/mailboxes")({
   component: MailboxesRoute,
 });
+
+function MailboxCard({
+  mailbox,
+  teamMember,
+  createMutate,
+}: {
+  mailbox: any;
+  teamMember: any;
+  createMutate: (variables: { jellyMailboxId: string }) => void;
+}) {
+  const handleCreateMailbox = () => {
+    createMutate({
+      jellyMailboxId: mailbox.jellyMailbox.jellyMailboxId,
+    });
+  };
+
+  const [membersShowing, setMembersShowing] = useState(false);
+
+  function toggleMembersShowing() {
+    setMembersShowing(!membersShowing);
+  }
+
+  return (
+    <li
+      key={mailbox.jellyMailbox.id}
+      className="flex flex-col gap-3 justify-between rounded-md border p-2"
+    >
+      <div className="flex items-center space-x-1">
+        <label
+          htmlFor={`mailbox-${mailbox.jellyMailbox.id}`}
+        >
+          {mailbox.jellyMailbox.name}
+        </label>
+        <span className="text-gray-500">
+          ({mailbox.jellyMailbox.jellyMailboxId})
+        </span>
+
+        <Badge
+          variant={
+            mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
+              ? "destructive"
+              : mailbox.marmaladeMailbox
+                ? "secondary"
+                : "outline"
+          }
+        >
+          {mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
+            ? "Paused"
+            : mailbox.marmaladeMailbox
+              ? "🍊 Linked"
+              : "Unlinked"}
+        </Badge>
+        {mailbox.marmaladeMailbox && (
+          <Badge
+            variant={
+              mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
+                ? "destructive"
+                : mailbox.marmaladeMailbox
+                  ? "secondary"
+                  : "outline"
+            }
+          >
+            {mailbox.marmaladeMailbox.memberCount} /{" "}
+            {mailbox.jellyMailbox.memberCount} members perm'd
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex flex-row justify-end items-center gap-2">
+        {!mailbox.marmaladeMailbox ? (
+          teamMember.role == "owner" || teamMember.role == "admin" ? (
+            <Button onClick={handleCreateMailbox} variant="outline">
+              🍊 Link
+            </Button>
+          ) : (
+            <Button variant="outline">🍊 Request Linkage</Button>
+          )
+        ) : null}
+
+        {mailbox.marmaladeMailbox ? (
+          membersShowing ? (
+            <Button onClick={toggleMembersShowing} variant="outline">
+              🙈 Hide Members
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={toggleMembersShowing}>
+              👀 Show Members
+            </Button>
+          )
+        ) : null}
+
+        {teamMember.role == "owner" || teamMember.role == "admin" ? (
+          <>
+            <Button variant="outline">💤 Deactivate</Button>
+            <Button variant="outline">❌ Delete</Button>
+          </>
+        ) : null}
+      </div>
+      {(membersShowing && mailbox.marmaladeMailbox) && (
+        <>
+        <p className="font-semibold">Members</p>
+      <ul className="list-disc pl-5">
+        {mailbox.jellyMailbox.members.map((member: any) => (
+        <li>
+          {member.name} ({member.email}) - team {member.role} - {mailbox.marmaladeMailbox.members.find((m: any) => m.email === member.email) ? "🍊 perm'd" : "unperm'd"}
+        </li>
+        ))}
+      </ul>
+      </>
+      )}
+    </li>
+  );
+}
 
 function MailboxesRoute() {
   // const [newMailboxText, setNewMailboxText] = useState("");
@@ -53,8 +165,7 @@ function MailboxesRoute() {
       },
     }),
   );
-
-  const createMutation = useMutation(
+    const createMutation = useMutation(
     orpc.mailbox.create.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
@@ -62,9 +173,6 @@ function MailboxesRoute() {
     }),
   );
 
-  const handleCreateMailbox = (id: JellyMailboxId) => {
-    createMutation.mutate({ jellyMailboxId: id });
-  };
 
   // const handleToggleMailbox = (id: MailboxId, completed: boolean) => {
   //   toggleMutation.mutate({ id, completed: !completed });
@@ -109,90 +217,11 @@ function MailboxesRoute() {
           ) : (
             <ul className="space-y-2">
               {mailboxes.data?.map((mailbox) => (
-                <li
-                  key={mailbox.jellyMailbox.id}
-                  className="flex flex-col gap-3 justify-between rounded-md border p-2"
-                >
-                  <div className="flex items-center space-x-1">
-                    {/* <Checkbox
-                      checked={mailbox.completed}
-                      onCheckedChange={() => handleToggleMailbox(mailbox.id, mailbox.completed)}
-                      id={`mailbox-${mailbox.id}`}
-                    /> */}
-                    <label
-                      htmlFor={`mailbox-${mailbox.jellyMailbox.id}`}
-                      // className={`${mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? "line-through" : ""}`}
-                    >
-                      {mailbox.jellyMailbox.name}
-                    </label>
-                    <span className="text-gray-500">
-                      ({mailbox.jellyMailbox.jellyMailboxId})
-                    </span>
-
-                    <Badge
-                      variant={
-                        mailbox.marmaladeMailbox &&
-                        !mailbox.marmaladeMailbox.active
-                          ? "destructive"
-                          : mailbox.marmaladeMailbox
-                            ? "secondary"
-                            : "outline"
-                      }
-                    >
-                      {mailbox.marmaladeMailbox &&
-                      !mailbox.marmaladeMailbox.active
-                        ? "Paused"
-                        : mailbox.marmaladeMailbox
-                          ? "🍊 Linked"
-                          : "Unlinked"}
-                    </Badge>
-                    {mailbox.marmaladeMailbox && (
-                        <Badge variant={(mailbox.marmaladeMailbox  && !mailbox.marmaladeMailbox.active) ? "destructive" : (mailbox.marmaladeMailbox) ? "secondary" : "outline"}>
-                        {mailbox.marmaladeMailbox.memberCount} / {mailbox.jellyMailbox.memberCount} members perm'd
-                       </Badge>
-                      )}
-                  </div>
-
-                  <div className="flex flex-row justify-end items-center gap-2">
-                    {!mailbox.marmaladeMailbox ? (
-                      teamMember.role == "owner" ||
-                      teamMember.role == "admin" ? (
-                        <Button
-                          onClick={() => {
-                            handleCreateMailbox(
-                              mailbox.jellyMailbox.jellyMailboxId,
-                            );
-                          }}
-                          variant="outline"
-                        >
-                          🍊 Link
-                        </Button>
-                      ) : (
-                        <Button variant="outline">🍊 Request Linkage</Button>
-                      )
-                    ) : null}
-
-                    {mailbox.marmaladeMailbox && (
-                      <Button variant="outline">👀 Show Members</Button>
-                    )}
-
-                    {teamMember.role == "owner" ||
-                    teamMember.role == "admin" ? (
-                      <>
-                        <Button variant="outline">💤 Deactivate</Button>
-                        <Button variant="outline">❌ Delete</Button>
-                      </>
-                    ) : null}
-                  </div>
-                  {/* <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteMailbox(mailbox.id)}
-                    aria-label="Delete mailbox"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button> */}
-                </li>
+                <MailboxCard
+                  mailbox={mailbox}
+                  teamMember={teamMember}
+                  createMutate={createMutation.mutate}
+                />
               ))}
             </ul>
           )}

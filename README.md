@@ -1,24 +1,31 @@
 # marmalade
 
-is a permissionful api access layer for jelly
+🍊 is a permissionful api access layer for jelly
+
+## goals
+
+- simple to use
+- everything opt-in
+- least-permissioned and fully audit-trailed
+- no slopcoding
 
 ## tasks
 
 - [ ] jelly sync
-    - [x] manually sync mailboxes and team members
+    - [x] ‼️ manually sync mailboxes and team members
     - [ ] automatically sync mailboxes and team members
     - [x] sync mailboxes and team members on registration
       - [ ] test
 - [ ] mailboxes
   - [ ] admin actions
-    - [x] create marmalade mailbox for jelly mailbox
+    - [x] ‼️ create marmalade mailbox for jelly mailbox
     - [x] de/re-activate marmalade mailboxes
     - [ ] view all mailboxes regardless of membership (toggle)
   - [ ] member actions
     - [ ] request marmalade mailbox created for jelly mailbox
 - [ ] mailbox members
   - [ ] admin actions
-    - [x] create marmalade mailbox member for jelly mailbox member
+    - [x] ‼️ create marmalade mailbox member for jelly mailbox member
     - [x] grant/rescind api perms (symbolically) for marmalade mailbox members
   - [ ] member actions
     - [ ] request own/other member access to be granted
@@ -27,23 +34,23 @@ is a permissionful api access layer for jelly
     - [ ] view all keys regardless of ownership (toggle)
   - [ ] member actions
     - [ ] view all apikeys in permissioned mailboxes 
-    - [ ] create api keys
+    - [ ] ‼️ create api keys
     - [ ] rescind api keys
     
 - [ ] convos
-  - [ ] sync convos through jelly webhook
+  - [ ] ‼️ sync convos through jelly webhook
     - [ ] full message markdown
 - [ ] security/access
-  - [x] hack club oidc auth
-    - [ ] + email/password auth
-  - [x] basic audit logging
+  - [x] ‼️ hack club oidc auth
+    - [ ] + email/password auth?
+  - [x] ‼️ basic audit logging
     - [ ] audit changelogs (e.g. deletion archives & update diffs)
-  - [ ] orpc openapi setup!
+  - [ ] ‼️ orpc openapi setup!
     - [ ] permissions with keys
   - [ ] more throroughly audit log request attempts regardless of status
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately
-  - [ ] admins should not be able to do actions on owners
+  - [ ] admins should not be able to mutate owners
 - [ ] plumbing
     - [ ] ensure uniqueness of relational tables and make references "official"
     - [ ] first time sync on registration and scheduled/manual org teammember resyncs
@@ -56,8 +63,6 @@ is a permissionful api access layer for jelly
 
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Start** - SSR framework with TanStack Router
-- **React Native** - Build mobile apps using React
-- **Expo** - Tools for React Native development
 - **TailwindCSS** - Utility-first CSS for rapid UI development
 - **Shared UI package** - shadcn/ui primitives live in `packages/ui`
 - **oRPC** - End-to-end type-safe APIs with OpenAPI integration

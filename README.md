@@ -1,8 +1,58 @@
-# marmalade-v2
+# marmalade
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Self, ORPC, and more.
+is a permissionful api access layer for jelly
 
-## Features
+## tasks
+
+- [ ] jelly sync
+    - [x] manually sync mailboxes and team members
+    - [ ] automatically sync mailboxes and team members
+    - [x] sync mailboxes and team members on registration
+      - [ ] test
+- [ ] mailboxes
+  - [ ] admin actions
+    - [x] create marmalade mailbox for jelly mailbox
+    - [x] de/re-activate marmalade mailboxes
+    - [ ] view all mailboxes regardless of membership (toggle)
+  - [ ] member actions
+    - [ ] request marmalade mailbox created for jelly mailbox
+- [ ] mailbox members
+  - [ ] admin actions
+    - [x] create marmalade mailbox member for jelly mailbox member
+    - [x] grant/rescind api perms (symbolically) for marmalade mailbox members
+  - [ ] member actions
+    - [ ] request own/other member access to be granted
+- [ ] keys
+  - [ ] admin actions
+    - [ ] view all keys regardless of ownership (toggle)
+  - [ ] member actions
+    - [ ] view all apikeys in permissioned mailboxes 
+    - [ ] create api keys
+    - [ ] rescind api keys
+    
+- [ ] convos
+  - [ ] sync convos through jelly webhook
+    - [ ] full message markdown
+- [ ] security/access
+  - [x] hack club oidc auth
+    - [ ] + email/password auth
+  - [x] basic audit logging
+    - [ ] audit changelogs (e.g. deletion archives & update diffs)
+  - [ ] orpc openapi setup!
+    - [ ] permissions with keys
+  - [ ] more throroughly audit log request attempts regardless of status
+    - [ ] evlog for audit logs
+  - [ ] ensure all admin routes are protected appropriately
+  - [ ] admins should not be able to do actions on owners
+- [ ] plumbing
+    - [ ] ensure uniqueness of relational tables and make references "official"
+    - [ ] first time sync on registration and scheduled/manual org teammember resyncs
+    - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
+    - [ ] indexes
+    - [ ] host on nest w/ cf tunnels
+- 
+
+## stuff that does stuff
 
 - **TypeScript** - For type safety and improved developer experience
 - **TanStack Start** - SSR framework with TanStack Router
@@ -14,10 +64,9 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 - **Drizzle** - TypeScript-first ORM
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
-<!-- - **Tauri** - Build native desktop applications -->
 - **Turborepo** - Optimized monorepo build system
 
-## Getting Started
+## development
 
 First, install the dependencies:
 
@@ -25,7 +74,7 @@ First, install the dependencies:
 pnpm install
 ```
 
-## Database Setup
+### db
 
 This project uses PostgreSQL with Drizzle ORM.
 
@@ -47,35 +96,7 @@ pnpm run dev
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
 Use the Expo Go app to run the mobile application.
 
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@marmalade-v2/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
-
-## Deployment
-
-### Docker Compose
+### deployment
 
 - Target: web + server
 - Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
@@ -85,36 +106,3 @@ If you want to add app-specific blocks instead of shared primitives, run the sha
 - Stop: pnpm run docker:down
 
 Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
-
-## Project Structure
-
-```
-marmalade-v2/
-├── apps/
-│   └── web/         # Fullstack application (React + TanStack Start)
-│   ├── native/      # Mobile application (React Native, Expo)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
-## Available Scripts
-
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run dev:native`: Start the React Native/Expo development server
-- `pnpm run db:push`: Push schema changes to database
-- `pnpm run db:generate`: Generate database client/types
-- `pnpm run db:migrate`: Run database migrations
-- `pnpm run db:studio`: Open database studio UI
-<!-- - `cd apps/web && pnpm run desktop:dev`: Start Tauri desktop app in development
-- `cd apps/web && pnpm run desktop:build`: Build Tauri desktop app -->
-- Note: Desktop builds package static web assets. TanStack Start needs a static/export build configuration before desktop packaging will work.
-- `pnpm run docker:build`: Build the Docker Compose images
-- `pnpm run docker:up`: Build and start the Docker Compose stack
-- `pnpm run docker:logs`: Tail logs from the Docker Compose stack
-- `pnpm run docker:down`: Stop the Docker Compose stack

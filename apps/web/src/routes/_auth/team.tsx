@@ -50,13 +50,13 @@ export function MemberCard({
                 !member.jelly.existsInJelly
                   ? "destructive"
                   : member.marmalade
-                    ? "secondary"
-                    : "outline"
+                    ? "default"
+                    : "secondary"
               }
             >
-              {member.marmalade ? "🍊 Linked" : "Unlinked"}
+              {member.marmalade ? "🍊 registered" : "🍓 unlinked"}
             </Badge>
-            <Badge>{member.jelly.role}</Badge>
+            <Badge variant="outline">{member.jelly.role}</Badge>
           </>
         )}
         {extraBadges}

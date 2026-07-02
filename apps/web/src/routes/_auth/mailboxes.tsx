@@ -99,15 +99,15 @@ function MailboxCard({
             mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
               ? "destructive"
               : mailbox.marmaladeMailbox
-                ? "secondary"
+                ? "default"
                 : "outline"
           }
         >
           {mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
-            ? "🍊 deactivated"
+            ? "🍊 disabled"
             : mailbox.marmaladeMailbox
-              ? "🍊 linked"
-              : "🍊 not setup"}
+              ? "🍊 mirroring"
+              : "🍓 not setup"}
         </Badge>
         {mailbox.marmaladeMailbox && (
           <Badge variant="secondary">
@@ -184,7 +184,7 @@ function MailboxCard({
                         : "🍊 no perms"}
                     </Badge>
                   ) : (
-                    <Badge variant="outline">🍊 unlinked</Badge>
+                    <Badge variant="outline">🍓 unlinked</Badge>
                   )
                 }
                 extraActions={

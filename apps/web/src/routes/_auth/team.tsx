@@ -23,11 +23,15 @@ export function MemberCard({
   teamMemberRole,
   extraBadges,
   extraActions,
+  hideDefaultActions,
+  hideDefaultBadges,
 }: {
   member: any;
   teamMemberRole: string;
   extraBadges?: React.ReactNode;
   extraActions?: React.ReactNode;
+  hideDefaultActions?: boolean;
+  hideDefaultBadges?: boolean;
 }) {
   return (
     <li className="flex flex-col justify-between gap-3 rounded-md border p-2">
@@ -39,22 +43,26 @@ export function MemberCard({
           {member.jelly.name}
         </label>
         <span className="text-gray-500">({member.jelly.email})</span>
-        <Badge
-          variant={
-            !member.jelly.existsInJelly
-              ? "destructive"
-              : member.marmalade
-                ? "secondary"
-                : "outline"
-          }
-        >
-          {member.marmalade ? "🍊 Linked" : "Unlinked"}
-        </Badge>
-        <Badge>{member.jelly.role}</Badge>
+        {!hideDefaultBadges && (
+          <>
+            <Badge
+              variant={
+                !member.jelly.existsInJelly
+                  ? "destructive"
+                  : member.marmalade
+                    ? "secondary"
+                    : "outline"
+              }
+            >
+              {member.marmalade ? "🍊 Linked" : "Unlinked"}
+            </Badge>
+            <Badge>{member.jelly.role}</Badge>
+          </>
+        )}
         {extraBadges}
       </div>
       <div className="flex flex-row items-center justify-end gap-2">
-        {!member.marmalade ? (
+        {hideDefaultActions ? null : !member.marmalade ? (
           <Button disabled variant="outline">
             🍊 Invite
           </Button>
@@ -78,31 +86,7 @@ export function MemberCard({
 function MembersRoute() {
   const { teamMember } = Route.useRouteContext();
 
-  // const [newMemberText, setNewMemberText] = useState("");
-
   const members = useQuery(orpc.team.list.queryOptions());
-  // const createMutation = useMutation(
-  //   orpc.member.create.mutationOptions({
-  //     onSuccess: () => {
-  //       members.refetch();
-  //       setNewMemberText("");
-  //     },
-  //   }),
-  // );
-  // const toggleMutation = useMutation(
-  //   orpc.member.toggle.mutationOptions({
-  //     onSuccess: () => {
-  //       members.refetch();
-  //     },
-  //   }),
-  // );
-  // const deleteMutation = useMutation(
-  //   orpc.member.delete.mutationOptions({
-  //     onSuccess: () => {
-  //       members.refetch();
-  //     },
-  //   }),
-  // );
 
   const resyncMutation = useMutation(
     orpc.team.resync.mutationOptions({
@@ -111,21 +95,6 @@ function MembersRoute() {
       },
     }),
   );
-
-  // const handleAddMember = (e: FormEvent<HTMLFormElement>) => {
-  //   e.preventDefault();
-  //   if (newMemberText.trim()) {
-  //     createMutation.mutate({ text: newMemberText });
-  //   }
-  // };
-
-  // const handleToggleMember = (id: MemberId, completed: boolean) => {
-  //   toggleMutation.mutate({ id, completed: !completed });
-  // };
-
-  // const handleDeleteMember = (id: MemberId) => {
-  //   deleteMutation.mutate({ id });
-  // };
 
   const handleResyncMembers = () => {
     resyncMutation.mutate({});
@@ -146,24 +115,14 @@ function MembersRoute() {
           </CardAction>
         </CardHeader>
         <CardContent>
-          {/* <form onSubmit={handleAddMember} className="mb-6 flex items-center space-x-2">
-            <Input
-              value={newMemberText}
-              onChange={(e) => setNewMemberText(e.target.value)}
-              placeholder="Add a new task..."
-              disabled={createMutation.isPending}
-            />
-            <Button type="submit" disabled={createMutation.isPending || !newMemberText.trim()}>
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-            </Button>
-          </form> */}
-
           {members.isLoading ? (
             <div className="flex justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : members.data?.length === 0 ? (
-            <p className="py-4 text-center">No members yet. Add one above!</p>
+            <p className="py-4 text-center">
+              No members synced. Hit resync to populate your Jelly team.
+            </p>
           ) : (
             <ul className="space-y-2">
               {members.data?.map((member) => (

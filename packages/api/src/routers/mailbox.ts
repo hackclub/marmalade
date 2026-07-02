@@ -38,6 +38,11 @@ const jellyMailboxMemberTeamMember = aliasedTable(
   "jelly_mailbox_member_team_member",
 );
 
+const jellyMailboxMemberUser = aliasedTable(
+  authUser,
+  "jelly_mailbox_member_user",
+);
+
 const marmaladeMailboxMemberUser = aliasedTable(
   authUser,
   "marmalade_mailbox_member_user",
@@ -49,17 +54,21 @@ const marmaladeMailboxMemberTeamMember = aliasedTable(
 );
 
 type JellyMailboxRow = typeof jellyMailbox.$inferSelect;
-type JellyMailboxMemberRow = typeof jellyMailboxMember.$inferSelect;
 type MarmaladeMailboxRow = typeof marmaladeMailbox.$inferSelect;
 type MarmaladeMailboxMemberRow = typeof marmaladeMailboxMember.$inferSelect;
 type TeamMemberRow = typeof jellyTeamMember.$inferSelect;
+type AuthUserRow = typeof authUser.$inferSelect;
+
+type MailboxMemberItem = {
+  jelly: TeamMemberRow | null;
+  marmalade: AuthUserRow | null;
+};
 
 type MailboxListQueryRow = {
   jellyMailbox: JellyMailboxRow;
-  jellyMailboxMember: JellyMailboxMemberRow | null;
   jellyMailboxMemberTeamMember: TeamMemberRow | null;
+  jellyMailboxMemberUser: AuthUserRow | null;
   marmaladeMailbox: MarmaladeMailboxRow | null;
-  marmaladeMailboxMember: MarmaladeMailboxMemberRow | null;
   marmaladeMailboxMemberUser: typeof authUser.$inferSelect | null;
   marmaladeMailboxMemberTeamMember: TeamMemberRow | null;
   marmaladeMailboxMembership: MarmaladeMailboxMemberRow | null;
@@ -77,10 +86,9 @@ export const mailboxRouter = {
     const results = ((await db
       .select({
         jellyMailbox: jellyMailbox,
-        jellyMailboxMember: jellyMailboxMembersAll,
         jellyMailboxMemberTeamMember: jellyMailboxMemberTeamMember,
+        jellyMailboxMemberUser: jellyMailboxMemberUser,
         marmaladeMailbox: marmaladeMailbox,
-        marmaladeMailboxMember: marmaladeMailboxMembersAll,
         marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
         marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
         marmaladeMailboxMembership: marmaladeMailboxMember,
@@ -114,6 +122,10 @@ export const mailboxRouter = {
             jellyMailboxMemberTeamMember.jellyTeamId,
           ),
         ),
+      )
+      .leftJoin(
+        jellyMailboxMemberUser,
+        eq(jellyMailboxMemberTeamMember.email, jellyMailboxMemberUser.email),
       )
       .leftJoin(
         marmaladeMailbox,
@@ -155,26 +167,28 @@ export const mailboxRouter = {
 
     for (const result of results as any[]) {
       const mailboxId = result.jellyMailbox.id;
-      const existing = mailboxById.get(mailboxId);
-      const entry = existing ?? {
-        jellyMailbox: {
-          ...result.jellyMailbox,
-          memberCount: 0,
-          members: [],
-        },
-        marmaladeMailbox: result.marmaladeMailbox
-          ? {
-              ...result.marmaladeMailbox,
-              memberCount: 0,
-              members: [],
-            }
-          : null,
-        marmaladeMailboxMembership: result.marmaladeMailboxMembership,
-        jellyMemberIds: new Set<number>(),
-        marmaladeMemberIds: new Set<number>(),
-      };
+      let entry = mailboxById.get(mailboxId);
 
-      if (!existing) {
+      if (!entry) {
+        const jellyMembers: MailboxMemberItem[] = [];
+        const marmaladeMembers: MailboxMemberItem[] = [];
+        entry = {
+          jellyMailbox: {
+            ...result.jellyMailbox,
+            memberCount: 0,
+            members: jellyMembers,
+          },
+          marmaladeMailbox: result.marmaladeMailbox
+            ? {
+                ...result.marmaladeMailbox,
+                memberCount: 0,
+                members: marmaladeMembers,
+              }
+            : null,
+          marmaladeMailboxMembership: result.marmaladeMailboxMembership,
+          jellyMemberIds: new Set<number>(),
+          marmaladeMemberIds: new Set<number>(),
+        };
         mailboxById.set(mailboxId, entry);
       }
 
@@ -183,7 +197,10 @@ export const mailboxRouter = {
         !entry.jellyMemberIds.has(result.jellyMailboxMemberTeamMember.id)
       ) {
         entry.jellyMemberIds.add(result.jellyMailboxMemberTeamMember.id);
-        entry.jellyMailbox.members.push(result.jellyMailboxMemberTeamMember);
+        entry.jellyMailbox.members.push({
+          jelly: result.jellyMailboxMemberTeamMember,
+          marmalade: result.jellyMailboxMemberUser,
+        });
         entry.jellyMailbox.memberCount = entry.jellyMailbox.members.length;
       }
 
@@ -197,9 +214,10 @@ export const mailboxRouter = {
         entry.marmaladeMemberIds.add(
           result.marmaladeMailboxMemberTeamMember.id,
         );
-        entry.marmaladeMailbox.members.push(
-          result.marmaladeMailboxMemberTeamMember,
-        );
+        entry.marmaladeMailbox.members.push({
+          jelly: result.marmaladeMailboxMemberTeamMember,
+          marmalade: result.marmaladeMailboxMemberUser,
+        });
         entry.marmaladeMailbox.memberCount =
           entry.marmaladeMailbox.members.length;
       }
@@ -248,7 +266,7 @@ export const mailboxRouter = {
         {
           resource: "mailbox",
           action: "create",
-          resourceId: newMailbox[0]?.id ?? -1,
+          resourceId: newMailbox[0]?.id.toString() ?? undefined,
         },
         {
           context,
@@ -392,5 +410,178 @@ export const mailboxRouter = {
         },
       );
       return { message: "Resync completed successfully" };
+    }),
+  createMember: teamAdminProtectedProcedure
+    .input(
+      z.object({
+        marmaladeMailboxId: z.int().min(1),
+        marmaladeMemberId: z.string().min(1),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const requesterId = context.session.user.id;
+      const requesterEmail = context.session.user.email;
+      if (!requesterId || !requesterEmail) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User is not authenticated",
+        });
+      }
+      const mailbox = await db
+        .select()
+        .from(marmaladeMailbox)
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+      if (!mailbox || mailbox.length === 0 || !mailbox[0]) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Mailbox not found",
+        });
+      }
+      const existingMember = await db
+        .select()
+        .from(marmaladeMailboxMember)
+        .where(
+          and(
+            eq(marmaladeMailboxMember.marmaladeMailboxId, mailbox[0].id),
+            eq(marmaladeMailboxMember.marmaladeUserId, input.marmaladeMemberId),
+          ),
+        );
+      if (existingMember && existingMember.length > 0) {
+        throw new ORPCError("CONFLICT", {
+          message: "Member already exists in the mailbox",
+        });
+      }
+      const newMember = await db
+        .insert(marmaladeMailboxMember)
+        .values({
+          marmaladeMailboxId: mailbox[0].id,
+          marmaladeUserId: input.marmaladeMemberId,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          jellyTeamId: env.JELLY_TEAM_ID,
+        })
+        .returning({ id: marmaladeMailboxMember.id });
+      await call(
+        auditRouter.create,
+        {
+          resource: "mailbox_member",
+          action: "create",
+          resourceId: newMember[0]?.id.toString() ?? undefined,
+        },
+        {
+          context,
+        },
+      );
+      return { message: "Mailbox member created successfully" };
+    }),
+  removeMember: teamAdminProtectedProcedure
+    .input(
+      z.object({
+        marmaladeMailboxId: z.int().min(1),
+        marmaladeMemberId: z.string().min(1),
+      }),
+    )
+    .handler(async ({ input, context }) => {
+      const requesterId = context.session.user.id;
+      const requesterEmail = context.session.user.email;
+      if (!requesterId || !requesterEmail) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User is not authenticated",
+        });
+      }
+
+      const status = await db
+        .delete(marmaladeMailboxMember)
+        .where(
+          and(
+            eq(
+              marmaladeMailboxMember.marmaladeMailboxId,
+              input.marmaladeMailboxId,
+            ),
+            eq(marmaladeMailboxMember.marmaladeUserId, input.marmaladeMemberId),
+          ),
+        );
+      if (status.rowCount === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Mailbox member not found",
+        });
+      }
+      await call(
+        auditRouter.create,
+        {
+          resource: "mailbox_member",
+          resourceId: input.marmaladeMemberId,
+          action: "delete",
+        },
+        {
+          context,
+        },
+      );
+      return { message: "Mailbox member removed successfully" };
+    }),
+  deactivate: teamAdminProtectedProcedure
+    .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
+    .handler(async ({ input, context }) => {
+      const requesterId = context.session.user.id;
+      const requesterEmail = context.session.user.email;
+      if (!requesterId || !requesterEmail) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User is not authenticated",
+        });
+      }
+
+      const result = await db
+        .update(marmaladeMailbox)
+        .set({ active: false })
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+      if (result.rowCount === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Mailbox not found",
+        });
+      }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "mailbox",
+          resourceId: input.marmaladeMailboxId.toString() ?? undefined,
+          action: "deactivate",
+        },
+        {
+          context,
+        },
+      );
+      return { message: "Mailbox deactivated successfully" };
+    }),
+  activate: teamAdminProtectedProcedure
+    .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
+    .handler(async ({ input, context }) => {
+      const requesterId = context.session.user.id;
+      const requesterEmail = context.session.user.email;
+      if (!requesterId || !requesterEmail) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User is not authenticated",
+        });
+      }
+      const result = await db
+        .update(marmaladeMailbox)
+        .set({ active: true })
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+      if (result.rowCount === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Mailbox not found",
+        });
+      }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "mailbox",
+          resourceId: input.marmaladeMailboxId.toString() ?? undefined,
+          action: "activate",
+        },
+        {
+          context,
+        },
+      );
+      return { message: "Mailbox activated successfully" };
     }),
 };

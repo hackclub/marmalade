@@ -23,15 +23,55 @@ export const Route = createFileRoute("/_auth/mailboxes")({
 function MailboxCard({
   mailbox,
   teamMember,
-  createMutate,
+  createMailboxMutate,
+  deactivateMailboxMutate,
+  activateMailboxMutate,
+  createMailboxMemberMutate,
+  removeMailboxMemberMutate,
 }: {
   mailbox: any;
   teamMember: any;
-  createMutate: (variables: { jellyMailboxId: string }) => void;
+  createMailboxMutate: (variables: { jellyMailboxId: string }) => void;
+  deactivateMailboxMutate: (variables: { marmaladeMailboxId: number }) => void;
+  activateMailboxMutate: (variables: { marmaladeMailboxId: number }) => void;
+  createMailboxMemberMutate: (variables: {
+    marmaladeMailboxId: number;
+    marmaladeMemberId: string;
+  }) => void;
+  removeMailboxMemberMutate: (variables: {
+    marmaladeMailboxId: number;
+    marmaladeMemberId: string;
+  }) => void;
 }) {
   const handleCreateMailbox = () => {
-    createMutate({
+    createMailboxMutate({
       jellyMailboxId: mailbox.jellyMailbox.jellyMailboxId,
+    });
+  };
+  const handleDeactivateMailbox = () => {
+    if (mailbox.marmaladeMailbox) {
+      deactivateMailboxMutate({
+        marmaladeMailboxId: mailbox.marmaladeMailbox.id,
+      });
+    }
+  };
+  const handleActivateMailbox = () => {
+    if (mailbox.marmaladeMailbox) {
+      activateMailboxMutate({
+        marmaladeMailboxId: mailbox.marmaladeMailbox.id,
+      });
+    }
+  };
+  const handleCreateMailboxMember = (marmaladeMemberId: string) => {
+    createMailboxMemberMutate({
+      marmaladeMailboxId: mailbox.marmaladeMailbox.id,
+      marmaladeMemberId: marmaladeMemberId,
+    });
+  };
+  const handleRemoveMailboxMember = (marmaladeMemberId: string) => {
+    removeMailboxMemberMutate({
+      marmaladeMailboxId: mailbox.marmaladeMailbox.id,
+      marmaladeMemberId: marmaladeMemberId,
     });
   };
 
@@ -64,21 +104,13 @@ function MailboxCard({
           }
         >
           {mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
-            ? "Paused"
+            ? "🍊 deactivated"
             : mailbox.marmaladeMailbox
-              ? "🍊 Linked"
-              : "Unlinked"}
+              ? "🍊 linked"
+              : "🍊 not setup"}
         </Badge>
         {mailbox.marmaladeMailbox && (
-          <Badge
-            variant={
-              mailbox.marmaladeMailbox && !mailbox.marmaladeMailbox.active
-                ? "destructive"
-                : mailbox.marmaladeMailbox
-                  ? "secondary"
-                  : "outline"
-            }
-          >
+          <Badge variant="secondary">
             {mailbox.marmaladeMailbox.memberCount} /{" "}
             {mailbox.jellyMailbox.memberCount} members perm'd
           </Badge>
@@ -94,25 +126,27 @@ function MailboxCard({
           ) : (
             <Button variant="outline">🍊 Request Linkage</Button>
           )
-        ) : null}
-
-        {mailbox.marmaladeMailbox ? (
-          membersShowing ? (
-            <Button onClick={toggleMembersShowing} variant="outline">
-              🙈 Hide Members
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={toggleMembersShowing}>
-              👀 Show Members
-            </Button>
-          )
-        ) : null}
+        ) : membersShowing ? (
+          <Button onClick={toggleMembersShowing} variant="outline">
+            🙈 Hide Members
+          </Button>
+        ) : (
+          <Button variant="outline" onClick={toggleMembersShowing}>
+            👀 Show Members
+          </Button>
+        )}
 
         {teamMember.role == "owner" || teamMember.role == "admin" ? (
           <>
-            <Button disabled variant="outline">
-              💤 Deactivate
-            </Button>
+            {mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? (
+              <Button onClick={handleDeactivateMailbox} variant="outline">
+                💤 Deactivate
+              </Button>
+            ) : (
+              <Button onClick={handleActivateMailbox} variant="outline">
+                ⏰ Reactivate
+              </Button>
+            )}
             <Button disabled variant="outline">
               ❌ Delete
             </Button>
@@ -122,27 +156,66 @@ function MailboxCard({
       {membersShowing && mailbox.marmaladeMailbox && (
         <>
           <p className="font-semibold">
-            Members ({mailbox.jellyMailbox.memberCount})
+            Jelly Mailbox Members ({mailbox.jellyMailbox.memberCount})
           </p>
           <ul className="list-disc pl-5">
             {mailbox.jellyMailbox.members.map((member: any) => (
               <MemberCard
-                member={{ jelly: member }}
+                member={{
+                  jelly: { ...member.jelly, role: "team " + member.jelly.role },
+                  marmalade: member.marmalade,
+                }}
                 teamMemberRole={teamMember.role}
                 extraBadges={
-                  <Badge variant="destructive">
-                    {mailbox.marmaladeMailbox.members.find(
-                      (m: any) => m.email === member.email,
-                    )
-                      ? "🍊 perm'd"
-                      : "unperm'd"}
-                  </Badge>
+                  member.marmalade ? (
+                    <Badge
+                      variant={
+                        mailbox.marmaladeMailbox.members.find(
+                          (m: { id: string }) => m.id == member.id,
+                        )
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {mailbox.marmaladeMailbox.members.find(
+                        (m: { id: string }) => m.id == member.id,
+                      )
+                        ? "🍊 api perms"
+                        : "🍊 no perms"}
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline">🍊 unlinked</Badge>
+                  )
                 }
                 extraActions={
-                  teamMember.role == "owner" || teamMember.role == "admin" ? (
-                    <Button variant="secondary">Grant perms</Button>
+                  member.marmalade ? (
+                    teamMember.role == "owner" || teamMember.role == "admin" ? (
+                      mailbox.marmaladeMailbox.members.find(
+                        (m: { id: string }) => m.id == member.id,
+                      ) ? (
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            handleRemoveMailboxMember(member.marmalade.id);
+                          }}
+                        >
+                          ❌ Rescind access
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            handleCreateMailboxMember(member.marmalade.id);
+                          }}
+                        >
+                          🛂 Grant api perms
+                        </Button>
+                      )
+                    ) : null
                   ) : null
                 }
+                hideDefaultActions={true}
+                hideDefaultBadges={true}
               />
             ))}
           </ul>
@@ -153,32 +226,9 @@ function MailboxCard({
 }
 
 function MailboxesRoute() {
-  // const [newMailboxText, setNewMailboxText] = useState("");
   const { teamMember } = Route.useRouteContext();
 
   const mailboxes = useQuery(orpc.mailbox.list.queryOptions());
-  // const createMutation = useMutation(
-  //   orpc.mailbox.create.mutationOptions({
-  //     onSuccess: () => {
-  //       mailboxes.refetch();
-  //       setNewMailboxText("");
-  //     },
-  //   }),
-  // );
-  // const toggleMutation = useMutation(
-  //   orpc.mailbox.toggle.mutationOptions({
-  //     onSuccess: () => {
-  //       mailboxes.refetch();
-  //     },
-  //   }),
-  // );
-  // const deleteMutation = useMutation(
-  //   orpc.mailbox.delete.mutationOptions({
-  //     onSuccess: () => {
-  //       mailboxes.refetch();
-  //     },
-  //   }),
-  // );
 
   const resyncMutation = useMutation(
     orpc.mailbox.resync.mutationOptions({
@@ -187,21 +237,41 @@ function MailboxesRoute() {
       },
     }),
   );
-  const createMutation = useMutation(
+  const createMailboxMutation = useMutation(
     orpc.mailbox.create.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
       },
     }),
   );
-
-  // const handleToggleMailbox = (id: MailboxId, completed: boolean) => {
-  //   toggleMutation.mutate({ id, completed: !completed });
-  // };
-
-  // const handleDeleteMailbox = (id: MailboxId) => {
-  //   deleteMutation.mutate({ id });
-  // };
+  const deactivateMailboxMutation = useMutation(
+    orpc.mailbox.deactivate.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      },
+    }),
+  );
+  const activateMailboxMutation = useMutation(
+    orpc.mailbox.activate.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      },
+    }),
+  );
+  const createMailboxMemberMutation = useMutation(
+    orpc.mailbox.createMember.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      },
+    }),
+  );
+  const removeMailboxMemberMutation = useMutation(
+    orpc.mailbox.removeMember.mutationOptions({
+      onSuccess: () => {
+        mailboxes.refetch();
+      },
+    }),
+  );
 
   const handleResyncMailboxes = () => {
     resyncMutation.mutate({});
@@ -222,18 +292,6 @@ function MailboxesRoute() {
           </CardAction>
         </CardHeader>
         <CardContent>
-          {/* <form onSubmit={handleAddMailbox} className="mb-6 flex items-center space-x-2">
-            <Input
-              value={newMailboxText}
-              onChange={(e) => setNewMailboxText(e.target.value)}
-              placeholder="Add a new task..."
-              disabled={createMutation.isPending}
-            />
-            <Button type="submit" disabled={createMutation.isPending || !newMailboxText.trim()}>
-              {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-            </Button>
-          </form> */}
-
           {mailboxes.isLoading ? (
             <div className="flex justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin" />
@@ -246,7 +304,11 @@ function MailboxesRoute() {
                 <MailboxCard
                   mailbox={mailbox}
                   teamMember={teamMember}
-                  createMutate={createMutation.mutate}
+                  createMailboxMutate={createMailboxMutation.mutate}
+                  activateMailboxMutate={activateMailboxMutation.mutate}
+                  createMailboxMemberMutate={createMailboxMemberMutation.mutate}
+                  removeMailboxMemberMutate={removeMailboxMemberMutation.mutate}
+                  deactivateMailboxMutate={deactivateMailboxMutation.mutate}
                 />
               ))}
             </ul>

@@ -1,5 +1,4 @@
 import {
-  integer,
   jsonb,
   pgTable,
   serial,
@@ -17,7 +16,7 @@ export const auditLog = pgTable("audit_log", {
   teamId: text("team_id").notNull(),
   action: text("action").notNull(),
   resource: text("resource").notNull(),
-  resourceId: integer("resource_id").notNull(),
+  resourceId: text("resource_id").notNull(),
   status: text("status").notNull(),
   ipAddress: varchar("ip_address"),
   userAgent: text("user_agent"),

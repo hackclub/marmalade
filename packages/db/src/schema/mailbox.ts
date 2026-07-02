@@ -25,7 +25,7 @@ export const marmaladeMailbox = pgTable("mailbox", {
   jellyMailboxId: text("jelly_mailbox_id").notNull().unique(),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
-  active: boolean("active").notNull(),
+  active: boolean("active").notNull().default(true),
 });
 
 export const marmaladeMailboxMember = pgTable("mailbox_member", {

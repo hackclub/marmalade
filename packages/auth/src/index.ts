@@ -1,5 +1,8 @@
 import { expo } from "@better-auth/expo";
+import { auditRouter } from "@marmalade-v2/api/routers/audit";
 import { mailboxRouter } from "@marmalade-v2/api/routers/mailbox";
+import { teamRouter } from "@marmalade-v2/api/routers/team";
+
 import { createDb } from "@marmalade-v2/db";
 import * as schema from "@marmalade-v2/db/schema/auth";
 import { env } from "@marmalade-v2/env/server";
@@ -30,35 +33,77 @@ export function createAuth() {
       account: {
         create: {
           after: async (account) => {
-            if (account.providerId !== "credential") {
-              // Fetch the user
-              const user = await db.query.user.findFirst({
-                where: (user, { eq }) => eq(user.id, account.userId),
-              });
-              // Check if this is a new user (e.g., by checking creation timestamp or a custom flag)
-              if (user && true) {
-                await call(
-                  mailboxRouter.resync,
-                  {},
-                  {
-                    path: ["/mailboxes"],
-                    context: {
-                      auth: null,
+            const user = await db.query.user.findFirst({
+              where: (user, { eq }) => eq(user.id, account.userId),
+            });
+            if (user && true) {
+              await call(
+                mailboxRouter.resync,
+                {},
+                {
+                  path: ["/mailboxes"],
+                  context: {
+                    auth: null,
+                    session: {
+                      user,
                       session: {
-                        user,
-                        session: {
-                          ...account,
-                          expiresAt: new Date(),
-                          token: "uwu",
-                        },
+                        ...account,
+                        expiresAt: new Date(),
+                        token: "uwu",
                       },
                     },
                   },
-                );
-              }
+                },
+              );
+               await call(
+                teamRouter.resync,
+                {},
+                {
+                  path: ["/team"],
+                  context: {
+                    auth: null,
+                    session: {
+                      user,
+                      session: {
+                        ...account,
+                        expiresAt: new Date(),
+                        token: "uwu",
+                      },
+                    },
+                  },
+                },
+              );
+              await call(
+                auditRouter.create,
+                {
+                  resource: "user",
+                  action: "create",
+                  resourceId: user.id,
+                  status: "success",
+                  metadata: {
+                    email: user.email,
+                    name: user.name,
+                  },
+                },
+                {
+                  path: ["/audit"],
+                  context: {
+                    auth: null,
+                    session: {
+                      user,
+                      session: {
+                        ...account,
+                        expiresAt: new Date(),
+                        token: "uwu",
+                      },
+                    },
+                  },
+                },
+              );
             }
           },
         },
+      
       },
     },
     plugins: [

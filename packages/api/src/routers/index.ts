@@ -2,10 +2,11 @@ import { ORPCError, type RouterClient } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
 import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { protectedProcedure, publicProcedure } from "../index";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
+import { env } from "@marmalade-v2/env/server";
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {
@@ -21,7 +22,13 @@ export const appRouter = {
     const teamMember = await db
       .select()
       .from(jellyTeamMember)
-      .where(eq(jellyTeamMember.email, context.session?.user.email ?? ""));
+      .where(
+        and(
+          eq(jellyTeamMember.email, context.session?.user.email ?? ""),
+          eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
+          eq(jellyTeamMember.existsInJelly, true),
+        ),
+      );
 
     if (!teamMember || teamMember.length === 0 || !teamMember[0]) {
       throw new ORPCError("UNAUTHORIZED", {

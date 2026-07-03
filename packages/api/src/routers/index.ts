@@ -5,7 +5,6 @@ import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import { protectedProcedure, publicProcedure } from "../index";
-import { adminRouter } from "./admin";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
 
@@ -40,7 +39,6 @@ export const appRouter = {
   }),
 
   mailbox: mailboxRouter,
-  admin: adminRouter,
   team: teamRouter,
 };
 export type AppRouter = typeof appRouter;

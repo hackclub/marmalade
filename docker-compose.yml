@@ -11,7 +11,4 @@ services:
     env_file:
       - path: apps/web/.env
         required: false
-    environment:
-      BETTER_AUTH_URL: http://localhost:3001
-      CORS_ORIGIN: http://localhost:3001
     restart: unless-stopped

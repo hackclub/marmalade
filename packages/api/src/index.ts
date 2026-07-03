@@ -8,10 +8,12 @@ import type { AuthContext, WebhookContext } from "./context";
 
 export const authO = os.$context<AuthContext>();
 export const webhookO = os.$context<WebhookContext>();
+export const authOrWebhookO = os.$context<AuthContext | WebhookContext>();
 
 export const publicProcedure = authO;
 
 export const jellyWebhookProcedure = webhookO;
+export const authOrWebhookProcedure = authOrWebhookO;
 
 const requireAuth = authO.middleware(async ({ context, next }) => {
   if (!context.session?.user) {
@@ -24,7 +26,27 @@ const requireAuth = authO.middleware(async ({ context, next }) => {
   });
 });
 
+const requireAuthOrWebhook = authOrWebhookO.middleware(
+  async ({ context, next }) => {
+    const hasAuthenticatedSession =
+      "session" in context && Boolean(context.session?.user);
+    const hasVerifiedWebhookContext =
+      "request" in context && "rawBody" in context;
+
+    if (!hasAuthenticatedSession && !hasVerifiedWebhookContext) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+
+    return next({
+      context,
+    });
+  },
+);
+
 export const protectedProcedure = publicProcedure.use(requireAuth);
+export const authOrWebhookProtectedProcedure = authOrWebhookProcedure.use(
+  requireAuthOrWebhook,
+);
 export const teamAdminProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;

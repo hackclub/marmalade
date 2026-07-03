@@ -16,6 +16,7 @@ import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import z from "zod";
 import {
+  authOrWebhookProtectedProcedure,
   protectedProcedure,
   publicProcedure,
   teamAdminProtectedProcedure,
@@ -75,6 +76,90 @@ type MailboxListQueryRow = {
 };
 
 export const mailboxRouter = {
+  getMailboxDetails: authOrWebhookProtectedProcedure
+    .input(
+      z.object({
+        jellyMailboxId: z.string().min(1),
+      }),
+    )
+    .handler(async ({ input }) => {
+      let jellyMailboxRows: Array<{
+        id: number;
+        isArchived: boolean;
+      }> = [];
+
+      try {
+        jellyMailboxRows = await db
+          .select({
+            id: jellyMailbox.id,
+            isArchived: jellyMailbox.isArchived,
+          })
+          .from(jellyMailbox)
+          .where(eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId))
+          .limit(1);
+      } catch (error) {
+        console.warn("Jelly mailbox table unavailable during webhook", error);
+      }
+
+      if (jellyMailboxRows.length === 0) {
+        return {
+          success: true as const,
+          allowed: false as const,
+          reason: "mailbox not found",
+        };
+      }
+
+      const jellyMailboxRow = jellyMailboxRows[0];
+
+      if (!jellyMailboxRow) {
+        return {
+          success: true as const,
+          allowed: false as const,
+          reason: "mailbox not found",
+        };
+      }
+
+      if (jellyMailboxRow.isArchived) {
+        return {
+          success: true as const,
+          allowed: false as const,
+          reason: "mailbox archived",
+        };
+      }
+
+      const marmaladeMailboxRows = await db
+        .select({
+          id: marmaladeMailbox.id,
+          active: marmaladeMailbox.active,
+        })
+        .from(marmaladeMailbox)
+        .where(eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId))
+        .limit(1);
+
+      if (marmaladeMailboxRows.length === 0) {
+        return {
+          success: true as const,
+          allowed: false as const,
+          reason: "mailbox not setup",
+        };
+      }
+
+      const marmaladeMailboxRow = marmaladeMailboxRows[0];
+
+      if (!marmaladeMailboxRow || !marmaladeMailboxRow.active) {
+        return {
+          success: true as const,
+          allowed: false as const,
+          reason: "mailbox not active",
+        };
+      }
+
+      return {
+        success: true as const,
+        allowed: true as const,
+        inboxId: marmaladeMailboxRow.id,
+      };
+    }),
   list: protectedProcedure.handler(async ({ context }) => {
     const requesterId = context.session.user.id;
     const requesterEmail = context.session.user.email;

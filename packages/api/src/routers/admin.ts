@@ -1,13 +1,8 @@
-import { db } from "@marmalade-v2/db";
-import { conversations, messages } from "@marmalade-v2/db/schema/convo";
-import {
-  jellyMailbox,
-  marmaladeMailbox,
-} from "@marmalade-v2/db/schema/mailbox";
-import { ORPCError } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { ORPCError, call } from "@orpc/server";
 import z from "zod";
 import { jellyWebhookProcedure } from "../index";
+import { conversationRouter } from "./convo";
+import { mailboxRouter } from "./mailbox";
 
 function parseFrom(fromArray: string[] | undefined): {
   name: string | null;
@@ -73,7 +68,7 @@ export type JellyWebhookInput = z.infer<typeof jellyWebhookSchema>;
 export const adminRouter = {
   jellyEventWebhook: jellyWebhookProcedure
     .input(jellyWebhookSchema)
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
       const conversation = input.data.conversation;
       const mailboxId = conversation.mailboxes?.[0]?.id;
 
@@ -83,46 +78,16 @@ export const adminRouter = {
         });
       }
 
-      const jellyMailboxRows = await db
-        .select({
-          id: jellyMailbox.id,
-          isArchived: jellyMailbox.isArchived,
-        })
-        .from(jellyMailbox)
-        .where(eq(jellyMailbox.jellyMailboxId, mailboxId))
-        .limit(1);
+      const mailboxDetails = await call(
+        mailboxRouter.getMailboxDetails,
+        {
+          jellyMailboxId: mailboxId,
+        },
+        { context },
+      );
 
-      if (jellyMailboxRows.length === 0) {
-        return { success: true, reason: "mailbox not found" };
-      }
-
-      const jellyMailboxRow = jellyMailboxRows[0];
-
-      if (!jellyMailboxRow) {
-        return { success: true, reason: "mailbox not found" };
-      }
-
-      if (jellyMailboxRow.isArchived) {
-        return { success: true, reason: "mailbox archived" };
-      }
-
-      const marmaladeMailboxRows = await db
-        .select({
-          id: marmaladeMailbox.id,
-          active: marmaladeMailbox.active,
-        })
-        .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.jellyMailboxId, mailboxId))
-        .limit(1);
-
-      if (marmaladeMailboxRows.length === 0) {
-        return { success: true, reason: "mailbox not setup" };
-      }
-
-      const marmaladeMailboxRow = marmaladeMailboxRows[0];
-
-      if (!marmaladeMailboxRow || !marmaladeMailboxRow.active) {
-        return { success: true, reason: "mailbox not active" };
+      if (!mailboxDetails.allowed) {
+        return { success: true, reason: mailboxDetails.reason };
       }
 
       if (input.event === "new_message") {
@@ -134,73 +99,38 @@ export const adminRouter = {
           });
         }
 
-        const existingConversationRows = await db
-          .select({ id: conversations.id })
-          .from(conversations)
-          .where(eq(conversations.jellyConversationId, conversation.id))
-          .limit(1);
-
-        let conversationId = existingConversationRows[0]?.id ?? null;
-
-        if (conversationId === null) {
-          const createdConversationRows = await db
-            .insert(conversations)
-            .values({
-              jellyConversationId: conversation.id,
-              inboxId: marmaladeMailboxRow.id,
-              subject: conversation.subject ?? null,
-              status: conversation.status ?? "open",
-              lastMessageAt: message.sent_at
-                ? new Date(message.sent_at)
-                : new Date(),
-            })
-            .onConflictDoNothing()
-            .returning({ id: conversations.id });
-
-          conversationId = createdConversationRows[0]?.id ?? null;
-
-          if (conversationId === null) {
-            const refreshedConversationRows = await db
-              .select({ id: conversations.id })
-              .from(conversations)
-              .where(eq(conversations.jellyConversationId, conversation.id))
-              .limit(1);
-
-            conversationId = refreshedConversationRows[0]?.id ?? null;
-          }
-        }
-
-        if (conversationId === null) {
-          throw new ORPCError("INTERNAL_SERVER_ERROR", {
-            message: "Conversation could not be created",
-          });
-        }
+        const convoResult = await call(
+          conversationRouter.convo.create,
+          {
+            inboxId: mailboxDetails.inboxId,
+            jellyConversationId: conversation.id,
+            subject: conversation.subject ?? null,
+            status: conversation.status ?? "open",
+            sentAt: message.sent_at,
+          },
+          { context },
+        );
 
         const { name: senderName, email: senderEmail } = parseFrom(
           message.from,
         );
-        const attachmentsCount = message.attachments_count ?? 0;
 
-        await db
-          .insert(messages)
-          .values({
+        await call(
+          conversationRouter.message.create,
+          {
             jellyMessageId: message.id,
-            conversationId,
-            inboxId: marmaladeMailboxRow.id,
+            conversationId: convoResult.id,
+            inboxId: mailboxDetails.inboxId,
             content: message.text_body ?? null,
             contentHtml: message.html_body ?? null,
             senderName,
             senderEmail,
             isInbound: message.inbound ?? true,
-            status: "received",
-            metadata: {
-              attachments_count: attachmentsCount,
-            },
-            receivedAt: message.sent_at
-              ? new Date(message.sent_at)
-              : new Date(),
-          })
-          .onConflictDoNothing();
+            attachmentsCount: message.attachments_count ?? 0,
+            sentAt: message.sent_at,
+          },
+          { context },
+        );
       }
 
       if (
@@ -210,13 +140,14 @@ export const adminRouter = {
         const status =
           input.event === "conversation_archived" ? "archived" : "open";
 
-        await db
-          .update(conversations)
-          .set({
+        await call(
+          conversationRouter.convo.setStatus,
+          {
+            jellyConversationId: conversation.id,
             status,
-            updatedAt: new Date(),
-          })
-          .where(eq(conversations.jellyConversationId, conversation.id));
+          },
+          { context },
+        );
       }
 
       return { success: true };

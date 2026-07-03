@@ -117,6 +117,7 @@ export function createAuth() {
                   "https://auth.hackclub.com/.well-known/openid-configuration",
                 clientId: env.HACKCLUB_CLIENT_ID,
                 clientSecret: env.HACKCLUB_CLIENT_SECRET,
+                redirectURI: `${env.BETTER_AUTH_URL}/api/auth/oauth2/callback/hackclub`,
                 scopes: ["openid", "profile", "email", "verification_status"],
               },
             ]

@@ -1,4 +1,4 @@
-import { createContext } from "@marmalade-v2/api/context";
+import { createAuthContext } from "@marmalade-v2/api/context";
 import { appRouter } from "@marmalade-v2/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
@@ -32,7 +32,7 @@ const getORPCClient = createIsomorphicFn()
   .server(() =>
     createRouterClient(appRouter, {
       context: async () => {
-        return createContext({ req: getRequest() });
+        return createAuthContext({ req: getRequest() });
       },
     }),
   )

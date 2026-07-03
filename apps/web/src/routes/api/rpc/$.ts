@@ -1,4 +1,4 @@
-import { createContext } from "@marmalade-v2/api/context";
+import { createAuthContext } from "@marmalade-v2/api/context";
 import { appRouter } from "@marmalade-v2/api/routers/index";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -31,13 +31,13 @@ const apiHandler = new OpenAPIHandler(appRouter, {
 async function handle({ request }: { request: Request }) {
   const rpcResult = await rpcHandler.handle(request, {
     prefix: "/api/rpc",
-    context: await createContext({ req: request }),
+    context: await createAuthContext({ req: request }),
   });
   if (rpcResult.response) return rpcResult.response;
 
   const apiResult = await apiHandler.handle(request, {
     prefix: "/api/rpc/api-reference",
-    context: await createContext({ req: request }),
+    context: await createAuthContext({ req: request }),
   });
   if (apiResult.response) return apiResult.response;
 

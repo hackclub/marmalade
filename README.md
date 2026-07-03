@@ -12,10 +12,16 @@
 ## tasks
 
 - [ ] jelly sync
-    - [x] ‼️ manually sync mailboxes and team members
-    - [ ] automatically sync mailboxes and team members
-    - [x] sync mailboxes and team members on registration
-      - [ ] test
+  - [x] ‼️ manually sync mailboxes and team members
+  - [ ] routinely resync mailboxes and team members
+  - [x] resync mailboxes and team members on registration
+  - [ ] ‼️ sync through jelly webhook
+    - [ ] markdown
+    - [x] new_message
+    - [ ] assigned
+    - [ ] comment_added
+    - [x] conversation_archived
+    - [x] conversation_unarchived
 - [ ] mailboxes
   - [ ] admin actions
     - [x] ‼️ create marmalade mailbox for jelly mailbox
@@ -33,13 +39,14 @@
   - [ ] admin actions
     - [ ] view all keys regardless of ownership (toggle)
   - [ ] member actions
-    - [ ] view all apikeys in permissioned mailboxes 
+    - [ ] view all apikeys in permissioned mailboxes
     - [ ] ‼️ create api keys
     - [ ] rescind api keys
-    
 - [ ] convos
-  - [ ] ‼️ sync convos through jelly webhook
-    - [ ] full message markdown
+- [ ] convo assignment
+- [ ] convo labels
+- [ ] messages
+- [ ] comments
 - [ ] security/access
   - [x] ‼️ hack club oidc auth
     - [ ] + email/password auth?
@@ -52,12 +59,12 @@
   - [ ] ensure all admin routes are protected appropriately
   - [ ] admins should not be able to mutate owners
 - [ ] plumbing
-    - [ ] ensure uniqueness of relational tables and make references "official"
-    - [ ] first time sync on registration and scheduled/manual org teammember resyncs
-    - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
-    - [ ] indexes
-    - [ ] host on nest w/ cf tunnels
-- 
+  - [ ] ensure uniqueness of relational tables and make references "official"
+  - [ ] first time sync on registration and scheduled/manual org teammember resyncs
+  - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
+  - [ ] indexes
+  - [ ] host on nest w/ cf tunnels
+-
 
 ## stuff that does stuff
 
@@ -84,7 +91,7 @@ pnpm install
 This project uses PostgreSQL with Drizzle ORM.
 
 1. Make sure you have a PostgreSQL database set up.
-2. Update your `apps/web/.env` file with your PostgreSQL connection details.
+2. Set `DATABASE_URL` in your environment or update your local `apps/web/.env` file with your PostgreSQL connection details.
 
 3. Apply the schema to your database:
 

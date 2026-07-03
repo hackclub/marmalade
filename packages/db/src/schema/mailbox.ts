@@ -4,10 +4,10 @@ export const jellyMailbox = pgTable("jelly_mailbox", {
   id: serial("id").primaryKey(),
   jellyMailboxId: text("jelly_mailbox_id").notNull().unique(),
   name: text("name").notNull(),
-  approvedBy: text("approved_by"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   isDefault: boolean("is_default").notNull(),
+  isArchived: boolean("is_archived").notNull().default(false),
   existsInJelly: boolean("exists_in_jelly")
     .notNull()
     .$default(() => true),

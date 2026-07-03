@@ -55,7 +55,7 @@ export function createAuth() {
                   },
                 },
               );
-               await call(
+              await call(
                 teamRouter.resync,
                 {},
                 {
@@ -103,7 +103,6 @@ export function createAuth() {
             }
           },
         },
-      
       },
     },
     plugins: [

@@ -319,9 +319,9 @@ export const mailboxRouter = {
           jellyMailboxId: mailbox.id,
           name: mailbox.name,
           approvedBy: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isDefault: false,
+          createdAt: new Date(mailbox.created_at).toISOString(),
+          updatedAt: new Date(mailbox.updated_at).toISOString(),
+          isDefault: mailbox.default,
         })),
       );
     }

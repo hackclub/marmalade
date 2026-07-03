@@ -4,13 +4,16 @@ import { db } from "@marmalade-v2/db";
 import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
-import type { Context } from "./context";
+import type { AuthContext, WebhookContext } from "./context";
 
-export const o = os.$context<Context>();
+export const authO = os.$context<AuthContext>();
+export const webhookO = os.$context<WebhookContext>();
 
-export const publicProcedure = o;
+export const publicProcedure = authO;
 
-const requireAuth = o.middleware(async ({ context, next }) => {
+export const jellyWebhookProcedure = webhookO;
+
+const requireAuth = authO.middleware(async ({ context, next }) => {
   if (!context.session?.user) {
     throw new ORPCError("UNAUTHORIZED");
   }

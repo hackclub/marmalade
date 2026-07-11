@@ -44,9 +44,8 @@ const requireAuthOrWebhook = authOrWebhookO.middleware(
 );
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
-export const authOrWebhookProtectedProcedure = authOrWebhookProcedure.use(
-  requireAuthOrWebhook,
-);
+export const authOrWebhookProtectedProcedure =
+  authOrWebhookProcedure.use(requireAuthOrWebhook);
 export const teamAdminProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;

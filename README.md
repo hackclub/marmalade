@@ -11,6 +11,8 @@
 
 ## tasks
 
+**key:** ‼️ = mvp-critical
+
 - [ ] jelly sync
   - [x] ‼️ manually sync mailboxes and team members
   - [ ] routinely resync mailboxes and team members
@@ -19,9 +21,9 @@
     - [ ] markdown
     - [x] new_message
     - [ ] assigned
-    - [ ] comment_added
-    - [x] conversation_archived
-    - [x] conversation_unarchived
+    - [x] comment_added
+    - [ ] conversation_archived
+    - [ ] conversation_unarchived
 - [ ] mailboxes
   - [ ] admin actions
     - [x] ‼️ create marmalade mailbox for jelly mailbox
@@ -43,10 +45,9 @@
     - [ ] ‼️ create api keys
     - [ ] rescind api keys
 - [ ] convos
-- [ ] convo assignment
-- [ ] convo labels
 - [ ] messages
 - [ ] comments
+- [ ] attachments
 - [ ] security/access
   - [x] ‼️ hack club oidc auth
     - [ ] + email/password auth?
@@ -62,9 +63,10 @@
   - [ ] ensure uniqueness of relational tables and make references "official"
   - [ ] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
+    - [ ] for now, simply track every jelly request in db and monitor success/fail
   - [ ] indexes
   - [ ] host on nest w/ cf tunnels
--
+  - [ ] CI
 
 ## stuff that does stuff
 

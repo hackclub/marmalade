@@ -1,4 +1,7 @@
 import { env } from "@marmalade-v2/env/server";
+import { call } from "@orpc/server";
+import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { auditRouter } from "../routers/audit";
 
 export interface JellyMember {
   id: string;
@@ -65,6 +68,36 @@ class JellyApiClient {
   constructor(baseUrl: string, apiKey: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.apiKey = apiKey;
+  }
+
+  private async auditLogJellyRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const startTime = Date.now();
+    try {
+      const result = await this.request(path, options);
+      const isSuccessful = true;
+      const endTime = Date.now();
+      await auditLog({
+        action: "JELLY_API_CALL",
+        metadata: {
+          path,
+          duration: endTime - startTime,
+        },
+      });
+      return result;
+    } catch (error) {
+      const endTime = Date.now();
+      await call(
+           auditRouter.create,
+           {
+             resource: "mailbox",
+             action: "resync",
+           },
+           {
+            path: ["/audit"],
+           }
+         );
+      throw error;
+    }
   }
 
   private async request<T>(

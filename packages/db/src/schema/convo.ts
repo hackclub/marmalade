@@ -7,20 +7,17 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { jellyMailbox } from "./mailbox";
+import { jellyTeam, jellyTeamContact } from "./team";
 
-export const conversations = pgTable("conversation", {
-  id: serial("id").primaryKey(),
-  jellyConversationId: text("jelly_conversation_id").notNull().unique(),
-  inboxId: integer("inbox_id").notNull(),
+export const conversation = pgTable("jelly_conversation", {
+  id: text("id").primaryKey(),
   subject: text("subject"),
   status: text("status").notNull().default("open"),
   messagesCount: integer("messages_count").notNull().default(0),
   commentsCount: integer("comments_count").notNull().default(0),
   attachmentsCount: integer("attachments_count").notNull().default(0),
   snoozedUntil: timestamp("snoozed_until", { mode: "date" }),
-  mailboxes: jsonb("mailboxes"),
-  labels: jsonb("labels"),
-  assignees: jsonb("assignees"),
   url: text("url"),
   markdownUrl: text("markdown_url"),
   messagesUrl: text("messages_url"),
@@ -34,47 +31,92 @@ export const conversations = pgTable("conversation", {
     .notNull(),
 });
 
-export const messages = pgTable("message", {
+export const conversationAssignment = pgTable("jelly_conversation_assignment", {
   id: serial("id").primaryKey(),
-  jellyMessageId: text("jelly_message_id").notNull().unique(),
-  conversationId: integer("conversation_id").notNull(),
-  jellyConversationId: text("jelly_conversation_id"),
-  inboxId: integer("inbox_id").notNull(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
+  jellyContactId: text("jelly_contact_id")
+    .notNull()
+    .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const conversationLabel = pgTable("jelly_conversation_label", {
+  id: serial("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
+  labelId: integer("label_id")
+    .notNull()
+    .references(() => label.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const label = pgTable("jelly_label", {
+  id: serial("id").primaryKey(),
+  labelId: text("label_id").notNull(),
+  name: text("name").notNull(),
+  color: text("color"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+})
+
+export const conversationMailbox = pgTable("jelly_conversation_mailbox", {
+  id: serial("id").primaryKey(),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
+  jellyMailboxId: text("jelly_mailbox_id").notNull(),
+  jellyTeamId: text("jelly_team_id")
+    .notNull()
+    .references(() => jellyTeam.id, { onDelete: "cascade" }),
+});
+
+export const message = pgTable("jelly_message", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id").notNull().references(() => conversation.id, { onDelete: "cascade" }),
   subject: text("subject"),
   content: text("content"),
   contentHtml: text("content_html"),
-  from: jsonb("from"),
-  to: jsonb("to"),
-  cc: jsonb("cc"),
-  bcc: jsonb("bcc"),
-  senderName: text("sender_name"),
-  senderEmail: text("sender_email"),
-  sender: jsonb("sender"),
+  senderId: text("sender_id").references(() => jellyTeamContact.id, { onDelete: "set null" }),
   isInbound: boolean("is_inbound").notNull().default(true),
   attachmentsCount: integer("attachments_count").notNull().default(0),
-  attachments: jsonb("attachments"),
-  url: text("url"),
-  status: text("status").notNull(),
-  metadata: jsonb("metadata").notNull(),
+  metadata: jsonb("metadata"),
   sentAt: timestamp("sent_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  receivedAt: timestamp("received_at", { mode: "date" }).notNull(),
 });
 
-export const comments = pgTable("comment", {
+export const messageContact = pgTable("jelly_message_contact", {
+  type: text("type").notNull(), // cc, from
   id: serial("id").primaryKey(),
-  jellyCommentId: text("jelly_comment_id").notNull().unique(),
-  conversationId: integer("conversation_id").notNull(),
-  jellyConversationId: text("jelly_conversation_id").notNull(),
-  inboxId: integer("inbox_id").notNull(),
-  body: text("body").notNull(),
-  deleted: boolean("deleted").notNull().default(false),
-  deletedAt: timestamp("deleted_at", { mode: "date" }),
-  author: jsonb("author"),
+  messageId: text("message_id")
+    .notNull()
+    .references(() => message.id, { onDelete: "cascade" }),
+  contactId: text("contact_id")
+    .notNull()
+    .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
+
+export const messageAttachment = pgTable("jelly_message_attachment", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id")
+    .notNull()
+    .references(() => message.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  contentType: text("content_type"),
+  byte_size: integer("byte_size"),
+  url: text("url"),
+  inline: boolean("inline").notNull().default(false),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
+});
+
+export const comment = pgTable("comment", {
+  id: text("id").primaryKey(),
+  conversationId: text("conversation_id").notNull().references(() => conversation.id, { onDelete: "cascade" }),
+  body: text("body"),
+  authorId: text("author_id").references(() => jellyTeamContact.id, { onDelete: "set null" }),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });

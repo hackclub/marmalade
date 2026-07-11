@@ -90,4 +90,6 @@ export async function createJellyWebhookContext({
 }
 
 export type AuthContext = Awaited<ReturnType<typeof createAuthContext>>;
-export type WebhookContext = Awaited<ReturnType<typeof createJellyWebhookContext>>;
+export type WebhookContext = Awaited<
+  ReturnType<typeof createJellyWebhookContext>
+>;

@@ -49,16 +49,31 @@ const jellyMessageSchema = z.object({
   from: z.array(z.string()).optional(),
 });
 
+const jellyCommentSchema = z.object({
+  id: z.string(),
+  body: z.string().optional(),
+  created_at: z.string().optional(),
+  author: z
+    .object({
+      id: z.string().optional(),
+      name: z.string().optional(),
+      email: z.string().optional(),
+    })
+    .optional(),
+});
+
 const jellyWebhookSchema = z.object({
   event: z.enum([
     "new_message",
     "conversation_archived",
     "conversation_unarchived",
+    "comment_added",
   ]),
   data: z
     .object({
       conversation: jellyConversationSchema,
       message: jellyMessageSchema.optional(),
+      comment: jellyCommentSchema.optional(),
     })
     .passthrough(),
 });
@@ -145,6 +160,31 @@ export const adminRouter = {
           {
             jellyConversationId: conversation.id,
             status,
+          },
+          { context },
+        );
+      }
+
+      if (input.event === "comment_added") {
+        const comment = input.data.comment;
+
+        if (!comment) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Webhook comment payload is required",
+          });
+        }
+
+        await call(
+          conversationRouter.comment.create,
+          {
+            jellyCommentId: comment.id,
+            conversationId: parseInt(conversation.id),
+            inboxId: mailboxDetails.inboxId,
+            body: comment.body ?? null,
+            authorName: comment.author?.name ?? null,
+            authorEmail: comment.author?.email ?? null,
+            authorId: comment.author?.id ?? null,
+            createdAt: comment.created_at ?? "",
           },
           { context },
         );

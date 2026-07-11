@@ -1,6 +1,6 @@
 import { db } from "@marmalade-v2/db";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
-import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { eq, inArray } from "drizzle-orm";
@@ -14,12 +14,12 @@ export const teamRouter = {
   list: protectedProcedure.handler(async () => {
     const results = await db
       .select({
-        jelly: jellyTeamMember,
+        jelly: jellyTeamContact,
         marmalade: authUser,
       })
-      .from(jellyTeamMember)
-      .leftJoin(authUser, eq(jellyTeamMember.email, authUser.email))
-      .where(eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID));
+      .from(jellyTeamContact)
+      .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
+      .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
 
     return results.map((row) => ({
       jelly: row.jelly ?? null,
@@ -43,8 +43,8 @@ export const teamRouter = {
     const teamMemberIds = teamMembers.map((member) => member.id);
     const existingTeamMembers = await db
       .select()
-      .from(jellyTeamMember)
-      .where(eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID));
+      .from(jellyTeamContact)
+      .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
 
     const existingTeamMemberIds = existingTeamMembers.map(
       (teamMember) => teamMember.id,
@@ -70,7 +70,7 @@ export const teamRouter = {
     if (updatedTeamMembers.length > 0) {
       for (const member of updatedTeamMembers) {
         await db
-          .update(jellyTeamMember)
+          .update(jellyTeamContact)
           .set({
             name: member.name,
             email: member.email,
@@ -78,23 +78,23 @@ export const teamRouter = {
             active: member.active,
             existsInJelly: true,
           })
-          .where(eq(jellyTeamMember.id, member.id))
-          .returning({ id: jellyTeamMember.id });
+          .where(eq(jellyTeamContact.id, member.id))
+          .returning({ id: jellyTeamContact.id });
       }
     }
     if (removedTeamMembers.length > 0) {
       await db
-        .update(jellyTeamMember)
+        .update(jellyTeamContact)
         .set({ existsInJelly: false })
         .where(
           inArray(
-            jellyTeamMember.jellyTeamId,
+            jellyTeamContact.jellyTeamId,
             removedTeamMembers.map((team) => team.jellyTeamId),
           ),
         );
     }
     if (newTeamMembers.length > 0) {
-      await db.insert(jellyTeamMember).values(
+      await db.insert(jellyTeamContact).values(
         newTeamMembers.map((member) => ({
           id: member.id,
           name: member.name,

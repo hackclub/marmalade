@@ -1,7 +1,7 @@
 import { ORPCError, type RouterClient } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
-import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import { protectedProcedure, publicProcedure } from "../index";
@@ -21,12 +21,12 @@ export const appRouter = {
   membershipInfo: protectedProcedure.handler(async ({ context }) => {
     const teamMember = await db
       .select()
-      .from(jellyTeamMember)
+      .from(jellyTeamContact)
       .where(
         and(
-          eq(jellyTeamMember.email, context.session?.user.email ?? ""),
-          eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
-          eq(jellyTeamMember.existsInJelly, true),
+          eq(jellyTeamContact.email, context.session?.user.email ?? ""),
+          eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+          eq(jellyTeamContact.existsInJelly, true),
         ),
       );
 

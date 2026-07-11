@@ -1,7 +1,7 @@
 import { ORPCError, os } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
-import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import type { AuthContext, WebhookContext } from "./context";
@@ -53,11 +53,11 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
     try {
       const teamMember = await db
         .select()
-        .from(jellyTeamMember)
+        .from(jellyTeamContact)
         .where(
           and(
-            eq(jellyTeamMember.email, userEmail),
-            eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.email, userEmail),
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
           ),
         );
       if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {

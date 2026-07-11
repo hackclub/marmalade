@@ -8,7 +8,7 @@ export const jellyTeam = pgTable(
   }
 );
 
-// export const jellyTeamMember = pgTable(
+// export const jellyTeamContact = pgTable(
 //   "jelly_team_member",
 //   {
 //     id: text("id").notNull().primaryKey(),

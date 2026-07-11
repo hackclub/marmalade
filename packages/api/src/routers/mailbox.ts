@@ -6,7 +6,7 @@ import {
   marmaladeMailbox,
   marmaladeMailboxMember,
 } from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeamContact, jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
@@ -35,7 +35,7 @@ const marmaladeMailboxMembersAll = aliasedTable(
 );
 
 const jellyMailboxMemberTeamMember = aliasedTable(
-  jellyTeamMember,
+  jellyTeamContact,
   "jelly_mailbox_member_team_member",
 );
 
@@ -50,14 +50,14 @@ const marmaladeMailboxMemberUser = aliasedTable(
 );
 
 const marmaladeMailboxMemberTeamMember = aliasedTable(
-  jellyTeamMember,
+  jellyTeamContact,
   "marmalade_mailbox_member_team_member",
 );
 
 type JellyMailboxRow = typeof jellyMailbox.$inferSelect;
 type MarmaladeMailboxRow = typeof marmaladeMailbox.$inferSelect;
 type MarmaladeMailboxMemberRow = typeof marmaladeMailboxMember.$inferSelect;
-type TeamMemberRow = typeof jellyTeamMember.$inferSelect;
+type TeamMemberRow = typeof jellyTeamContact.$inferSelect;
 type AuthUserRow = typeof authUser.$inferSelect;
 
 type MailboxMemberItem = {
@@ -184,11 +184,11 @@ export const mailboxRouter = {
         eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
       )
       .innerJoin(
-        jellyTeamMember,
+        jellyTeamContact,
         and(
           eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
-          eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
-          eq(jellyTeamMember.email, requesterEmail),
+          eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+          eq(jellyTeamContact.email, requesterEmail),
         ),
       )
       .leftJoin(

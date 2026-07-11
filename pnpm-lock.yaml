@@ -111,6 +111,9 @@ importers:
       '@marmalade-v2/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@marmalade-v2/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@marmalade-v2/env':
         specifier: workspace:*
         version: link:../../packages/env

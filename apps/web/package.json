@@ -10,6 +10,7 @@
   "dependencies": {
     "@marmalade-v2/api": "workspace:*",
     "@marmalade-v2/auth": "workspace:*",
+    "@marmalade-v2/db": "workspace:*",
     "@marmalade-v2/env": "workspace:*",
     "@marmalade-v2/ui": "workspace:*",
     "@orpc/client": "catalog:",

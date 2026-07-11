@@ -6,7 +6,7 @@ import {
   marmaladeMailbox,
   marmaladeMailboxMember,
 } from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeamMember } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact, jellyTeamMember } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
@@ -186,8 +186,8 @@ export const mailboxRouter = {
       .innerJoin(
         jellyTeamMember,
         and(
-          eq(jellyMailboxMember.jellyMemberId, jellyTeamMember.id),
-          eq(jellyMailboxMember.jellyTeamId, jellyTeamMember.jellyTeamId),
+          eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
+          eq(jellyTeamMember.jellyTeamId, env.JELLY_TEAM_ID),
           eq(jellyTeamMember.email, requesterEmail),
         ),
       )
@@ -199,12 +199,8 @@ export const mailboxRouter = {
         jellyMailboxMemberTeamMember,
         and(
           eq(
-            jellyMailboxMembersAll.jellyMemberId,
+            jellyMailboxMembersAll.jellyContactId,
             jellyMailboxMemberTeamMember.id,
-          ),
-          eq(
-            jellyMailboxMembersAll.jellyTeamId,
-            jellyMailboxMemberTeamMember.jellyTeamId,
           ),
         ),
       )
@@ -404,6 +400,7 @@ export const mailboxRouter = {
           jellyMailboxId: mailbox.id,
           name: mailbox.name,
           approvedBy: null,
+          jellyTeamId: env.JELLY_TEAM_ID,
           createdAt: new Date(mailbox.created_at).toISOString(),
           updatedAt: new Date(mailbox.updated_at).toISOString(),
           isDefault: mailbox.default,
@@ -411,7 +408,7 @@ export const mailboxRouter = {
       );
     }
     for (const mailbox of mailboxes) {
-      call(
+      await call(
         mailboxRouter.resyncMembers,
         {
           mailboxId: mailbox.id,
@@ -541,7 +538,6 @@ export const mailboxRouter = {
           marmaladeUserId: input.marmaladeMemberId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          jellyTeamId: env.JELLY_TEAM_ID,
         })
         .returning({ id: marmaladeMailboxMember.id });
       await call(

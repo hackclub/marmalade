@@ -12,10 +12,8 @@
   "scripts": {},
   "dependencies": {
     "@better-auth/expo": "catalog:",
-    "@marmalade-v2/api": "workspace:*",
     "@marmalade-v2/db": "workspace:*",
     "@marmalade-v2/env": "workspace:*",
-    "@orpc/server": "catalog:",
     "better-auth": "catalog:",
     "dotenv": "catalog:",
     "zod": "catalog:"

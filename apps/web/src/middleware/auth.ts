@@ -1,4 +1,4 @@
-import { auth } from "@marmalade-v2/auth";
+import { auth } from "@/lib/auth";
 import { createMiddleware } from "@tanstack/react-start";
 
 export const authMiddleware = createMiddleware().server(

@@ -27,7 +27,7 @@ export const auditRouter = {
 
       return await db.insert(auditLog).values({
         userId: context.session.user.id,
-        teamId: env.JELLY_TEAM_ID,
+        jellyTeamId: env.JELLY_TEAM_ID,
         action: input.action,
         resource: input.resource,
         resourceId: input.resourceId ?? "-1",

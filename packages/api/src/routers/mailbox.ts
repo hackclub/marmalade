@@ -6,7 +6,7 @@ import {
   marmaladeMailbox,
   marmaladeMailboxMember,
 } from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeamContact, jellyTeamContact } from "@marmalade-v2/db/schema/team";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
@@ -339,6 +339,7 @@ export const mailboxRouter = {
           jellyMailboxId: input.jellyMailboxId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          jellyTeamId: env.JELLY_TEAM_ID,
           active: true,
         })
         .returning({ id: marmaladeMailbox.id });
@@ -454,28 +455,28 @@ export const mailboxRouter = {
       const existingMembers = await db
         .select()
         .from(jellyMailboxMember)
-        .where(inArray(jellyMailboxMember.jellyMemberId, memberIds));
+        .where(inArray(jellyMailboxMember.jellyContactId, memberIds));
       const existingMemberIds = existingMembers.map(
-        (member) => member.jellyMemberId,
+        (member) => member.jellyContactId,
       );
       const newMembers = mailboxMembers.filter(
         (member) => !existingMemberIds.includes(member.id),
       );
       const removedMembers = existingMembers.filter(
-        (member) => !memberIds.includes(member.jellyMemberId),
+        (member) => !memberIds.includes(member.jellyContactId),
       );
       if (removedMembers.length > 0) {
         await db.delete(jellyMailboxMember).where(
           inArray(
-            jellyMailboxMember.jellyMemberId,
-            removedMembers.map((member) => member.jellyMemberId),
+            jellyMailboxMember.jellyContactId,
+            removedMembers.map((member) => member.jellyContactId),
           ),
         );
       }
       if (newMembers.length > 0) {
         await db.insert(jellyMailboxMember).values(
           newMembers.map((member) => ({
-            jellyMemberId: member.id,
+            jellyContactId: member.id,
             jellyMailboxId: input.mailboxId,
             jellyTeamId: env.JELLY_TEAM_ID,
           })),

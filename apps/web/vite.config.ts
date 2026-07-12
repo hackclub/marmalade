@@ -12,8 +12,5 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [tailwindcss(), tanstackStart(), nitro(), viteReact()],
-  // Bundle all SSR deps: Vercel functions have no node_modules at runtime
-  ssr: {
-    noExternal: true,
-  },
+  ssr: process.env.NODE_ENV === 'production' ? { noExternal: true } : undefined,
 });

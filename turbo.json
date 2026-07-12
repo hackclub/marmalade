@@ -5,7 +5,21 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**"],
+      "env": [
+        "BETTER_AUTH_SECRET",
+        "BETTER_AUTH_URL",
+        "CORS_ORIGIN",
+        "DATABASE_URL",
+        "HACKCLUB_CLIENT_ID",
+        "HACKCLUB_CLIENT_SECRET",
+        "JELLY_API_URL",
+        "JELLY_API_KEY",
+        "JELLY_TEAM_ID",
+        "JELLY_WEBHOOK_SECRET",
+        "WEBHOOK_USERNAME",
+        "WEBHOOK_PASSWORD"
+      ]
     },
     "lint": {
       "dependsOn": ["^lint"]

@@ -1,9 +1,176 @@
 {
-  "id": "31572ec3-91ae-4617-9170-39f59a66e6e5",
+  "id": "b6658364-6901-4e2f-86a0-52f1d839fa38",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.api_key": {
+      "name": "api_key",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "key_prefix": {
+          "name": "key_prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "secret_hash": {
+          "name": "secret_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jelly_team_id": {
+          "name": "jelly_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "last_used_at": {
+          "name": "last_used_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "api_key_created_by_user_id_fk": {
+          "name": "api_key_created_by_user_id_fk",
+          "tableFrom": "api_key",
+          "tableTo": "user",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "api_key_jelly_team_id_jelly_team_id_fk": {
+          "name": "api_key_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "api_key",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "api_key_key_prefix_unique": {
+          "name": "api_key_key_prefix_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "key_prefix"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.api_key_scope": {
+      "name": "api_key_scope",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "api_key_id": {
+          "name": "api_key_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope_mailbox": {
+          "name": "scope_mailbox",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "api_key_scope_api_key_id_api_key_id_fk": {
+          "name": "api_key_scope_api_key_id_api_key_id_fk",
+          "tableFrom": "api_key_scope",
+          "tableTo": "api_key",
+          "columnsFrom": [
+            "api_key_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.audit_log": {
       "name": "audit_log",
       "schema": "",
@@ -26,8 +193,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "jelly_team_id": {
+          "name": "jelly_team_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -82,7 +249,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "audit_log_user_id_user_id_fk": {
+          "name": "audit_log_user_id_user_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "audit_log_jelly_team_id_jelly_team_id_fk": {
+          "name": "audit_log_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "audit_log",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -450,31 +644,13 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "jelly_comment_id": {
-          "name": "jelly_comment_id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "conversation_id": {
           "name": "conversation_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "jelly_conversation_id": {
-          "name": "jelly_conversation_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "inbox_id": {
-          "name": "inbox_id",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
@@ -482,24 +658,11 @@
           "name": "body",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
-        },
-        "deleted": {
-          "name": "deleted",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "deleted_at": {
-          "name": "deleted_at",
-          "type": "timestamp",
-          "primaryKey": false,
           "notNull": false
         },
-        "author": {
-          "name": "author",
-          "type": "jsonb",
+        "author_id": {
+          "name": "author_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -515,51 +678,51 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "comment_jelly_comment_id_unique": {
-          "name": "comment_jelly_comment_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "jelly_comment_id"
-          ]
+      "foreignKeys": {
+        "comment_conversation_id_jelly_conversation_id_fk": {
+          "name": "comment_conversation_id_jelly_conversation_id_fk",
+          "tableFrom": "comment",
+          "tableTo": "jelly_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "comment_author_id_jelly_contact_id_fk": {
+          "name": "comment_author_id_jelly_contact_id_fk",
+          "tableFrom": "comment",
+          "tableTo": "jelly_contact",
+          "columnsFrom": [
+            "author_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.conversation": {
-      "name": "conversation",
+    "public.jelly_conversation": {
+      "name": "jelly_conversation",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "jelly_conversation_id": {
-          "name": "jelly_conversation_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "inbox_id": {
-          "name": "inbox_id",
-          "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "subject": {
@@ -599,24 +762,6 @@
         "snoozed_until": {
           "name": "snoozed_until",
           "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "mailboxes": {
-          "name": "mailboxes",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "labels": {
-          "name": "labels",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "assignees": {
-          "name": "assignees",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -674,21 +819,13 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "conversation_jelly_conversation_id_unique": {
-          "name": "conversation_jelly_conversation_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "jelly_conversation_id"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.message": {
-      "name": "message",
+    "public.jelly_conversation_assignment": {
+      "name": "jelly_conversation_assignment",
       "schema": "",
       "columns": {
         "id": {
@@ -697,27 +834,247 @@
           "primaryKey": true,
           "notNull": true
         },
-        "jelly_message_id": {
-          "name": "jelly_message_id",
+        "conversation_id": {
+          "name": "conversation_id",
           "type": "text",
           "primaryKey": false,
+          "notNull": true
+        },
+        "jelly_contact_id": {
+          "name": "jelly_contact_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jelly_conversation_assignment_conversation_id_jelly_conversation_id_fk": {
+          "name": "jelly_conversation_assignment_conversation_id_jelly_conversation_id_fk",
+          "tableFrom": "jelly_conversation_assignment",
+          "tableTo": "jelly_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_conversation_assignment_jelly_contact_id_jelly_contact_id_fk": {
+          "name": "jelly_conversation_assignment_jelly_contact_id_jelly_contact_id_fk",
+          "tableFrom": "jelly_conversation_assignment",
+          "tableTo": "jelly_contact",
+          "columnsFrom": [
+            "jelly_contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_conversation_label": {
+      "name": "jelly_conversation_label",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
           "notNull": true
         },
         "conversation_id": {
           "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label_id": {
+          "name": "label_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "jelly_conversation_id": {
-          "name": "jelly_conversation_id",
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jelly_conversation_label_conversation_id_jelly_conversation_id_fk": {
+          "name": "jelly_conversation_label_conversation_id_jelly_conversation_id_fk",
+          "tableFrom": "jelly_conversation_label",
+          "tableTo": "jelly_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_conversation_label_label_id_jelly_label_id_fk": {
+          "name": "jelly_conversation_label_label_id_jelly_label_id_fk",
+          "tableFrom": "jelly_conversation_label",
+          "tableTo": "jelly_label",
+          "columnsFrom": [
+            "label_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_conversation_mailbox": {
+      "name": "jelly_conversation_mailbox",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jelly_mailbox_id": {
+          "name": "jelly_mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jelly_team_id": {
+          "name": "jelly_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jelly_conversation_mailbox_conversation_id_jelly_conversation_id_fk": {
+          "name": "jelly_conversation_mailbox_conversation_id_jelly_conversation_id_fk",
+          "tableFrom": "jelly_conversation_mailbox",
+          "tableTo": "jelly_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_conversation_mailbox_jelly_team_id_jelly_team_id_fk": {
+          "name": "jelly_conversation_mailbox_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "jelly_conversation_mailbox",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_label": {
+      "name": "jelly_label",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "label_id": {
+          "name": "label_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "inbox_id": {
-          "name": "inbox_id",
-          "type": "integer",
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_message": {
+      "name": "jelly_message",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -739,45 +1096,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "from": {
-          "name": "from",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to": {
-          "name": "to",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cc": {
-          "name": "cc",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "bcc": {
-          "name": "bcc",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sender_name": {
-          "name": "sender_name",
+        "sender_id": {
+          "name": "sender_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sender_email": {
-          "name": "sender_email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "sender": {
-          "name": "sender",
-          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },
@@ -795,29 +1116,11 @@
           "notNull": true,
           "default": 0
         },
-        "attachments": {
-          "name": "attachments",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "url": {
-          "name": "url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "metadata": {
           "name": "metadata",
           "type": "jsonb",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "sent_at": {
           "name": "sent_at",
@@ -831,26 +1134,193 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "received_at": {
-          "name": "received_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "message_jelly_message_id_unique": {
-          "name": "message_jelly_message_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "jelly_message_id"
-          ]
+      "foreignKeys": {
+        "jelly_message_conversation_id_jelly_conversation_id_fk": {
+          "name": "jelly_message_conversation_id_jelly_conversation_id_fk",
+          "tableFrom": "jelly_message",
+          "tableTo": "jelly_conversation",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_message_sender_id_jelly_contact_id_fk": {
+          "name": "jelly_message_sender_id_jelly_contact_id_fk",
+          "tableFrom": "jelly_message",
+          "tableTo": "jelly_contact",
+          "columnsFrom": [
+            "sender_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_message_attachment": {
+      "name": "jelly_message_attachment",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "byte_size": {
+          "name": "byte_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "inline": {
+          "name": "inline",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jelly_message_attachment_message_id_jelly_message_id_fk": {
+          "name": "jelly_message_attachment_message_id_jelly_message_id_fk",
+          "tableFrom": "jelly_message_attachment",
+          "tableTo": "jelly_message",
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_message_contact": {
+      "name": "jelly_message_contact",
+      "schema": "",
+      "columns": {
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contact_id": {
+          "name": "contact_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "jelly_message_contact_message_id_jelly_message_id_fk": {
+          "name": "jelly_message_contact_message_id_jelly_message_id_fk",
+          "tableFrom": "jelly_message_contact",
+          "tableTo": "jelly_message",
+          "columnsFrom": [
+            "message_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_message_contact_contact_id_jelly_contact_id_fk": {
+          "name": "jelly_message_contact_contact_id_jelly_contact_id_fk",
+          "tableFrom": "jelly_message_contact",
+          "tableTo": "jelly_contact",
+          "columnsFrom": [
+            "contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -902,6 +1372,12 @@
           "notNull": true,
           "default": false
         },
+        "jelly_team_id": {
+          "name": "jelly_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "exists_in_jelly": {
           "name": "exists_in_jelly",
           "type": "boolean",
@@ -910,14 +1386,29 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "jelly_mailbox_jelly_team_id_jelly_team_id_fk": {
+          "name": "jelly_mailbox_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "jelly_mailbox",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "jelly_mailbox_jelly_mailbox_id_unique": {
-          "name": "jelly_mailbox_jelly_mailbox_id_unique",
+        "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique": {
+          "name": "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "jelly_mailbox_id"
+            "jelly_mailbox_id",
+            "jelly_team_id"
           ]
         }
       },
@@ -935,8 +1426,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "jelly_member_id": {
-          "name": "jelly_member_id",
+        "jelly_contact_id": {
+          "name": "jelly_contact_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -955,7 +1446,34 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "jelly_mailbox_member_jelly_contact_id_jelly_contact_id_fk": {
+          "name": "jelly_mailbox_member_jelly_contact_id_jelly_contact_id_fk",
+          "tableFrom": "jelly_mailbox_member",
+          "tableTo": "jelly_contact",
+          "columnsFrom": [
+            "jelly_contact_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jelly_mailbox_member_jelly_team_id_jelly_team_id_fk": {
+          "name": "jelly_mailbox_member_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "jelly_mailbox_member",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -974,6 +1492,12 @@
         },
         "jelly_mailbox_id": {
           "name": "jelly_mailbox_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "jelly_team_id": {
+          "name": "jelly_team_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -999,17 +1523,23 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "mailbox_jelly_mailbox_id_unique": {
-          "name": "mailbox_jelly_mailbox_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "jelly_mailbox_id"
-          ]
+      "foreignKeys": {
+        "mailbox_jelly_team_id_jelly_team_id_fk": {
+          "name": "mailbox_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "mailbox",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -1047,12 +1577,59 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "mailbox_member_marmalade_user_id_user_id_fk": {
+          "name": "mailbox_member_marmalade_user_id_user_id_fk",
+          "tableFrom": "mailbox_member",
+          "tableTo": "user",
+          "columnsFrom": [
+            "marmalade_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
-        "jelly_team_id": {
-          "name": "jelly_team_id",
+        "mailbox_member_marmalade_mailbox_id_mailbox_id_fk": {
+          "name": "mailbox_member_marmalade_mailbox_id_mailbox_id_fk",
+          "tableFrom": "mailbox_member",
+          "tableTo": "mailbox",
+          "columnsFrom": [
+            "marmalade_mailbox_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.jelly_team": {
+      "name": "jelly_team",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
@@ -1063,8 +1640,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.jelly_team_member": {
-      "name": "jelly_team_member",
+    "public.jelly_contact": {
+      "name": "jelly_contact",
       "schema": "",
       "columns": {
         "id": {
@@ -1077,7 +1654,7 @@
           "name": "name",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "email": {
           "name": "email",
@@ -1089,7 +1666,8 @@
           "name": "role",
           "type": "text",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'contact'"
         },
         "active": {
           "name": "active",
@@ -1109,14 +1687,42 @@
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "jelly_contact_jelly_team_id_jelly_team_id_fk": {
+          "name": "jelly_contact_jelly_team_id_jelly_team_id_fk",
+          "tableFrom": "jelly_contact",
+          "tableTo": "jelly_team",
+          "columnsFrom": [
+            "jelly_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "jelly_team_member_email_unique": {
-          "name": "jelly_team_member_email_unique",
+        "jelly_contact_email_unique": {
+          "name": "jelly_contact_email_unique",
           "nullsNotDistinct": false,
           "columns": [
             "email"

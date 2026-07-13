@@ -66,8 +66,8 @@
   - [ ] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
     - [ ] for now, simply track every jelly request in db and monitor success/fail
-  - [ ] indexes
-  - [ ] host on nest w/ cf tunnels
+  - [x] indexes
+  - [x] ~host on nest w/ cf tunnels~ host on vercel
   - [ ] CI
   - [ ] custom error pages
 

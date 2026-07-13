@@ -31,12 +31,7 @@ export default function Header() {
             Docs
           </Link>
           {externalLinks.map(({ href, label }) => (
-            <a
-              key={href}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a key={href} href={href} target="_blank" rel="noopener noreferrer">
               {label}
             </a>
           ))}

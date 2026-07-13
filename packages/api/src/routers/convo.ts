@@ -1,12 +1,21 @@
 import { db } from "@marmalade-v2/db";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
-import { comment, conversation, message } from "@marmalade-v2/db/schema/convo";
+import {
+  comment,
+  conversation,
+  conversationMailbox,
+  message,
+} from "@marmalade-v2/db/schema/convo";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
-import { eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import z from "zod";
-import { jellyWebhookProcedure } from "../index";
+import {
+  apiKeyOrSessionProcedure,
+  jellyWebhookProcedure,
+  mailboxScopedProcedure,
+} from "../index";
 
 const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
 
@@ -117,6 +126,76 @@ export const conversationRouter = {
         return { success: true };
       }),
   },
+  list: mailboxScopedProcedure
+    .route({ method: "GET", path: "/conversations" })
+    .input(
+      z.object({
+        mailboxId: z.string().min(1).optional(),
+        status: z.string().optional(),
+      }),
+    )
+    .handler(async ({ input }) => {
+      const conditions = [];
+      if (input.mailboxId) {
+        conditions.push(
+          eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+        );
+      }
+      if (input.status) {
+        conditions.push(eq(conversation.status, input.status));
+      }
+
+      const rows = await db
+        .select({
+          conversation,
+          mailboxId: conversationMailbox.jellyMailboxId,
+        })
+        .from(conversation)
+        .leftJoin(
+          conversationMailbox,
+          eq(conversation.id, conversationMailbox.conversationId),
+        )
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(desc(conversation.lastMessageAt));
+
+      return rows;
+    }),
+  get: apiKeyOrSessionProcedure
+    .route({ method: "GET", path: "/conversations/{conversationId}" })
+    .input(
+      z.object({
+        conversationId: z.string().min(1),
+      }),
+    )
+    .handler(async ({ input }) => {
+      const rows = await db
+        .select()
+        .from(conversation)
+        .where(eq(conversation.id, input.conversationId))
+        .limit(1);
+
+      if (rows.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "Conversation not found",
+        });
+      }
+
+      const convo = rows[0];
+
+      const messages = await db
+        .select()
+        .from(message)
+        .where(eq(message.conversationId, input.conversationId))
+        .orderBy(asc(message.sentAt));
+
+      const comments = await db
+        .select()
+        .from(comment)
+        .where(eq(comment.conversationId, input.conversationId))
+        .orderBy(asc(comment.createdAt));
+
+      return { ...convo, messages, comments };
+    }),
   message: {
     create: jellyWebhookProcedure
       .input(
@@ -187,6 +266,47 @@ export const conversationRouter = {
 
         return { success: true };
       }),
+    list: apiKeyOrSessionProcedure
+      .route({
+        method: "GET",
+        path: "/conversations/{conversationId}/messages",
+      })
+      .input(
+        z.object({
+          conversationId: z.string().min(1),
+        }),
+      )
+      .handler(async ({ input }) => {
+        const rows = await db
+          .select()
+          .from(message)
+          .where(eq(message.conversationId, input.conversationId))
+          .orderBy(asc(message.sentAt));
+
+        return rows;
+      }),
+    get: apiKeyOrSessionProcedure
+      .route({ method: "GET", path: "/messages/{messageId}" })
+      .input(
+        z.object({
+          messageId: z.string().min(1),
+        }),
+      )
+      .handler(async ({ input }) => {
+        const rows = await db
+          .select()
+          .from(message)
+          .where(eq(message.id, input.messageId))
+          .limit(1);
+
+        if (rows.length === 0) {
+          throw new ORPCError("NOT_FOUND", {
+            message: "Message not found",
+          });
+        }
+
+        return rows[0];
+      }),
   },
   comment: {
     create: jellyWebhookProcedure
@@ -247,6 +367,47 @@ export const conversationRouter = {
         });
 
         return { success: true };
+      }),
+    list: apiKeyOrSessionProcedure
+      .route({
+        method: "GET",
+        path: "/conversations/{conversationId}/comments",
+      })
+      .input(
+        z.object({
+          conversationId: z.string().min(1),
+        }),
+      )
+      .handler(async ({ input }) => {
+        const rows = await db
+          .select()
+          .from(comment)
+          .where(eq(comment.conversationId, input.conversationId))
+          .orderBy(asc(comment.createdAt));
+
+        return rows;
+      }),
+    get: apiKeyOrSessionProcedure
+      .route({ method: "GET", path: "/comments/{commentId}" })
+      .input(
+        z.object({
+          commentId: z.string().min(1),
+        }),
+      )
+      .handler(async ({ input }) => {
+        const rows = await db
+          .select()
+          .from(comment)
+          .where(eq(comment.id, input.commentId))
+          .limit(1);
+
+        if (rows.length === 0) {
+          throw new ORPCError("NOT_FOUND", {
+            message: "Comment not found",
+          });
+        }
+
+        return rows[0];
       }),
   },
 };

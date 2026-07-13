@@ -6,6 +6,7 @@ import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import { protectedProcedure, publicProcedure } from "../index";
 import { apiKeyRouter } from "./api";
+import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
 
@@ -48,6 +49,7 @@ export const appRouter = {
   mailbox: mailboxRouter,
   team: teamRouter,
   apiKey: apiKeyRouter,
+  convo: conversationRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

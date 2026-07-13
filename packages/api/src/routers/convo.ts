@@ -9,7 +9,7 @@ import {
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, like, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionProcedure,
@@ -18,6 +18,53 @@ import {
 } from "../index";
 
 const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
+
+function parseSubjectSearch(search: string) {
+  const terms: { exact: boolean; value: string }[] = [];
+  const regex = /"([^"]+)"|(\S+)/g;
+  let match;
+  while ((match = regex.exec(search)) !== null) {
+    if (match[1]) {
+      terms.push({ exact: true, value: match[1] });
+    } else if (match[2]) {
+      terms.push({ exact: false, value: match[2] });
+    }
+  }
+  return terms;
+}
+
+function buildSubjectConditions(search: string) {
+  const terms = parseSubjectSearch(search);
+  return terms.map((term) =>
+    term.exact
+      ? eq(conversation.subject, term.value)
+      : like(conversation.subject, `%${term.value}%`),
+  );
+}
+
+const conversationSortFields = {
+  createdAt: conversation.createdAt,
+  updatedAt: conversation.updatedAt,
+  lastMessageAt: conversation.lastMessageAt,
+  subject: conversation.subject,
+  status: conversation.status,
+  messagesCount: conversation.messagesCount,
+  commentsCount: conversation.commentsCount,
+  attachmentsCount: conversation.attachmentsCount,
+} as const;
+
+const messageSortFields = {
+  sentAt: message.sentAt,
+  createdAt: message.createdAt,
+  subject: message.subject,
+  isInbound: message.isInbound,
+  attachmentsCount: message.attachmentsCount,
+} as const;
+
+const commentSortFields = {
+  createdAt: comment.createdAt,
+  body: comment.body,
+} as const;
 
 export const conversationRouter = {
   convo: {
@@ -47,7 +94,9 @@ export const conversationRouter = {
               id: input.jellyConversationId,
               subject: input.subject ?? null,
               status: input.status ?? "open",
-              lastMessageAt: input.sentAt ? new Date(input.sentAt) : new Date(),
+              lastMessageAt: input.sentAt
+                ? new Date(input.sentAt)
+                : new Date(),
             })
             .onConflictDoNothing()
             .returning({ id: conversation.id });
@@ -127,23 +176,63 @@ export const conversationRouter = {
       }),
   },
   list: mailboxScopedProcedure
-    .route({ method: "GET", path: "/conversations" })
+    .route({
+      method: "GET",
+      path: "/mailboxes/{mailboxId}/conversations",
+    })
     .input(
       z.object({
-        mailboxId: z.string().min(1).optional(),
+        mailboxId: z.string().min(1),
         status: z.string().optional(),
+        search: z.string().optional(),
+        startDate: z.string().datetime().optional(),
+        endDate: z.string().datetime().optional(),
+        sortBy: z
+          .enum([
+            "createdAt",
+            "updatedAt",
+            "lastMessageAt",
+            "subject",
+            "status",
+            "messagesCount",
+            "commentsCount",
+            "attachmentsCount",
+          ])
+          .optional()
+          .default("lastMessageAt"),
+        sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
       }),
     )
     .handler(async ({ input }) => {
-      const conditions = [];
-      if (input.mailboxId) {
-        conditions.push(
-          eq(conversationMailbox.jellyMailboxId, input.mailboxId),
-        );
-      }
+      const conditions = [
+        eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+      ];
+
       if (input.status) {
         conditions.push(eq(conversation.status, input.status));
       }
+
+      if (input.search) {
+        const searchConditions = buildSubjectConditions(input.search);
+        if (searchConditions.length === 1) {
+          conditions.push(searchConditions[0]!);
+        } else if (searchConditions.length > 1) {
+          conditions.push(and(...searchConditions)!);
+        }
+      }
+
+      if (input.startDate) {
+        conditions.push(gte(conversation.createdAt, new Date(input.startDate)));
+      }
+      if (input.endDate) {
+        conditions.push(lte(conversation.createdAt, new Date(input.endDate)));
+      }
+
+      const sortCol = conversationSortFields[input.sortBy]!;
+      const orderFn =
+        input.sortOrder === "asc"
+          ? sql`${sortCol} asc nulls last`
+          : sql`${sortCol} desc nulls last`;
 
       const rows = await db
         .select({
@@ -151,19 +240,23 @@ export const conversationRouter = {
           mailboxId: conversationMailbox.jellyMailboxId,
         })
         .from(conversation)
-        .leftJoin(
+        .innerJoin(
           conversationMailbox,
           eq(conversation.id, conversationMailbox.conversationId),
         )
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
-        .orderBy(desc(conversation.lastMessageAt));
+        .where(and(...conditions))
+        .orderBy(orderFn);
 
       return rows;
     }),
   get: apiKeyOrSessionProcedure
-    .route({ method: "GET", path: "/conversations/{conversationId}" })
+    .route({
+      method: "GET",
+      path: "/mailboxes/{mailboxId}/conversations/{conversationId}",
+    })
     .input(
       z.object({
+        mailboxId: z.string().min(1),
         conversationId: z.string().min(1),
       }),
     )
@@ -171,7 +264,16 @@ export const conversationRouter = {
       const rows = await db
         .select()
         .from(conversation)
-        .where(eq(conversation.id, input.conversationId))
+        .innerJoin(
+          conversationMailbox,
+          eq(conversation.id, conversationMailbox.conversationId),
+        )
+        .where(
+          and(
+            eq(conversation.id, input.conversationId),
+            eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+          ),
+        )
         .limit(1);
 
       if (rows.length === 0) {
@@ -180,7 +282,7 @@ export const conversationRouter = {
         });
       }
 
-      const convo = rows[0];
+      const convo = rows[0]!.jelly_conversation;
 
       const messages = await db
         .select()
@@ -213,7 +315,6 @@ export const conversationRouter = {
         }),
       )
       .handler(async ({ input }) => {
-        // lookup inpug.senderEmail in jellyTeamContact to see if this contact exists in our system before creating the message
         if (!input.senderEmail) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Message sender email is required",
@@ -269,34 +370,79 @@ export const conversationRouter = {
     list: apiKeyOrSessionProcedure
       .route({
         method: "GET",
-        path: "/conversations/{conversationId}/messages",
+        path: "/mailboxes/{mailboxId}/conversations/{conversationId}/messages",
       })
       .input(
         z.object({
+          mailboxId: z.string().min(1),
           conversationId: z.string().min(1),
+          startDate: z.string().datetime().optional(),
+          endDate: z.string().datetime().optional(),
+          sortBy: z
+            .enum(["sentAt", "createdAt", "subject", "isInbound", "attachmentsCount"])
+            .optional()
+            .default("sentAt"),
+          sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
         }),
       )
       .handler(async ({ input }) => {
+        const conditions = [
+          eq(message.conversationId, input.conversationId),
+        ];
+
+        if (input.startDate) {
+          conditions.push(gte(message.sentAt, new Date(input.startDate)));
+        }
+        if (input.endDate) {
+          conditions.push(lte(message.sentAt, new Date(input.endDate)));
+        }
+
+        const sortCol = messageSortFields[input.sortBy]!;
+        const orderFn =
+          input.sortOrder === "asc"
+            ? sql`${sortCol} asc nulls last`
+            : sql`${sortCol} desc nulls last`;
+
         const rows = await db
           .select()
           .from(message)
-          .where(eq(message.conversationId, input.conversationId))
-          .orderBy(asc(message.sentAt));
+          .where(and(...conditions))
+          .orderBy(orderFn);
 
         return rows;
       }),
     get: apiKeyOrSessionProcedure
-      .route({ method: "GET", path: "/messages/{messageId}" })
+      .route({
+        method: "GET",
+        path: "/mailboxes/{mailboxId}/messages/{messageId}",
+      })
       .input(
         z.object({
+          mailboxId: z.string().min(1),
           messageId: z.string().min(1),
         }),
       )
       .handler(async ({ input }) => {
         const rows = await db
-          .select()
+          .select({
+            message,
+            conversationMailbox,
+          })
           .from(message)
-          .where(eq(message.id, input.messageId))
+          .innerJoin(
+            conversation,
+            eq(message.conversationId, conversation.id),
+          )
+          .innerJoin(
+            conversationMailbox,
+            eq(conversation.id, conversationMailbox.conversationId),
+          )
+          .where(
+            and(
+              eq(message.id, input.messageId),
+              eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+            ),
+          )
           .limit(1);
 
         if (rows.length === 0) {
@@ -305,7 +451,7 @@ export const conversationRouter = {
           });
         }
 
-        return rows[0];
+        return rows[0]!.message;
       }),
   },
   comment: {
@@ -323,7 +469,6 @@ export const conversationRouter = {
         }),
       )
       .handler(async ({ input }) => {
-        // comments are only created by people who are already contacts, so verify this contact exists in our system before creating the comment
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
@@ -341,7 +486,6 @@ export const conversationRouter = {
           .values({
             id: input.jellyCommentId,
             conversationId: input.conversationId,
-            //   inboxId: input.inboxId,
             body: input.body ?? "",
             authorId: input.authorId ?? null,
             createdAt: input.createdAt ? new Date(input.createdAt) : new Date(),
@@ -371,34 +515,76 @@ export const conversationRouter = {
     list: apiKeyOrSessionProcedure
       .route({
         method: "GET",
-        path: "/conversations/{conversationId}/comments",
+        path: "/mailboxes/{mailboxId}/conversations/{conversationId}/comments",
       })
       .input(
         z.object({
+          mailboxId: z.string().min(1),
           conversationId: z.string().min(1),
+          startDate: z.string().datetime().optional(),
+          endDate: z.string().datetime().optional(),
+          sortBy: z.enum(["createdAt", "body"]).optional().default("createdAt"),
+          sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
         }),
       )
       .handler(async ({ input }) => {
+        const conditions = [
+          eq(comment.conversationId, input.conversationId),
+        ];
+
+        if (input.startDate) {
+          conditions.push(gte(comment.createdAt, new Date(input.startDate)));
+        }
+        if (input.endDate) {
+          conditions.push(lte(comment.createdAt, new Date(input.endDate)));
+        }
+
+        const sortCol = commentSortFields[input.sortBy]!;
+        const orderFn =
+          input.sortOrder === "asc"
+            ? sql`${sortCol} asc nulls last`
+            : sql`${sortCol} desc nulls last`;
+
         const rows = await db
           .select()
           .from(comment)
-          .where(eq(comment.conversationId, input.conversationId))
-          .orderBy(asc(comment.createdAt));
+          .where(and(...conditions))
+          .orderBy(orderFn);
 
         return rows;
       }),
     get: apiKeyOrSessionProcedure
-      .route({ method: "GET", path: "/comments/{commentId}" })
+      .route({
+        method: "GET",
+        path: "/mailboxes/{mailboxId}/comments/{commentId}",
+      })
       .input(
         z.object({
+          mailboxId: z.string().min(1),
           commentId: z.string().min(1),
         }),
       )
       .handler(async ({ input }) => {
         const rows = await db
-          .select()
+          .select({
+            comment,
+            conversationMailbox,
+          })
           .from(comment)
-          .where(eq(comment.id, input.commentId))
+          .innerJoin(
+            conversation,
+            eq(comment.conversationId, conversation.id),
+          )
+          .innerJoin(
+            conversationMailbox,
+            eq(conversation.id, conversationMailbox.conversationId),
+          )
+          .where(
+            and(
+              eq(comment.id, input.commentId),
+              eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+            ),
+          )
           .limit(1);
 
         if (rows.length === 0) {
@@ -407,7 +593,7 @@ export const conversationRouter = {
           });
         }
 
-        return rows[0];
+        return rows[0]!.comment;
       }),
   },
 };

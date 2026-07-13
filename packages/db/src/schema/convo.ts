@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -7,28 +8,40 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { jellyTeam, jellyTeamContact } from "./team";
 
-export const conversation = pgTable("jelly_conversation", {
-  id: text("id").primaryKey(),
-  subject: text("subject"),
-  status: text("status").notNull().default("open"),
-  messagesCount: integer("messages_count").notNull().default(0),
-  commentsCount: integer("comments_count").notNull().default(0),
-  attachmentsCount: integer("attachments_count").notNull().default(0),
-  snoozedUntil: timestamp("snoozed_until", { mode: "date" }),
-  url: text("url"),
-  markdownUrl: text("markdown_url"),
-  messagesUrl: text("messages_url"),
-  commentsUrl: text("comments_url"),
-  draftReplyUrl: text("draft_reply_url"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  lastMessageAt: timestamp("last_message_at", { mode: "date" }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const conversation = pgTable(
+  "jelly_conversation",
+  {
+    id: text("id").primaryKey(),
+    subject: text("subject"),
+    status: text("status").notNull().default("open"),
+    messagesCount: integer("messages_count").notNull().default(0),
+    commentsCount: integer("comments_count").notNull().default(0),
+    attachmentsCount: integer("attachments_count").notNull().default(0),
+    snoozedUntil: timestamp("snoozed_until", { mode: "date" }),
+    url: text("url"),
+    markdownUrl: text("markdown_url"),
+    messagesUrl: text("messages_url"),
+    commentsUrl: text("comments_url"),
+    draftReplyUrl: text("draft_reply_url"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    lastMessageAt: timestamp("last_message_at", { mode: "date" }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [
+    index("idx_conversation_status").on(table.status),
+    index("idx_conversation_created_at").on(table.createdAt),
+    index("idx_conversation_last_message_at").on(table.lastMessageAt),
+    index("idx_conversation_updated_at").on(table.updatedAt),
+    index("idx_conversation_subject_gin")
+      .using("gin", sql`${table.subject} gin_trgm_ops`),
+  ],
+);
 
 export const conversationAssignment = pgTable("jelly_conversation_assignment", {
   id: serial("id").primaryKey(),
@@ -60,34 +73,49 @@ export const label = pgTable("jelly_label", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
-export const conversationMailbox = pgTable("jelly_conversation_mailbox", {
-  id: serial("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversation.id, { onDelete: "cascade" }),
-  jellyMailboxId: text("jelly_mailbox_id").notNull(),
-  jellyTeamId: text("jelly_team_id")
-    .notNull()
-    .references(() => jellyTeam.id, { onDelete: "cascade" }),
-});
+export const conversationMailbox = pgTable(
+  "jelly_conversation_mailbox",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    jellyMailboxId: text("jelly_mailbox_id").notNull(),
+    jellyTeamId: text("jelly_team_id")
+      .notNull()
+      .references(() => jellyTeam.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("idx_conversation_mailbox_jelly_mailbox_id").on(table.jellyMailboxId),
+    index("idx_conversation_mailbox_conversation_id").on(table.conversationId),
+  ],
+);
 
-export const message = pgTable("jelly_message", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversation.id, { onDelete: "cascade" }),
-  subject: text("subject"),
-  content: text("content"),
-  contentHtml: text("content_html"),
-  senderId: text("sender_id").references(() => jellyTeamContact.id, {
-    onDelete: "set null",
-  }),
-  isInbound: boolean("is_inbound").notNull().default(true),
-  attachmentsCount: integer("attachments_count").notNull().default(0),
-  metadata: jsonb("metadata"),
-  sentAt: timestamp("sent_at", { mode: "date" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const message = pgTable(
+  "jelly_message",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    subject: text("subject"),
+    content: text("content"),
+    contentHtml: text("content_html"),
+    senderId: text("sender_id").references(() => jellyTeamContact.id, {
+      onDelete: "set null",
+    }),
+    isInbound: boolean("is_inbound").notNull().default(true),
+    attachmentsCount: integer("attachments_count").notNull().default(0),
+    metadata: jsonb("metadata"),
+    sentAt: timestamp("sent_at", { mode: "date" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_message_conversation_id").on(table.conversationId),
+    index("idx_message_sent_at").on(table.sentAt),
+    index("idx_message_created_at").on(table.createdAt),
+  ],
+);
 
 export const messageContact = pgTable("jelly_message_contact", {
   type: text("type").notNull(), // cc, from
@@ -115,15 +143,22 @@ export const messageAttachment = pgTable("jelly_message_attachment", {
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });
 
-export const comment = pgTable("comment", {
-  id: text("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversation.id, { onDelete: "cascade" }),
-  body: text("body"),
-  authorId: text("author_id").references(() => jellyTeamContact.id, {
-    onDelete: "set null",
-  }),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const comment = pgTable(
+  "comment",
+  {
+    id: text("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    body: text("body"),
+    authorId: text("author_id").references(() => jellyTeamContact.id, {
+      onDelete: "set null",
+    }),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("idx_comment_conversation_id").on(table.conversationId),
+    index("idx_comment_created_at").on(table.createdAt),
+  ],
+);

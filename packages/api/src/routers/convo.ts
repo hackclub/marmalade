@@ -94,9 +94,7 @@ export const conversationRouter = {
               id: input.jellyConversationId,
               subject: input.subject ?? null,
               status: input.status ?? "open",
-              lastMessageAt: input.sentAt
-                ? new Date(input.sentAt)
-                : new Date(),
+              lastMessageAt: input.sentAt ? new Date(input.sentAt) : new Date(),
             })
             .onConflictDoNothing()
             .returning({ id: conversation.id });
@@ -379,16 +377,20 @@ export const conversationRouter = {
           startDate: z.string().datetime().optional(),
           endDate: z.string().datetime().optional(),
           sortBy: z
-            .enum(["sentAt", "createdAt", "subject", "isInbound", "attachmentsCount"])
+            .enum([
+              "sentAt",
+              "createdAt",
+              "subject",
+              "isInbound",
+              "attachmentsCount",
+            ])
             .optional()
             .default("sentAt"),
           sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
         }),
       )
       .handler(async ({ input }) => {
-        const conditions = [
-          eq(message.conversationId, input.conversationId),
-        ];
+        const conditions = [eq(message.conversationId, input.conversationId)];
 
         if (input.startDate) {
           conditions.push(gte(message.sentAt, new Date(input.startDate)));
@@ -429,10 +431,7 @@ export const conversationRouter = {
             conversationMailbox,
           })
           .from(message)
-          .innerJoin(
-            conversation,
-            eq(message.conversationId, conversation.id),
-          )
+          .innerJoin(conversation, eq(message.conversationId, conversation.id))
           .innerJoin(
             conversationMailbox,
             eq(conversation.id, conversationMailbox.conversationId),
@@ -528,9 +527,7 @@ export const conversationRouter = {
         }),
       )
       .handler(async ({ input }) => {
-        const conditions = [
-          eq(comment.conversationId, input.conversationId),
-        ];
+        const conditions = [eq(comment.conversationId, input.conversationId)];
 
         if (input.startDate) {
           conditions.push(gte(comment.createdAt, new Date(input.startDate)));
@@ -571,10 +568,7 @@ export const conversationRouter = {
             conversationMailbox,
           })
           .from(comment)
-          .innerJoin(
-            conversation,
-            eq(comment.conversationId, conversation.id),
-          )
+          .innerJoin(conversation, eq(comment.conversationId, conversation.id))
           .innerJoin(
             conversationMailbox,
             eq(conversation.id, conversationMailbox.conversationId),

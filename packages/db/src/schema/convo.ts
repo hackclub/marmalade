@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
@@ -8,7 +9,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { sql } from "drizzle-orm";
 import { jellyTeam, jellyTeamContact } from "./team";
 
 export const conversation = pgTable(
@@ -38,8 +38,10 @@ export const conversation = pgTable(
     index("idx_conversation_created_at").on(table.createdAt),
     index("idx_conversation_last_message_at").on(table.lastMessageAt),
     index("idx_conversation_updated_at").on(table.updatedAt),
-    index("idx_conversation_subject_gin")
-      .using("gin", sql`${table.subject} gin_trgm_ops`),
+    index("idx_conversation_subject_gin").using(
+      "gin",
+      sql`${table.subject} gin_trgm_ops`,
+    ),
   ],
 );
 

@@ -25,6 +25,19 @@ export const authOrApiKeyOrWebhookO = os.$context<
 
 export const publicProcedure = authO;
 
+const requireApiKeyAuth = authOrApiKeyOrWebhookO.middleware(
+  async ({ context, next }) => {
+    const hasSession = "session" in context && Boolean(context.session?.user);
+    const hasApiKey = "apiKey" in context && Boolean(context.apiKey);
+    if (!hasSession && !hasApiKey) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+    return next({ context });
+  },
+);
+export const apiKeyOrSessionProcedure =
+  authOrApiKeyOrWebhookO.use(requireApiKeyAuth);
+
 export const jellyWebhookProcedure = webhookO;
 export const authOrWebhookProcedure = authOrWebhookO;
 

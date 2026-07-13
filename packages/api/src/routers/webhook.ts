@@ -98,6 +98,7 @@ export const adminRouter = {
         {
           jellyMailboxId: mailboxId,
         },
+        // @ts-expect-error: WebhookContext satisfies the runtime middleware but oRPC's call() doesn't infer through middleware
         { context },
       );
 
@@ -178,7 +179,7 @@ export const adminRouter = {
           conversationRouter.comment.create,
           {
             jellyCommentId: comment.id,
-            conversationId: parseInt(conversation.id),
+            conversationId: conversation.id,
             inboxId: mailboxDetails.inboxId,
             body: comment.body ?? null,
             authorName: comment.author?.name ?? null,

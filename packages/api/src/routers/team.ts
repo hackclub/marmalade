@@ -4,14 +4,14 @@ import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { eq, inArray } from "drizzle-orm";
-import { protectedProcedure, publicProcedure } from "..";
+import { apiKeyOrSessionProcedure, publicProcedure } from "..";
 import { getJellyClient } from "../lib/jelly";
 import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 
 export const teamRouter = {
-  list: protectedProcedure
+  list: apiKeyOrSessionProcedure
     .route({ method: "GET", path: "/members" })
     .handler(async () => {
       const results = await db

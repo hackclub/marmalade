@@ -17,7 +17,7 @@ export default function SignInForm() {
   }
 
   if (data?.session) {
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/" });
     return null;
   }
 
@@ -36,7 +36,7 @@ export default function SignInForm() {
         onClick={async () => {
           const { error } = await authClient.signIn.oauth2({
             providerId: "hackclub",
-            callbackURL: "/dashboard",
+            callbackURL: "/",
           });
           if (error) {
             toast.error(error.message || "Failed to sign in with Hack Club");

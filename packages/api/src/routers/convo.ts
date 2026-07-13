@@ -160,11 +160,10 @@ export const conversationRouter = {
             contentHtml: input.contentHtml ?? null,
             senderId: existingContactRows[0]?.id ?? null,
             isInbound: input.isInbound ?? true,
-            status: "received",
             metadata: {
               attachments_count: input.attachmentsCount ?? 0,
             },
-            receivedAt: input.sentAt ? new Date(input.sentAt) : new Date(),
+            sentAt: input.sentAt ? new Date(input.sentAt) : new Date(),
           })
           .onConflictDoNothing();
 

@@ -3,5 +3,13 @@ dist
 build
 coverage
 .turbo
+.vercel
+.nx
+.alchemy
+.nyc_output
+.cache
+tmp
+temp
+.output
 pnpm-lock.yaml
 **/routeTree.gen.ts

@@ -97,3 +97,34 @@
 .dark .swagger-ui svg {
   filter: invert(0.8);
 }
+.dark .swagger-ui .dialog-ux .dialog-ux-container {
+  background: hsl(240 10% 8%) !important;
+  border-color: hsl(240 3.7% 15.9%) !important;
+}
+.dark .swagger-ui .modal-ux {
+  background: hsl(240 10% 8%) !important;
+}
+.dark .swagger-ui .modal-ux .modal-ux-container {
+  background: hsl(240 10% 8%) !important;
+  border-color: hsl(240 3.7% 15.9%) !important;
+}
+.dark .swagger-ui .modal-ux .modal-ux-header h3 {
+  color: hsl(0 0% 95%) !important;
+}
+.dark .swagger-ui .modal-ux label {
+  color: hsl(0 0% 80%) !important;
+}
+.dark .swagger-ui .auth-container .wrapper {
+  color: hsl(0 0% 95%) !important;
+}
+.dark .swagger-ui .auth-container input {
+  background: hsl(240 10% 3.9%) !important;
+  color: hsl(0 0% 95%) !important;
+  border-color: hsl(240 3.7% 15.9%) !important;
+}
+.dark .swagger-ui .auth-container .btn {
+  color: hsl(0 0% 95%) !important;
+}
+.dark .swagger-ui .dialog-ux .backdrop-ux {
+  background: rgba(0, 0, 0, 0.6) !important;
+}

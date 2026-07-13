@@ -67,7 +67,7 @@
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
     - [ ] for now, simply track every jelly request in db and monitor success/fail
   - [x] indexes
-  - [x] ~host on nest w/ cf tunnels~ host on vercel
+  - [x] ~~host on nest w/ cf tunnels~~ host on vercel
   - [ ] CI
   - [ ] custom error pages
 

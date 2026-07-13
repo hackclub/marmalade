@@ -68,8 +68,11 @@
     - [ ] for now, simply track every jelly request in db and monitor success/fail
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel
+- qol
+  - [x] custom error pages
   - [ ] CI
-  - [ ] custom error pages
+- dx
+  - [x] ~~swagger~~ scalar api docs
 
 ## stuff that does stuff
 

@@ -10,7 +10,7 @@ import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
-import { and, asc, eq, gte, like, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionProcedure,
@@ -39,7 +39,7 @@ function buildSubjectConditions(search: string) {
   return terms.map((term) =>
     term.exact
       ? eq(conversation.subject, term.value)
-      : like(conversation.subject, `%${term.value}%`),
+      : ilike(conversation.subject, `%${term.value}%`),
   );
 }
 

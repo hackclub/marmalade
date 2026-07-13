@@ -401,7 +401,7 @@ export const mailboxRouter = {
       let mailboxes;
       try {
         mailboxes = await jelly.listMailboxes();
-      } catch (e) {
+      } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "Failed to fetch mailboxes from Jelly",
         });
@@ -487,7 +487,7 @@ export const mailboxRouter = {
       let mailboxMembers;
       try {
         mailboxMembers = await jelly.listMailboxMembers(input.mailboxId);
-      } catch (e) {
+      } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "Failed to fetch mailbox members from Jelly",
         });

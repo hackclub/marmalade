@@ -77,7 +77,7 @@ class JellyApiClient {
     const startTime = Date.now();
     try {
       const result = await this.request(path, options);
-      const isSuccessful = true;
+      const _isSuccessful = true;
       const endTime = Date.now();
       await auditLog({
         action: "JELLY_API_CALL",
@@ -88,7 +88,7 @@ class JellyApiClient {
       });
       return result;
     } catch (error) {
-      const endTime = Date.now();
+      const _endTime = Date.now();
       await call(
         auditRouter.create,
         {

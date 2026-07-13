@@ -100,7 +100,7 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
           session: context.session,
         },
       });
-    } catch (e) {
+    } catch {
       throw new ORPCError("FORBIDDEN");
     }
   },

@@ -42,7 +42,7 @@ export const teamRouter = {
       let teamMembers;
       try {
         teamMembers = await jelly.listMembers();
-      } catch (e) {
+      } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
           message: "Failed to fetch team members from Jelly",
         });

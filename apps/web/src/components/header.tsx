@@ -21,7 +21,12 @@ export default function Header() {
         <nav className="flex gap-4 text-lg">
           {links.map(({ to, label }) => {
             if (to === "divider") {
-              return <hr key={to} className="border-gray-600 border h-[20px] self-center" />;
+              return (
+                <hr
+                  key={to}
+                  className="h-[20px] self-center border border-gray-600"
+                />
+              );
             }
             return (
               <Link key={to} to={to}>

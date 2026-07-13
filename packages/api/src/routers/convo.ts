@@ -6,6 +6,7 @@ import {
   conversationMailbox,
   message,
 } from "@marmalade-v2/db/schema/convo";
+import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
@@ -116,6 +117,25 @@ export const conversationRouter = {
           throw new ORPCError("INTERNAL_SERVER_ERROR", {
             message: "Conversation could not be created",
           });
+        }
+
+        const mailboxRows = await db
+          .select({ jellyMailboxId: jellyMailbox.jellyMailboxId })
+          .from(jellyMailbox)
+          .where(eq(jellyMailbox.id, input.inboxId))
+          .limit(1);
+
+        const mailboxId = mailboxRows[0]?.jellyMailboxId ?? null;
+
+        if (mailboxId) {
+          await db
+            .insert(conversationMailbox)
+            .values({
+              conversationId,
+              jellyMailboxId: mailboxId,
+              jellyTeamId: env.JELLY_TEAM_ID,
+            })
+            .onConflictDoNothing();
         }
 
         await db.insert(auditLog).values({

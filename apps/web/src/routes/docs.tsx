@@ -18,18 +18,23 @@ const SWAGGER_BUNDLE_URL =
 
 function loadScript(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((window as any).SwaggerUIBundle) {
+      resolve();
+      return;
+    }
     const existing = document.querySelector(
       `script[src="${url}"]`,
     ) as HTMLScriptElement | null;
     if (existing) {
       existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", reject, { once: true });
+      existing.addEventListener("error", () => reject(), { once: true });
       return;
     }
     const script = document.createElement("script");
     script.src = url;
     script.addEventListener("load", () => resolve(), { once: true });
-    script.addEventListener("error", reject, { once: true });
+    script.addEventListener("error", () => reject(), { once: true });
     document.body.appendChild(script);
   });
 }

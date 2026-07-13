@@ -22,6 +22,22 @@ const apiHandler = new OpenAPIHandler(appRouter, {
   plugins: [
     new OpenAPIReferencePlugin({
       schemaConverters: [new ZodToJsonSchemaConverter()],
+      specGenerateOptions: {
+        info: {
+          title: "Marmalade API",
+          version: "1.0.0",
+        },
+        security: [{ BearerAuth: [] }],
+        components: {
+          securitySchemes: {
+            BearerAuth: {
+              type: "http",
+              scheme: "bearer",
+              bearerFormat: "API Key",
+            },
+          },
+        },
+      },
     }),
   ],
   interceptors: [
@@ -40,6 +56,12 @@ async function resolveContext({ request }: { request: Request }) {
 }
 
 async function handle({ request }: { request: Request }) {
+  const apiResult = await apiHandler.handle(request, {
+    prefix: "/api/rpc/api-reference",
+    context: { auth: null, session: null },
+  });
+  if (apiResult.response) return apiResult.response;
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const context: any = await resolveContext({ request });
 
@@ -48,12 +70,6 @@ async function handle({ request }: { request: Request }) {
     context,
   });
   if (rpcResult.response) return rpcResult.response;
-
-  const apiResult = await apiHandler.handle(request, {
-    prefix: "/api/rpc/api-reference",
-    context,
-  });
-  if (apiResult.response) return apiResult.response;
 
   return new Response("Not found", { status: 404 });
 }

@@ -24,7 +24,7 @@ export const appRouter = {
       };
     }),
   membershipInfo: protectedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/membership" })
+    .route({ method: "GET", path: "/membership" })
     .handler(async ({ context }) => {
       const teamMember = await db
         .select()

@@ -5,10 +5,14 @@ import UserMenu from "./user-menu";
 export default function Header() {
   const links = [
     { to: "/", label: "🍊" },
-    { to: "/dashboard", label: "Admin" },
+    // { to: "/dashboard", label: "Admin" },
     { to: "/mailboxes", label: "Mailboxes" },
     { to: "/team", label: "Team" },
     { to: "/keys", label: "Keys" },
+    // { to: "/audit", label: "Audit" },
+    { to: "divider", label: "divider" },
+    { to: "/docs", label: "Docs" },
+    { to: "https://github.com/quackclub/marmalade", label: "Repo" },
   ] as const;
 
   return (
@@ -16,6 +20,9 @@ export default function Header() {
       <div className="flex flex-row items-center justify-between px-2 py-1">
         <nav className="flex gap-4 text-lg">
           {links.map(({ to, label }) => {
+            if (to === "divider") {
+              return <hr key={to} className="border-gray-600 border h-[20px] self-center" />;
+            }
             return (
               <Link key={to} to={to}>
                 {label}

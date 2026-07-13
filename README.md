@@ -22,8 +22,8 @@
     - [x] new_message
     - [ ] assigned
     - [x] comment_added
-    - [ ] conversation_archived
-    - [ ] conversation_unarchived
+    - [x] conversation_archived
+    - [x] conversation_unarchived
 - [ ] mailboxes
   - [ ] admin actions
     - [x] ‼️ create marmalade mailbox for jelly mailbox
@@ -42,11 +42,12 @@
     - [ ] view all keys regardless of ownership (toggle)
   - [ ] member actions
     - [ ] view all apikeys in permissioned mailboxes
-    - [ ] ‼️ create api keys
-    - [ ] rescind api keys
-- [ ] convos
-- [ ] messages
-- [ ] comments
+    - [x] view all their apikeys
+    - [x] ‼️ create api keys
+    - [x] rescind api keys
+- [x] convos
+- [x] messages
+- [x] comments
 - [ ] attachments
 - [ ] security/access
   - [x] ‼️ hack club oidc auth
@@ -59,6 +60,7 @@
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately
   - [ ] admins should not be able to mutate owners
+  - [ ] standardized key prefix (for [revokability](https://revoke.hackclub.com))
 - [ ] plumbing
   - [ ] ensure uniqueness of relational tables and make references "official"
   - [ ] first time sync on registration and scheduled/manual org teammember resyncs
@@ -68,7 +70,6 @@
   - [ ] host on nest w/ cf tunnels
   - [ ] CI
   - [ ] custom error pages
-  - [ ] standardized key prefix (for [revokability](https://revoke.hackclub.com))
 
 ## stuff that does stuff
 

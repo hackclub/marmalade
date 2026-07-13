@@ -12,7 +12,7 @@ const jelly = getJellyClient();
 
 export const teamRouter = {
   list: protectedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/members" })
+    .route({ method: "GET", path: "/members" })
     .handler(async () => {
       const results = await db
         .select({
@@ -29,7 +29,7 @@ export const teamRouter = {
       }));
     }),
   resync: publicProcedure
-    .route({ method: "POST", path: "/team/{teamId}/resync" })
+    .route({ method: "POST", path: "/resync" })
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()

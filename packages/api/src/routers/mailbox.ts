@@ -77,7 +77,7 @@ type MailboxListQueryRow = {
 
 export const mailboxRouter = {
   getMailboxDetails: mailboxScopedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/mailboxes/{jellyMailboxId}" })
+    .route({ method: "GET", path: "/mailboxes/{jellyMailboxId}" })
     .input(
       z.object({
         jellyMailboxId: z.string().min(1),
@@ -164,7 +164,7 @@ export const mailboxRouter = {
       };
     }),
   list: mailboxScopedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/mailboxes" })
+    .route({ method: "GET", path: "/mailboxes" })
     .handler(async ({ context }) => {
       if ("apiKey" in context) {
         const mailboxes = await db
@@ -345,7 +345,7 @@ export const mailboxRouter = {
       }));
     }),
   create: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes" })
+    .route({ method: "POST", path: "/mailboxes" })
     .input(z.object({ jellyMailboxId: z.string().min(1) }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
@@ -388,7 +388,7 @@ export const mailboxRouter = {
       return { message: "Mailbox created successfully" };
     }),
   resync: publicProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/resync" })
+    .route({ method: "POST", path: "/mailboxes/resync" })
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()
@@ -476,7 +476,7 @@ export const mailboxRouter = {
   resyncMembers: publicProcedure
     .route({
       method: "POST",
-      path: "/team/{teamId}/mailboxes/{mailboxId}/members/resync",
+      path: "/mailboxes/{mailboxId}/members/resync",
     })
     .input(
       z.object({
@@ -559,7 +559,7 @@ export const mailboxRouter = {
   createMember: teamAdminProtectedProcedure
     .route({
       method: "POST",
-      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members",
+      path: "/mailboxes/{marmaladeMailboxId}/members",
     })
     .input(
       z.object({
@@ -623,7 +623,7 @@ export const mailboxRouter = {
   removeMember: teamAdminProtectedProcedure
     .route({
       method: "DELETE",
-      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members/{marmaladeMemberId}",
+      path: "/mailboxes/{marmaladeMailboxId}/members/{marmaladeMemberId}",
     })
     .input(
       z.object({
@@ -672,7 +672,7 @@ export const mailboxRouter = {
   deactivate: teamAdminProtectedProcedure
     .route({
       method: "POST",
-      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/deactivate",
+      path: "/mailboxes/{marmaladeMailboxId}/deactivate",
     })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
     .handler(async ({ input, context }) => {
@@ -710,7 +710,7 @@ export const mailboxRouter = {
   activate: teamAdminProtectedProcedure
     .route({
       method: "POST",
-      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/activate",
+      path: "/mailboxes/{marmaladeMailboxId}/activate",
     })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
     .handler(async ({ input, context }) => {

@@ -137,7 +137,7 @@ export const apiKeyRouter = {
   create: mailboxScopedProcedure
     .route({
       method: "POST",
-      path: "/team/{teamId}/mailboxes/{mailboxId}/keys",
+      path: "/mailboxes/{mailboxId}/keys",
     })
     .input(
       z.object({
@@ -229,7 +229,7 @@ export const apiKeyRouter = {
     }),
 
   createTeam: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/keys" })
+    .route({ method: "POST", path: "/keys" })
     .input(
       z.object({
         name: z.string().min(1),
@@ -282,7 +282,7 @@ export const apiKeyRouter = {
     }),
 
   listMailbox: mailboxScopedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/mailboxes/{mailboxId}/keys" })
+    .route({ method: "GET", path: "/mailboxes/{mailboxId}/keys" })
     .input(
       z.object({
         mailboxId: z.string().min(1),
@@ -315,7 +315,7 @@ export const apiKeyRouter = {
     }),
 
   listTeam: protectedProcedure
-    .route({ method: "GET", path: "/team/{teamId}/keys" })
+    .route({ method: "GET", path: "/keys" })
     .handler(async ({ context }) => {
       const userEmail = (context as any).session?.user.email;
       const userId = (context as any).session?.user.id;
@@ -334,7 +334,7 @@ export const apiKeyRouter = {
     }),
 
   revokeTeamKey: protectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/keys/{keyId}/revoke" })
+    .route({ method: "POST", path: "/keys/{keyId}/revoke" })
     .input(z.object({ keyId: z.coerce.number().min(1) }))
     .handler(async ({ input, context }) => {
       const [key] = await db
@@ -378,7 +378,7 @@ export const apiKeyRouter = {
   revoke: mailboxScopedProcedure
     .route({
       method: "DELETE",
-      path: "/team/{teamId}/mailboxes/{mailboxId}/keys/{keyId}",
+      path: "/mailboxes/{mailboxId}/keys/{keyId}",
     })
     .input(
       z.object({
@@ -443,7 +443,7 @@ export const apiKeyRouter = {
     }),
 
   delete: teamAdminProtectedProcedure
-    .route({ method: "DELETE", path: "/team/{teamId}/admin/keys/{keyId}" })
+    .route({ method: "DELETE", path: "/admin/keys/{keyId}" })
     .input(z.object({ keyId: z.coerce.number().min(1) }))
     .handler(async ({ input, context }) => {
       const [key] = await db

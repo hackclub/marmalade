@@ -1,1 +1,79 @@
 @import "@marmalade-v2/ui/globals.css";
+
+/* Swagger UI dark mode overrides */
+.dark .swagger-ui .scheme-container,
+.dark .swagger-ui .opblock-tag-section,
+.dark .swagger-ui .opblock .opblock-section-header,
+.dark .swagger-ui .model-box,
+.dark .swagger-ui section.models,
+.dark .swagger-ui .opblock .opblock-section {
+  background: hsl(240 10% 3.9%) !important;
+}
+.dark .swagger-ui,
+.dark .swagger-ui .info .title,
+.dark .swagger-ui .opblock .opblock-summary-description,
+.dark .swagger-ui .opblock-description-wrapper p,
+.dark .swagger-ui table thead tr td,
+.dark .swagger-ui table thead tr th,
+.dark .swagger-ui .parameter__name,
+.dark .swagger-ui .parameter__type,
+.dark .swagger-ui .response-col_description,
+.dark .swagger-ui .response-col_links,
+.dark .swagger-ui .opblock .opblock-section-header h3,
+.dark .swagger-ui .opblock-tag,
+.dark .swagger-ui section.models h4,
+.dark .swagger-ui .model-title,
+.dark .swagger-ui .prop-type,
+.dark .swagger-ui .prop-format,
+.dark .swagger-ui .response-control-media-type__accept-message,
+.dark .swagger-ui .headerline,
+.dark .swagger-ui .dialog-ux .dialog-ux-header,
+.dark .swagger-ui .dialog-ux .dialog-ux-content,
+.dark .swagger-ui .topbar,
+.dark .swagger-ui .info .title small,
+.dark .swagger-ui .info h1 small,
+.dark .swagger-ui .response-col_status {
+  color: hsl(0 0% 95%) !important;
+}
+.dark .swagger-ui .wrapper {
+  background: hsl(240 10% 3.9%) !important;
+}
+.dark .swagger-ui select,
+.dark .swagger-ui input[type="text"],
+.dark .swagger-ui textarea {
+  background: hsl(240 10% 8%) !important;
+  color: hsl(0 0% 95%) !important;
+  border-color: hsl(240 3.7% 15.9%) !important;
+}
+.dark .swagger-ui .btn {
+  color: hsl(0 0% 95%) !important;
+  border-color: hsl(240 3.7% 15.9%) !important;
+  background: hsl(240 10% 8%) !important;
+}
+.dark .swagger-ui .btn:hover {
+  background: hsl(240 3.7% 15.9%) !important;
+}
+.dark .swagger-ui .opblock .opblock-summary-method {
+  background: hsl(0 0% 95%) !important;
+  color: hsl(240 10% 3.9%) !important;
+}
+.dark .swagger-ui .opblock-get .opblock-summary-method { background: #61affe !important; }
+.dark .swagger-ui .opblock-post .opblock-summary-method { background: #49cc90 !important; }
+.dark .swagger-ui .opblock-put .opblock-summary-method { background: #fca130 !important; }
+.dark .swagger-ui .opblock-delete .opblock-summary-method { background: #f93e3e !important; }
+.dark .swagger-ui .opblock-get { border-color: #61affe !important; background: rgba(97,175,254,.05) !important; }
+.dark .swagger-ui .opblock-post { border-color: #49cc90 !important; background: rgba(73,204,144,.05) !important; }
+.dark .swagger-ui .opblock-put { border-color: #fca130 !important; background: rgba(252,161,48,.05) !important; }
+.dark .swagger-ui .opblock-delete { border-color: #f93e3e !important; background: rgba(249,62,62,.05) !important; }
+.dark .swagger-ui .model {
+  color: hsl(0 0% 80%) !important;
+}
+.dark .swagger-ui .model-toggle::after {
+  filter: invert(1);
+}
+.dark .swagger-ui .expand-operation::after {
+  filter: invert(1);
+}
+.dark .swagger-ui svg {
+  filter: invert(0.8);
+}

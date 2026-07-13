@@ -34,7 +34,11 @@
 - [ ] mailbox members
   - [ ] admin actions
     - [x] ‼️ create marmalade mailbox member for jelly mailbox member
-    - [x] grant/rescind api perms (symbolically) for marmalade mailbox members
+    - [x] grant/rescind api perms for marmalade mailbox members
+      - [x] mailbox-scoped perms
+      - [ ] data-scoped perms
+        - [ ] metadata
+        - [ ] content
   - [ ] member actions
     - [ ] request own/other member access to be granted
 - [ ] keys
@@ -56,6 +60,10 @@
     - [ ] audit changelogs (e.g. deletion archives & update diffs)
   - [ ] ‼️ orpc openapi setup!
     - [ ] permissions with keys
+      - [x] mailbox-scoped keys
+      - [ ] data-scoped keys
+        - [ ] metadata
+        - [ ] content
   - [ ] more throroughly audit log request attempts regardless of status
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately

@@ -67,6 +67,8 @@
   - [ ] indexes
   - [ ] host on nest w/ cf tunnels
   - [ ] CI
+  - [ ] custom error pages
+  - [ ] standardized key prefix (for [revokability](https://revoke.hackclub.com))
 
 ## stuff that does stuff
 

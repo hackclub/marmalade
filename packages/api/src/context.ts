@@ -1,6 +1,9 @@
 import { auth } from "@marmalade-v2/auth";
+import { db } from "@marmalade-v2/db";
+import { apiKey, apiKeyScope } from "@marmalade-v2/db/schema/api";
 import { ORPCError } from "@orpc/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { eq } from "drizzle-orm";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "@marmalade-v2/env/server";
 
@@ -89,7 +92,107 @@ export async function createJellyWebhookContext({
   };
 }
 
+const KEY_PREFIX_LENGTH = 8;
+
+export function hashSecret(secret: string): string {
+  return createHash("sha256").update(secret).digest("hex");
+}
+
+export async function createApiKeyContext({ req }: { req: Request }) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid API key",
+    });
+  }
+
+  const token = authHeader.slice(7);
+  if (token.length < KEY_PREFIX_LENGTH) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid API key",
+    });
+  }
+
+  const keyPrefix = token.slice(0, KEY_PREFIX_LENGTH);
+  const secretHash = hashSecret(token);
+
+  const rows = await db
+    .select({
+      id: apiKey.id,
+      keyPrefix: apiKey.keyPrefix,
+      name: apiKey.name,
+      secretHash: apiKey.secretHash,
+      jellyTeamId: apiKey.jellyTeamId,
+      active: apiKey.active,
+      expiresAt: apiKey.expiresAt,
+      revokedAt: apiKey.revokedAt,
+      lastUsedAt: apiKey.lastUsedAt,
+      scopeMailbox: apiKeyScope.scopeMailbox,
+    })
+    .from(apiKey)
+    .leftJoin(apiKeyScope, eq(apiKey.id, apiKeyScope.apiKeyId))
+    .where(eq(apiKey.keyPrefix, keyPrefix));
+
+  if (rows.length === 0) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid API key",
+    });
+  }
+
+  const keyRow = rows[0]!;
+
+  const providedHash = Buffer.from(secretHash, "utf-8");
+  const storedHash = Buffer.from(keyRow.secretHash, "utf-8");
+  if (
+    providedHash.length !== storedHash.length ||
+    !timingSafeEqual(providedHash, storedHash)
+  ) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid API key",
+    });
+  }
+
+  if (!keyRow.active) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "API key is not active",
+    });
+  }
+
+  if (keyRow.revokedAt) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "API key has been revoked",
+    });
+  }
+
+  if (keyRow.expiresAt && keyRow.expiresAt < new Date()) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "API key has expired",
+    });
+  }
+
+  const mailboxIds = rows
+    .map((r) => r.scopeMailbox)
+    .filter((id): id is string => id !== null);
+
+  await db
+    .update(apiKey)
+    .set({ lastUsedAt: new Date() })
+    .where(eq(apiKey.id, keyRow.id));
+
+  return {
+    apiKey: {
+      id: keyRow.id,
+      keyPrefix: keyRow.keyPrefix,
+      name: keyRow.name,
+      mailboxIds,
+      jellyTeamId: keyRow.jellyTeamId,
+    },
+  };
+}
+
 export type AuthContext = Awaited<ReturnType<typeof createAuthContext>>;
+export type ApiKeyContext = Awaited<ReturnType<typeof createApiKeyContext>>;
 export type WebhookContext = Awaited<
   ReturnType<typeof createJellyWebhookContext>
 >;
+export type AppContext = AuthContext | ApiKeyContext | WebhookContext;

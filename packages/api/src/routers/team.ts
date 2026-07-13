@@ -1,6 +1,6 @@
 import { db } from "@marmalade-v2/db";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
+import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { eq, inArray } from "drizzle-orm";
@@ -11,7 +11,9 @@ import { auditRouter } from "./audit";
 const jelly = getJellyClient();
 
 export const teamRouter = {
-  list: protectedProcedure.handler(async () => {
+  list: protectedProcedure
+    .route({ method: "GET", path: "/team/{teamId}/members" })
+    .handler(async () => {
     const results = await db
       .select({
         jelly: jellyTeamContact,
@@ -26,10 +28,21 @@ export const teamRouter = {
       marmalade: row.marmalade ?? null,
     }));
   }),
-  resync: publicProcedure.handler(async ({ context }) => {
+  resync: publicProcedure
+    .route({ method: "POST", path: "/team/{teamId}/resync" })
+    .handler(async ({ context }) => {
+    const existingTeam = await db
+      .select()
+      .from(jellyTeam)
+      .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
+      .limit(1);
+    if (existingTeam.length === 0) {
+      await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
+    }
     let teamMembers;
     try {
       teamMembers = await jelly.listMembers();
+      console.log("Fetched team members from Jelly:", teamMembers);
     } catch (e) {
       throw new ORPCError("INTERNAL_SERVER_ERROR", {
         message: "Failed to fetch team members from Jelly",
@@ -41,10 +54,12 @@ export const teamRouter = {
       });
     }
     const teamMemberIds = teamMembers.map((member) => member.id);
+    console.log("Team member IDs from Jelly:", teamMemberIds);
     const existingTeamMembers = await db
       .select()
       .from(jellyTeamContact)
       .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
+    console.log('existingTeamMembers', existingTeamMembers)
 
     const existingTeamMemberIds = existingTeamMembers.map(
       (teamMember) => teamMember.id,
@@ -52,8 +67,9 @@ export const teamRouter = {
     const newTeamMembers = teamMembers.filter(
       (member) => !existingTeamMemberIds.includes(member.id),
     );
+    console.log('existingTeamMembers', existingTeamMembers)
     const removedTeamMembers = existingTeamMembers.filter(
-      (team) => !teamMemberIds.includes(team.jellyTeamId),
+      (member) => !teamMemberIds.includes(member.id),
     );
     const updatedTeamMembers = teamMembers.filter((member) => {
       const existingMember = existingTeamMembers.find(
@@ -64,7 +80,8 @@ export const teamRouter = {
         existingMember.name !== member.name ||
         existingMember.email !== member.email ||
         existingMember.role !== member.role ||
-        existingMember.active !== member.active
+        existingMember.active !== member.active ||
+        existingMember.existsInJelly !== true
       );
     });
     if (updatedTeamMembers.length > 0) {
@@ -83,6 +100,7 @@ export const teamRouter = {
       }
     }
     if (removedTeamMembers.length > 0) {
+      console.log('removed team members')
       await db
         .update(jellyTeamContact)
         .set({ existsInJelly: false })

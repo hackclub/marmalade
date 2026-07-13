@@ -5,6 +5,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import { jellyTeam } from "./team";
 import { user } from "./auth";
@@ -22,7 +23,7 @@ export const apiKey = pgTable("api_key", {
   active: boolean("active").notNull().default(true),
   expiresAt: timestamp("expires_at", { mode: "date" }),
   revokedAt: timestamp("revoked_at", { mode: "date" }),
-});
+}, (t) => [unique().on(t.name, t.jellyTeamId)]);
 
 export const apiKeyScope = pgTable("api_key_scope", {
   id: serial("id").primaryKey(),

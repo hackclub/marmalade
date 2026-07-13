@@ -17,10 +17,10 @@ export const auth = createAuth({
           });
           if (user && true) {
             await call(
-              mailboxRouter.resync,
+              teamRouter.resync,
               {},
               {
-                path: ["/mailboxes"],
+                path: ["/team"],
                 context: {
                   auth: null,
                   session: {
@@ -35,10 +35,10 @@ export const auth = createAuth({
               },
             );
             await call(
-              teamRouter.resync,
+              mailboxRouter.resync,
               {},
               {
-                path: ["/team"],
+                path: ["/mailboxes"],
                 context: {
                   auth: null,
                   session: {

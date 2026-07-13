@@ -1,4 +1,4 @@
-import { createAuthContext } from "@marmalade-v2/api/context";
+import { createAuthContext, createApiKeyContext } from "@marmalade-v2/api/context";
 import { appRouter } from "@marmalade-v2/api/routers/index";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
@@ -28,16 +28,27 @@ const apiHandler = new OpenAPIHandler(appRouter, {
   ],
 });
 
+async function resolveContext({ request }: { request: Request }) {
+  const authHeader = request.headers.get("Authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return createApiKeyContext({ req: request });
+  }
+  return createAuthContext({ req: request });
+}
+
 async function handle({ request }: { request: Request }) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const context: any = await resolveContext({ request });
+
   const rpcResult = await rpcHandler.handle(request, {
     prefix: "/api/rpc",
-    context: await createAuthContext({ req: request }),
+    context,
   });
   if (rpcResult.response) return rpcResult.response;
 
   const apiResult = await apiHandler.handle(request, {
     prefix: "/api/rpc/api-reference",
-    context: await createAuthContext({ req: request }),
+    context,
   });
   if (apiResult.response) return apiResult.response;
 

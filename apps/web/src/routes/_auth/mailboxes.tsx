@@ -124,7 +124,7 @@ function MailboxCard({
               🍊 Link
             </Button>
           ) : (
-            <Button variant="outline">🍊 Request Linkage</Button>
+            <Button disabled variant="outline">🍊 Request</Button>
           )
         ) : membersShowing ? (
           <Button onClick={toggleMembersShowing} variant="outline">

@@ -7,18 +7,26 @@ import { and, eq } from "drizzle-orm";
 import { protectedProcedure, publicProcedure } from "../index";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
+import { apiKeyRouter } from "./api";
 
 export const appRouter = {
-  healthCheck: publicProcedure.handler(() => {
-    return "OK";
-  }),
-  privateData: protectedProcedure.handler(({ context }) => {
-    return {
-      message: "This is private",
-      user: context.session?.user,
-    };
-  }),
-  membershipInfo: protectedProcedure.handler(async ({ context }) => {
+  healthCheck: publicProcedure
+    .route({ method: "GET", path: "/health" })
+    .handler(() => {
+      return "OK";
+    }),
+  privateData: protectedProcedure
+    .route({ method: "GET", path: "/me" })
+    .handler(({ context }) => {
+      return {
+        message: "This is private",
+        user: context.session?.user,
+      };
+    }),
+  membershipInfo: protectedProcedure
+    .route({ method: "GET", path: "/team/{teamId}/membership" })
+    .handler(async ({ context }) => {
+      console.log("Checking membership for user:", context.session?.user.email + " in team: " + env.JELLY_TEAM_ID);
     const teamMember = await db
       .select()
       .from(jellyTeamContact)
@@ -40,6 +48,7 @@ export const appRouter = {
 
   mailbox: mailboxRouter,
   team: teamRouter,
+  apiKey: apiKeyRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

@@ -4,18 +4,29 @@ import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
+import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import z from "zod";
 import { hashSecret } from "../context";
-import { mailboxScopedProcedure, protectedProcedure, teamAdminProtectedProcedure } from "../index";
+import {
+  mailboxScopedProcedure,
+  protectedProcedure,
+  teamAdminProtectedProcedure,
+} from "../index";
 import { auditRouter } from "./audit";
-import { call } from "@orpc/server";
 
 const KEY_PREFIX_LENGTH = 8;
 
-async function listKeysForMailbox(mailboxId: string, teamId: string, createdBy?: string) {
-  const conditions = [eq(apiKeyScope.scopeMailbox, mailboxId), eq(apiKey.jellyTeamId, teamId)];
+async function listKeysForMailbox(
+  mailboxId: string,
+  teamId: string,
+  createdBy?: string,
+) {
+  const conditions = [
+    eq(apiKeyScope.scopeMailbox, mailboxId),
+    eq(apiKey.jellyTeamId, teamId),
+  ];
   if (createdBy) {
     conditions.push(eq(apiKey.createdBy, createdBy));
   }
@@ -66,20 +77,8 @@ async function listKeysForTeam(teamId: string, createdBy?: string) {
   return aggregateKeys(rows);
 }
 
-function aggregateKeys(rows: Array<{
-  id: number;
-  keyPrefix: string;
-  name: string;
-  description: string | null;
-  active: boolean;
-  createdAt: Date;
-  lastUsedAt: Date | null;
-  expiresAt: Date | null;
-  revokedAt: Date | null;
-  scopeMailbox: string | null;
-  createdByName?: string | null;
-}>) {
-  const keyMap = new Map<number, {
+function aggregateKeys(
+  rows: Array<{
     id: number;
     keyPrefix: string;
     name: string;
@@ -89,9 +88,26 @@ function aggregateKeys(rows: Array<{
     lastUsedAt: Date | null;
     expiresAt: Date | null;
     revokedAt: Date | null;
-    mailboxIds: string[];
-    createdByName: string | null;
-  }>();
+    scopeMailbox: string | null;
+    createdByName?: string | null;
+  }>,
+) {
+  const keyMap = new Map<
+    number,
+    {
+      id: number;
+      keyPrefix: string;
+      name: string;
+      description: string | null;
+      active: boolean;
+      createdAt: Date;
+      lastUsedAt: Date | null;
+      expiresAt: Date | null;
+      revokedAt: Date | null;
+      mailboxIds: string[];
+      createdByName: string | null;
+    }
+  >();
 
   for (const row of rows) {
     const existing = keyMap.get(row.id);
@@ -119,7 +135,10 @@ function aggregateKeys(rows: Array<{
 
 export const apiKeyRouter = {
   create: mailboxScopedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/{mailboxId}/keys" })
+    .route({
+      method: "POST",
+      path: "/team/{teamId}/mailboxes/{mailboxId}/keys",
+    })
     .input(
       z.object({
         mailboxId: z.string().min(1),
@@ -153,8 +172,13 @@ export const apiKeyRouter = {
       const secretHash = hashSecret(secret);
 
       const userId =
-        "session" in ctx ? ctx.session?.user.id : "apiKey" in ctx ? `api-key:${ctx.apiKey.id}` : "webhook";
-      const teamId = "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
+        "session" in ctx
+          ? ctx.session?.user.id
+          : "apiKey" in ctx
+            ? `api-key:${ctx.apiKey.id}`
+            : "webhook";
+      const teamId =
+        "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
 
       const [key] = await db
         .insert(apiKey)
@@ -281,9 +305,12 @@ export const apiKeyRouter = {
 
       const teamId = "apiKey" in ctx ? ctx.apiKey.jellyTeamId : "";
       const isAdmin = ctx.role === "admin" || ctx.role === "owner";
-      const createdBy = "session" in ctx && ctx.session?.user?.id
-        ? (isAdmin ? undefined : ctx.session.user.id)
-        : undefined;
+      const createdBy =
+        "session" in ctx && ctx.session?.user?.id
+          ? isAdmin
+            ? undefined
+            : ctx.session.user.id
+          : undefined;
       return listKeysForMailbox(input.mailboxId, teamId, createdBy);
     }),
 
@@ -349,7 +376,10 @@ export const apiKeyRouter = {
     }),
 
   revoke: mailboxScopedProcedure
-    .route({ method: "DELETE", path: "/team/{teamId}/mailboxes/{mailboxId}/keys/{keyId}" })
+    .route({
+      method: "DELETE",
+      path: "/team/{teamId}/mailboxes/{mailboxId}/keys/{keyId}",
+    })
     .input(
       z.object({
         mailboxId: z.string().min(1),

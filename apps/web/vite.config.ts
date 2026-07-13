@@ -12,5 +12,5 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   plugins: [tailwindcss(), tanstackStart(), nitro(), viteReact()],
-  ssr: process.env.NODE_ENV === 'production' ? { noExternal: true } : undefined,
+  ssr: process.env.NODE_ENV === "production" ? { noExternal: true } : undefined,
 });

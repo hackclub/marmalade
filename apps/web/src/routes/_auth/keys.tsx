@@ -1,3 +1,4 @@
+import { orpc } from "@/utils/orpc";
 import { Badge } from "@marmalade-v2/ui/components/badge";
 import { Button } from "@marmalade-v2/ui/components/button";
 import {
@@ -23,9 +24,8 @@ import { Input } from "@marmalade-v2/ui/components/input";
 import { Label } from "@marmalade-v2/ui/components/label";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Loader2, Copy, Check } from "lucide-react";
+import { Check, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
-import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/_auth/keys")({
   component: KeysRoute,
@@ -41,34 +41,34 @@ function KeyCard({
   revokeMutate: (variables: { keyId: number }) => void;
 }) {
   const isAdmin = teamMemberRole === "owner" || teamMemberRole === "admin";
-  const isExpired =
-    apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date();
-    const [mailboxesShowing, setMailboxesShowing] = useState(false);
-  
-    function toggleMailboxesShowing() {
-      setMailboxesShowing(!mailboxesShowing);
-    }
+  const isExpired = apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date();
+  const [mailboxesShowing, setMailboxesShowing] = useState(false);
+
+  function toggleMailboxesShowing() {
+    setMailboxesShowing(!mailboxesShowing);
+  }
 
   return (
     <li className="flex flex-col justify-between gap-3 rounded-md border p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-medium">{apiKey.name} ({apiKey.keyPrefix}...)</span>
+          <span className="font-medium">
+            {apiKey.name} ({apiKey.keyPrefix}...)
+          </span>
           {apiKey.description && (
-            <span className="text-sm text-muted-foreground">
+            <span className="text-muted-foreground text-sm">
               {apiKey.description}
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-         
           <Badge variant="secondary">by {apiKey.createdByName}</Badge>
           {isExpired ? (
             <Badge variant="outline">Expired</Badge>
           ) : apiKey.active ? (
-                   <Badge>
-            Expires {new Date(apiKey.expiresAt).toLocaleDateString()}
-          </Badge>
+            <Badge>
+              Expires {new Date(apiKey.expiresAt).toLocaleDateString()}
+            </Badge>
           ) : (
             <Badge variant="destructive">Revoked</Badge>
           )}
@@ -82,38 +82,38 @@ function KeyCard({
             </span>
           )}
         </div>
-            <div className="flex flex-row items-center justify-end gap-2">
-
-        {apiKey.mailboxIds.length === 0 ? null : mailboxesShowing ? (
-                  <Button onClick={toggleMailboxesShowing} variant="outline">
-                    🙈 Hide Mailboxes
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={toggleMailboxesShowing}>
-                    👀 Show Mailboxes
-                  </Button>
-                )}
-        {isAdmin && !apiKey.revokedAt && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => revokeMutate({ keyId: apiKey.id })}
-          >
-            ❌ Revoke
-          </Button>
-        )}
-                  </div>
-
+        <div className="flex flex-row items-center justify-end gap-2">
+          {apiKey.mailboxIds.length === 0 ? null : mailboxesShowing ? (
+            <Button onClick={toggleMailboxesShowing} variant="outline">
+              🙈 Hide Mailboxes
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={toggleMailboxesShowing}>
+              👀 Show Mailboxes
+            </Button>
+          )}
+          {isAdmin && !apiKey.revokedAt && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => revokeMutate({ keyId: apiKey.id })}
+            >
+              ❌ Revoke
+            </Button>
+          )}
+        </div>
       </div>
-      {(mailboxesShowing && apiKey.mailboxIds.length > 0) && (
+      {mailboxesShowing && apiKey.mailboxIds.length > 0 && (
         <div>
-          <p className="text-xs font-semibold text-muted-foreground mb-1">Scoped Mailboxes ({apiKey.mailboxIds.length}):</p>
+          <p className="text-muted-foreground mb-1 text-xs font-semibold">
+            Scoped Mailboxes ({apiKey.mailboxIds.length}):
+          </p>
 
-            <ul className="list-disc pl-4 text-xs text-muted-foreground">
-              {apiKey.mailboxIds.map((id: string) => (
-                <li key={id}>{id}</li>
-              ))}
-            </ul>
+          <ul className="text-muted-foreground list-disc pl-4 text-xs">
+            {apiKey.mailboxIds.map((id: string) => (
+              <li key={id}>{id}</li>
+            ))}
+          </ul>
         </div>
       )}
     </li>
@@ -187,9 +187,7 @@ function CreateKeyDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
-        render={
-          <Button className="mb-4">Create API Key</Button>
-        }
+        render={<Button className="mb-4">Create API Key</Button>}
       />
       <DialogContent className="sm:max-w-md">
         <form onSubmit={handleSubmit}>
@@ -235,12 +233,12 @@ function CreateKeyDialog({
             <div className="grid gap-2">
               <Label>Scoped Mailboxes (optional)</Label>
               {mailboxes.isLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="text-muted-foreground flex items-center gap-2 text-sm">
                   <Loader2 className="h-4 w-4 animate-spin" /> Loading
                   mailboxes...
                 </div>
               ) : accessibleMailboxes.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   You need to join a mailbox
                 </p>
               ) : (
@@ -248,7 +246,7 @@ function CreateKeyDialog({
                   {accessibleMailboxes.map((mailbox) => (
                     <label
                       key={mailbox.jellyMailbox.jellyMailboxId}
-                      className="flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5 hover:bg-muted"
+                      className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5"
                     >
                       <Checkbox
                         checked={selectedMailboxIds.includes(
@@ -266,7 +264,7 @@ function CreateKeyDialog({
                 </div>
               )}
               {selectedMailboxIds.length > 0 && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-muted-foreground text-xs">
                   {selectedMailboxIds.length} mailbox
                   {selectedMailboxIds.length !== 1 ? "es" : ""} selected.
                 </p>
@@ -275,7 +273,11 @@ function CreateKeyDialog({
           </div>
           <DialogFooter>
             <DialogClose
-              render={<Button variant="outline" type="button">Cancel</Button>}
+              render={
+                <Button variant="outline" type="button">
+                  Cancel
+                </Button>
+              }
             />
             <Button type="submit" disabled={isPending || !name.trim()}>
               {isPending ? (
@@ -319,8 +321,8 @@ function KeyCreatedDialog({
             Copy your API key now. You won't be able to see it again.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex items-center gap-2 rounded-md border bg-muted p-3">
-          <code className="flex-1 break-all font-mono text-sm">{secret}</code>
+        <div className="bg-muted flex items-center gap-2 rounded-md border p-3">
+          <code className="flex-1 font-mono text-sm break-all">{secret}</code>
           <Button variant="ghost" size="icon-sm" onClick={handleCopy}>
             {copied ? (
               <Check className="h-4 w-4 text-green-500" />
@@ -380,11 +382,13 @@ function KeysRoute() {
             View and manage your keys as a <u>team {teamMember.role}</u>
           </CardDescription>
           <CardAction>
-              <CreateKeyDialog
-                createTeamMutate={createMutation.mutate}
-                createScopedMutate={createScopedMutation.mutate}
-                isPending={createMutation.isPending || createScopedMutation.isPending}
-              />
+            <CreateKeyDialog
+              createTeamMutate={createMutation.mutate}
+              createScopedMutate={createScopedMutation.mutate}
+              isPending={
+                createMutation.isPending || createScopedMutation.isPending
+              }
+            />
           </CardAction>
         </CardHeader>
         <CardContent>

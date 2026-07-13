@@ -1,12 +1,9 @@
-import { boolean, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
-export const jellyTeam = pgTable(
-  "jelly_team",
-  {
-    id: text("id").notNull().primaryKey(),
-    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  }
-);
+export const jellyTeam = pgTable("jelly_team", {
+  id: text("id").notNull().primaryKey(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+});
 
 // export const jellyTeamContact = pgTable(
 //   "jelly_team_member",
@@ -30,7 +27,9 @@ export const jellyTeamContact = pgTable("jelly_contact", {
   email: text("email").notNull().unique(),
   role: text("role").notNull().default("contact"), // e.g. admin, member, owner, contact
   active: boolean("active").default(true).notNull(),
-  jellyTeamId: text("jelly_team_id").notNull().references(() => jellyTeam.id, { onDelete: "cascade" }),
+  jellyTeamId: text("jelly_team_id")
+    .notNull()
+    .references(() => jellyTeam.id, { onDelete: "cascade" }),
   existsInJelly: boolean("exists_in_jelly")
     .notNull()
     .$default(() => true),

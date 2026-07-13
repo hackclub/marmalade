@@ -1,17 +1,27 @@
 import { ORPCError, os } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
+import {
+  jellyMailbox,
+  jellyMailboxMember,
+} from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
-import type { AuthContext, WebhookContext, ApiKeyContext, AppContext } from "./context";
-import { jellyMailbox, jellyMailboxMember } from "@marmalade-v2/db/schema/mailbox";
+import type {
+  ApiKeyContext,
+  AppContext,
+  AuthContext,
+  WebhookContext,
+} from "./context";
 
 export const authO = os.$context<AuthContext>();
 export const webhookO = os.$context<WebhookContext>();
 export const apiKeyO = os.$context<ApiKeyContext>();
 export const authOrWebhookO = os.$context<AuthContext | WebhookContext>();
-export const authOrApiKeyOrWebhookO = os.$context<AuthContext | ApiKeyContext | WebhookContext>();
+export const authOrApiKeyOrWebhookO = os.$context<
+  AuthContext | ApiKeyContext | WebhookContext
+>();
 
 export const publicProcedure = authO;
 
@@ -50,13 +60,16 @@ export const requireApiKey = apiKeyO.middleware(async ({ context, next }) => {
   return next({ context: { apiKey: context.apiKey } });
 });
 
-const requireAuthOrApiKeyOrWebhook = authOrApiKeyOrWebhookO.middleware(async ({ context, next }) => {
-  const hasSession = "session" in context && Boolean(context.session?.user);
-  const hasApiKey = "apiKey" in context && Boolean(context.apiKey);
-  const hasWebhook = "request" in context && "rawBody" in context;
-  if (!hasSession && !hasApiKey && !hasWebhook) throw new ORPCError("UNAUTHORIZED");
-  return next({ context });
-});
+const requireAuthOrApiKeyOrWebhook = authOrApiKeyOrWebhookO.middleware(
+  async ({ context, next }) => {
+    const hasSession = "session" in context && Boolean(context.session?.user);
+    const hasApiKey = "apiKey" in context && Boolean(context.apiKey);
+    const hasWebhook = "request" in context && "rawBody" in context;
+    if (!hasSession && !hasApiKey && !hasWebhook)
+      throw new ORPCError("UNAUTHORIZED");
+    return next({ context });
+  },
+);
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
 export const authOrWebhookProtectedProcedure =
@@ -118,12 +131,18 @@ export const mailboxScopedProcedure = authO
         const rows = await db
           .select({ jellyMailboxId: jellyMailbox.jellyMailboxId })
           .from(jellyMailbox)
-          .innerJoin(jellyMailboxMember, eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId))
-          .innerJoin(jellyTeamContact, and(
-            eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
-            eq(jellyTeamContact.email, context.session.user.email),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
-          ));
+          .innerJoin(
+            jellyMailboxMember,
+            eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+          )
+          .innerJoin(
+            jellyTeamContact,
+            and(
+              eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
+              eq(jellyTeamContact.email, context.session.user.email),
+              eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            ),
+          );
         allowedMailboxIds = rows.map((r) => r.jellyMailboxId);
       }
     } else {
@@ -133,9 +152,14 @@ export const mailboxScopedProcedure = authO
     return next({ context: { ...context, allowedMailboxIds, role } });
   });
 
-export function requireMailboxAccess(context: AppContext & { allowedMailboxIds: string[] }, jellyMailboxId: string) {
+export function requireMailboxAccess(
+  context: AppContext & { allowedMailboxIds: string[] },
+  jellyMailboxId: string,
+) {
   if (context.allowedMailboxIds.includes("*")) return;
   if (!context.allowedMailboxIds.includes(jellyMailboxId)) {
-    throw new ORPCError("FORBIDDEN", { message: "Not authorized for this mailbox" });
+    throw new ORPCError("FORBIDDEN", {
+      message: "Not authorized for this mailbox",
+    });
   }
 }

@@ -1,12 +1,12 @@
 import { db } from "@marmalade-v2/db";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { comment, conversation, message } from "@marmalade-v2/db/schema/convo";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import z from "zod";
 import { jellyWebhookProcedure } from "../index";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 
 const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
 
@@ -26,9 +26,7 @@ export const conversationRouter = {
         const existingConversationRows = await db
           .select({ id: conversation.id })
           .from(conversation)
-          .where(
-            eq(conversation.id, input.jellyConversationId),
-          )
+          .where(eq(conversation.id, input.jellyConversationId))
           .limit(1);
 
         let conversationId = existingConversationRows[0]?.id ?? null;
@@ -51,9 +49,7 @@ export const conversationRouter = {
             const refreshedConversationRows = await db
               .select({ id: conversation.id })
               .from(conversation)
-              .where(
-                eq(conversation.id, input.jellyConversationId),
-              )
+              .where(eq(conversation.id, input.jellyConversationId))
               .limit(1);
 
             conversationId = refreshedConversationRows[0]?.id ?? null;
@@ -99,9 +95,7 @@ export const conversationRouter = {
             status: input.status,
             updatedAt: new Date(),
           })
-          .where(
-            eq(conversation.id, input.jellyConversationId),
-          );
+          .where(eq(conversation.id, input.jellyConversationId));
 
         await db.insert(auditLog).values({
           userId: SYSTEM_WEBHOOK_USER_ID,
@@ -147,18 +141,16 @@ export const conversationRouter = {
           });
         }
         const existingContactRows = await db
-            .select({ id: jellyTeamContact.id })
-            .from(jellyTeamContact)
-            .where(
-              eq(jellyTeamContact.email, input.senderEmail),
-            )
-            .limit(1);
+          .select({ id: jellyTeamContact.id })
+          .from(jellyTeamContact)
+          .where(eq(jellyTeamContact.email, input.senderEmail))
+          .limit(1);
 
-          if (!existingContactRows || existingContactRows.length === 0) {
-            throw new ORPCError("BAD_REQUEST", {
-              message: "Message sender is not a known contact",
-            });
-          }
+        if (!existingContactRows || existingContactRows.length === 0) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Message sender is not a known contact",
+          });
+        }
         await db
           .insert(message)
           .values({
@@ -212,14 +204,11 @@ export const conversationRouter = {
         }),
       )
       .handler(async ({ input }) => {
-
         // comments are only created by people who are already contacts, so verify this contact exists in our system before creating the comment
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
-          .where(
-            eq(jellyTeamContact.id, input.authorId ?? ""),
-          )
+          .where(eq(jellyTeamContact.id, input.authorId ?? ""))
           .limit(1);
 
         if (!existingContactRows || existingContactRows.length === 0) {

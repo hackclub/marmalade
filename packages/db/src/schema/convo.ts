@@ -7,7 +7,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core";
-import { jellyMailbox } from "./mailbox";
 import { jellyTeam, jellyTeamContact } from "./team";
 
 export const conversation = pgTable("jelly_conversation", {
@@ -59,7 +58,7 @@ export const label = pgTable("jelly_label", {
   name: text("name").notNull(),
   color: text("color"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-})
+});
 
 export const conversationMailbox = pgTable("jelly_conversation_mailbox", {
   id: serial("id").primaryKey(),
@@ -74,11 +73,15 @@ export const conversationMailbox = pgTable("jelly_conversation_mailbox", {
 
 export const message = pgTable("jelly_message", {
   id: text("id").primaryKey(),
-  conversationId: text("conversation_id").notNull().references(() => conversation.id, { onDelete: "cascade" }),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
   subject: text("subject"),
   content: text("content"),
   contentHtml: text("content_html"),
-  senderId: text("sender_id").references(() => jellyTeamContact.id, { onDelete: "set null" }),
+  senderId: text("sender_id").references(() => jellyTeamContact.id, {
+    onDelete: "set null",
+  }),
   isInbound: boolean("is_inbound").notNull().default(true),
   attachmentsCount: integer("attachments_count").notNull().default(0),
   metadata: jsonb("metadata"),
@@ -114,9 +117,13 @@ export const messageAttachment = pgTable("jelly_message_attachment", {
 
 export const comment = pgTable("comment", {
   id: text("id").primaryKey(),
-  conversationId: text("conversation_id").notNull().references(() => conversation.id, { onDelete: "cascade" }),
+  conversationId: text("conversation_id")
+    .notNull()
+    .references(() => conversation.id, { onDelete: "cascade" }),
   body: text("body"),
-  authorId: text("author_id").references(() => jellyTeamContact.id, { onDelete: "set null" }),
+  authorId: text("author_id").references(() => jellyTeamContact.id, {
+    onDelete: "set null",
+  }),
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });

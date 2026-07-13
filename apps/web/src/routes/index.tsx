@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import AsciiMotionAnimation from '../components/ascii-motion-animation';
+import AsciiMotionAnimation from "../components/ascii-motion-animation";
 
 import { orpc } from "@/utils/orpc";
 
@@ -14,14 +14,10 @@ function HomeComponent() {
   return (
     <div className="container mx-auto max-w-6xl px-4 py-2">
       <div className="grid gap-6">
-       
-      <div className="max-w-6xl mx-auto mt-[-100px]">
-      <AsciiMotionAnimation
-        showControls={false}
-        autoPlay={false}
-      />
-      </div>
-       <section className="max-w-3xl mx-auto w-full rounded-lg border p-4">
+        <div className="mx-auto mt-[-100px] max-w-6xl">
+          <AsciiMotionAnimation showControls={false} autoPlay={false} />
+        </div>
+        <section className="mx-auto w-full max-w-3xl rounded-lg border p-4">
           <h2 className="mb-2 font-medium">API Status</h2>
           <div className="flex items-center gap-2">
             <div
@@ -36,7 +32,6 @@ function HomeComponent() {
             </span>
           </div>
         </section>
-
       </div>
     </div>
   );

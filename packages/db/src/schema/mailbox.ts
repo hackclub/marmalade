@@ -7,7 +7,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
-import { jellyTeamContact, jellyTeam } from "./team";
+import { jellyTeam, jellyTeamContact } from "./team";
 
 export const jellyMailbox = pgTable(
   "jelly_mailbox",
@@ -19,7 +19,9 @@ export const jellyMailbox = pgTable(
     updatedAt: text("updated_at").notNull(),
     isDefault: boolean("is_default").notNull(),
     isArchived: boolean("is_archived").notNull().default(false),
-    jellyTeamId: text("jelly_team_id").notNull().references(() => jellyTeam.id, { onDelete: "cascade" }),
+    jellyTeamId: text("jelly_team_id")
+      .notNull()
+      .references(() => jellyTeam.id, { onDelete: "cascade" }),
     existsInJelly: boolean("exists_in_jelly")
       .notNull()
       .$default(() => true),

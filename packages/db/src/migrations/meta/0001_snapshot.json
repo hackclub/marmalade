@@ -89,12 +89,8 @@
           "name": "api_key_created_by_user_id_fk",
           "tableFrom": "api_key",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -102,12 +98,8 @@
           "name": "api_key_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "api_key",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -117,17 +109,12 @@
         "api_key_key_prefix_unique": {
           "name": "api_key_key_prefix_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key_prefix"
-          ]
+          "columns": ["key_prefix"]
         },
         "api_key_name_jelly_team_id_unique": {
           "name": "api_key_name_jelly_team_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name",
-            "jelly_team_id"
-          ]
+          "columns": ["name", "jelly_team_id"]
         }
       },
       "policies": {},
@@ -163,12 +150,8 @@
           "name": "api_key_scope_api_key_id_api_key_id_fk",
           "tableFrom": "api_key_scope",
           "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["api_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -262,12 +245,8 @@
           "name": "audit_log_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -275,12 +254,8 @@
           "name": "audit_log_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -397,12 +372,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -489,12 +460,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -504,9 +471,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -570,9 +535,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -694,12 +657,8 @@
           "name": "comment_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "comment",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -707,12 +666,8 @@
           "name": "comment_author_id_jelly_contact_id_fk",
           "tableFrom": "comment",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -868,12 +823,8 @@
           "name": "jelly_conversation_assignment_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_assignment",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -881,12 +832,8 @@
           "name": "jelly_conversation_assignment_jelly_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_conversation_assignment",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "jelly_contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -933,12 +880,8 @@
           "name": "jelly_conversation_label_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_label",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -946,12 +889,8 @@
           "name": "jelly_conversation_label_label_id_jelly_label_id_fk",
           "tableFrom": "jelly_conversation_label",
           "tableTo": "jelly_label",
-          "columnsFrom": [
-            "label_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["label_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -997,12 +936,8 @@
           "name": "jelly_conversation_mailbox_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_mailbox",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1010,12 +945,8 @@
           "name": "jelly_conversation_mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_conversation_mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1150,12 +1081,8 @@
           "name": "jelly_message_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_message",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1163,12 +1090,8 @@
           "name": "jelly_message_sender_id_jelly_contact_id_fk",
           "tableFrom": "jelly_message",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "sender_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sender_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1246,12 +1169,8 @@
           "name": "jelly_message_attachment_message_id_jelly_message_id_fk",
           "tableFrom": "jelly_message_attachment",
           "tableTo": "jelly_message",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1304,12 +1223,8 @@
           "name": "jelly_message_contact_message_id_jelly_message_id_fk",
           "tableFrom": "jelly_message_contact",
           "tableTo": "jelly_message",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1317,12 +1232,8 @@
           "name": "jelly_message_contact_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_message_contact",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1399,12 +1310,8 @@
           "name": "jelly_mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1414,10 +1321,7 @@
         "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique": {
           "name": "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "jelly_mailbox_id",
-            "jelly_team_id"
-          ]
+          "columns": ["jelly_mailbox_id", "jelly_team_id"]
         }
       },
       "policies": {},
@@ -1459,12 +1363,8 @@
           "name": "jelly_mailbox_member_jelly_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_mailbox_member",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "jelly_contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1472,12 +1372,8 @@
           "name": "jelly_mailbox_member_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_mailbox_member",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1536,12 +1432,8 @@
           "name": "mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1593,12 +1485,8 @@
           "name": "mailbox_member_marmalade_user_id_user_id_fk",
           "tableFrom": "mailbox_member",
           "tableTo": "user",
-          "columnsFrom": [
-            "marmalade_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["marmalade_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1606,12 +1494,8 @@
           "name": "mailbox_member_marmalade_mailbox_id_mailbox_id_fk",
           "tableFrom": "mailbox_member",
           "tableTo": "mailbox",
-          "columnsFrom": [
-            "marmalade_mailbox_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["marmalade_mailbox_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1717,12 +1601,8 @@
           "name": "jelly_contact_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_contact",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1732,9 +1612,7 @@
         "jelly_contact_email_unique": {
           "name": "jelly_contact_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},

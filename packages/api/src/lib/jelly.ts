@@ -1,6 +1,6 @@
+import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { env } from "@marmalade-v2/env/server";
 import { call } from "@orpc/server";
-import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { auditRouter } from "../routers/audit";
 
 export interface JellyMember {
@@ -70,7 +70,10 @@ class JellyApiClient {
     this.apiKey = apiKey;
   }
 
-  private async auditLogJellyRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+  private async auditLogJellyRequest<T>(
+    path: string,
+    options: RequestInit = {},
+  ): Promise<T> {
     const startTime = Date.now();
     try {
       const result = await this.request(path, options);
@@ -87,15 +90,15 @@ class JellyApiClient {
     } catch (error) {
       const endTime = Date.now();
       await call(
-           auditRouter.create,
-           {
-             resource: "mailbox",
-             action: "resync",
-           },
-           {
-            path: ["/audit"],
-           }
-         );
+        auditRouter.create,
+        {
+          resource: "mailbox",
+          action: "resync",
+        },
+        {
+          path: ["/audit"],
+        },
+      );
       throw error;
     }
   }

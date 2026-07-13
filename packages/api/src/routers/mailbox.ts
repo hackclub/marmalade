@@ -166,176 +166,184 @@ export const mailboxRouter = {
   list: mailboxScopedProcedure
     .route({ method: "GET", path: "/team/{teamId}/mailboxes" })
     .handler(async ({ context }) => {
-    if ("apiKey" in context) {
-      const mailboxes = await db
-        .select()
+      if ("apiKey" in context) {
+        const mailboxes = await db
+          .select()
+          .from(jellyMailbox)
+          .innerJoin(
+            marmaladeMailbox,
+            eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+          )
+          .where(
+            inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+          );
+
+        return mailboxes.map((row) => ({
+          jellyMailbox: row.jelly_mailbox,
+          marmaladeMailbox: row.mailbox,
+          marmaladeMailboxMembership: null,
+        }));
+      }
+
+      const requesterId = context.session?.user.id;
+      const requesterEmail = context.session?.user.email;
+      if (!requesterId || !requesterEmail) {
+        throw new ORPCError("UNAUTHORIZED", {
+          message: "User is not authenticated",
+        });
+      }
+      const results = ((await db
+        .select({
+          jellyMailbox: jellyMailbox,
+          jellyMailboxMemberTeamMember: jellyMailboxMemberTeamMember,
+          jellyMailboxMemberUser: jellyMailboxMemberUser,
+          marmaladeMailbox: marmaladeMailbox,
+          marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
+          marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
+          marmaladeMailboxMembership: marmaladeMailboxMember,
+        })
         .from(jellyMailbox)
         .innerJoin(
+          jellyMailboxMember,
+          eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+        )
+        .innerJoin(
+          jellyTeamContact,
+          and(
+            eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.email, requesterEmail),
+          ),
+        )
+        .leftJoin(
+          jellyMailboxMembersAll,
+          eq(
+            jellyMailbox.jellyMailboxId,
+            jellyMailboxMembersAll.jellyMailboxId,
+          ),
+        )
+        .leftJoin(
+          jellyMailboxMemberTeamMember,
+          and(
+            eq(
+              jellyMailboxMembersAll.jellyContactId,
+              jellyMailboxMemberTeamMember.id,
+            ),
+          ),
+        )
+        .leftJoin(
+          jellyMailboxMemberUser,
+          eq(jellyMailboxMemberTeamMember.email, jellyMailboxMemberUser.email),
+        )
+        .leftJoin(
           marmaladeMailbox,
           eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
         )
-        .where(inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds));
-
-      return mailboxes.map((row) => ({
-        jellyMailbox: row.jelly_mailbox,
-        marmaladeMailbox: row.mailbox,
-        marmaladeMailboxMembership: null,
-      }));
-    }
-
-    const requesterId = context.session?.user.id;
-    const requesterEmail = context.session?.user.email;
-    if (!requesterId || !requesterEmail) {
-      throw new ORPCError("UNAUTHORIZED", {
-        message: "User is not authenticated",
-      });
-    }
-    const results = ((await db
-      .select({
-        jellyMailbox: jellyMailbox,
-        jellyMailboxMemberTeamMember: jellyMailboxMemberTeamMember,
-        jellyMailboxMemberUser: jellyMailboxMemberUser,
-        marmaladeMailbox: marmaladeMailbox,
-        marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
-        marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
-        marmaladeMailboxMembership: marmaladeMailboxMember,
-      })
-      .from(jellyMailbox)
-      .innerJoin(
-        jellyMailboxMember,
-        eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
-      )
-      .innerJoin(
-        jellyTeamContact,
-        and(
-          eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
-          eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
-          eq(jellyTeamContact.email, requesterEmail),
-        ),
-      )
-      .leftJoin(
-        jellyMailboxMembersAll,
-        eq(jellyMailbox.jellyMailboxId, jellyMailboxMembersAll.jellyMailboxId),
-      )
-      .leftJoin(
-        jellyMailboxMemberTeamMember,
-        and(
+        .leftJoin(
+          marmaladeMailboxMembersAll,
           eq(
-            jellyMailboxMembersAll.jellyContactId,
-            jellyMailboxMemberTeamMember.id,
+            marmaladeMailbox.id,
+            marmaladeMailboxMembersAll.marmaladeMailboxId,
           ),
-        ),
-      )
-      .leftJoin(
-        jellyMailboxMemberUser,
-        eq(jellyMailboxMemberTeamMember.email, jellyMailboxMemberUser.email),
-      )
-      .leftJoin(
-        marmaladeMailbox,
-        eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
-      )
-      .leftJoin(
-        marmaladeMailboxMembersAll,
-        eq(marmaladeMailbox.id, marmaladeMailboxMembersAll.marmaladeMailboxId),
-      )
-      .leftJoin(
-        marmaladeMailboxMemberUser,
-        eq(
-          marmaladeMailboxMembersAll.marmaladeUserId,
-          marmaladeMailboxMemberUser.id,
-        ),
-      )
-      .leftJoin(
-        marmaladeMailboxMemberTeamMember,
-        and(
-          eq(
-            marmaladeMailboxMemberUser.email,
-            marmaladeMailboxMemberTeamMember.email,
-          ),
-          eq(
-            marmaladeMailboxMemberUser.email,
-            marmaladeMailboxMemberTeamMember.email,
-          ),
-        ),
-      )
-      .leftJoin(
-        marmaladeMailboxMember,
-        and(
-          eq(marmaladeMailbox.id, marmaladeMailboxMember.marmaladeMailboxId),
-          eq(marmaladeMailboxMember.marmaladeUserId, requesterId),
-        ),
-      )) ?? []) as MailboxListQueryRow[];
-
-    const mailboxById = new Map<number, any>();
-
-    for (const result of results as any[]) {
-      const mailboxId = result.jellyMailbox.id;
-      let entry = mailboxById.get(mailboxId);
-
-      if (!entry) {
-        const jellyMembers: MailboxMemberItem[] = [];
-        const marmaladeMembers: MailboxMemberItem[] = [];
-        entry = {
-          jellyMailbox: {
-            ...result.jellyMailbox,
-            memberCount: 0,
-            members: jellyMembers,
-          },
-          marmaladeMailbox: result.marmaladeMailbox
-            ? {
-                ...result.marmaladeMailbox,
-                memberCount: 0,
-                members: marmaladeMembers,
-              }
-            : null,
-          marmaladeMailboxMembership: result.marmaladeMailboxMembership,
-          jellyMemberIds: new Set<number>(),
-          marmaladeMemberIds: new Set<number>(),
-        };
-        mailboxById.set(mailboxId, entry);
-      }
-
-      if (
-        result.jellyMailboxMemberTeamMember &&
-        !entry.jellyMemberIds.has(result.jellyMailboxMemberTeamMember.id)
-      ) {
-        entry.jellyMemberIds.add(result.jellyMailboxMemberTeamMember.id);
-        entry.jellyMailbox.members.push({
-          jelly: result.jellyMailboxMemberTeamMember,
-          marmalade: result.jellyMailboxMemberUser,
-        });
-        entry.jellyMailbox.memberCount = entry.jellyMailbox.members.length;
-      }
-
-      if (
-        result.marmaladeMailboxMemberTeamMember &&
-        entry.marmaladeMailbox &&
-        !entry.marmaladeMemberIds.has(
-          result.marmaladeMailboxMemberTeamMember.id,
         )
-      ) {
-        entry.marmaladeMemberIds.add(
-          result.marmaladeMailboxMemberTeamMember.id,
-        );
-        entry.marmaladeMailbox.members.push({
-          jelly: result.marmaladeMailboxMemberTeamMember,
-          marmalade: result.marmaladeMailboxMemberUser,
-        });
-        entry.marmaladeMailbox.memberCount =
-          entry.marmaladeMailbox.members.length;
+        .leftJoin(
+          marmaladeMailboxMemberUser,
+          eq(
+            marmaladeMailboxMembersAll.marmaladeUserId,
+            marmaladeMailboxMemberUser.id,
+          ),
+        )
+        .leftJoin(
+          marmaladeMailboxMemberTeamMember,
+          and(
+            eq(
+              marmaladeMailboxMemberUser.email,
+              marmaladeMailboxMemberTeamMember.email,
+            ),
+            eq(
+              marmaladeMailboxMemberUser.email,
+              marmaladeMailboxMemberTeamMember.email,
+            ),
+          ),
+        )
+        .leftJoin(
+          marmaladeMailboxMember,
+          and(
+            eq(marmaladeMailbox.id, marmaladeMailboxMember.marmaladeMailboxId),
+            eq(marmaladeMailboxMember.marmaladeUserId, requesterId),
+          ),
+        )) ?? []) as MailboxListQueryRow[];
+
+      const mailboxById = new Map<number, any>();
+
+      for (const result of results as any[]) {
+        const mailboxId = result.jellyMailbox.id;
+        let entry = mailboxById.get(mailboxId);
+
+        if (!entry) {
+          const jellyMembers: MailboxMemberItem[] = [];
+          const marmaladeMembers: MailboxMemberItem[] = [];
+          entry = {
+            jellyMailbox: {
+              ...result.jellyMailbox,
+              memberCount: 0,
+              members: jellyMembers,
+            },
+            marmaladeMailbox: result.marmaladeMailbox
+              ? {
+                  ...result.marmaladeMailbox,
+                  memberCount: 0,
+                  members: marmaladeMembers,
+                }
+              : null,
+            marmaladeMailboxMembership: result.marmaladeMailboxMembership,
+            jellyMemberIds: new Set<number>(),
+            marmaladeMemberIds: new Set<number>(),
+          };
+          mailboxById.set(mailboxId, entry);
+        }
+
+        if (
+          result.jellyMailboxMemberTeamMember &&
+          !entry.jellyMemberIds.has(result.jellyMailboxMemberTeamMember.id)
+        ) {
+          entry.jellyMemberIds.add(result.jellyMailboxMemberTeamMember.id);
+          entry.jellyMailbox.members.push({
+            jelly: result.jellyMailboxMemberTeamMember,
+            marmalade: result.jellyMailboxMemberUser,
+          });
+          entry.jellyMailbox.memberCount = entry.jellyMailbox.members.length;
+        }
+
+        if (
+          result.marmaladeMailboxMemberTeamMember &&
+          entry.marmaladeMailbox &&
+          !entry.marmaladeMemberIds.has(
+            result.marmaladeMailboxMemberTeamMember.id,
+          )
+        ) {
+          entry.marmaladeMemberIds.add(
+            result.marmaladeMailboxMemberTeamMember.id,
+          );
+          entry.marmaladeMailbox.members.push({
+            jelly: result.marmaladeMailboxMemberTeamMember,
+            marmalade: result.marmaladeMailboxMemberUser,
+          });
+          entry.marmaladeMailbox.memberCount =
+            entry.marmaladeMailbox.members.length;
+        }
+
+        if (result.marmaladeMailboxMembership) {
+          entry.marmaladeMailboxMembership = result.marmaladeMailboxMembership;
+        }
       }
 
-      if (result.marmaladeMailboxMembership) {
-        entry.marmaladeMailboxMembership = result.marmaladeMailboxMembership;
-      }
-    }
-
-    return Array.from(mailboxById.values()).map((entry) => ({
-      jellyMailbox: entry.jellyMailbox,
-      marmaladeMailbox: entry.marmaladeMailbox,
-      marmaladeMailboxMembership: entry.marmaladeMailboxMembership,
-    }));
-  }),
+      return Array.from(mailboxById.values()).map((entry) => ({
+        jellyMailbox: entry.jellyMailbox,
+        marmaladeMailbox: entry.marmaladeMailbox,
+        marmaladeMailboxMembership: entry.marmaladeMailboxMembership,
+      }));
+    }),
   create: teamAdminProtectedProcedure
     .route({ method: "POST", path: "/team/{teamId}/mailboxes" })
     .input(z.object({ jellyMailboxId: z.string().min(1) }))
@@ -382,91 +390,94 @@ export const mailboxRouter = {
   resync: publicProcedure
     .route({ method: "POST", path: "/team/{teamId}/mailboxes/resync" })
     .handler(async ({ context }) => {
-    const existingTeam = await db
-      .select()
-      .from(jellyTeam)
-      .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
-      .limit(1);
-    if (existingTeam.length === 0) {
-      await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
-    }
-    let mailboxes;
-    try {
-      mailboxes = await jelly.listMailboxes();
-    } catch (e) {
-      throw new ORPCError("INTERNAL_SERVER_ERROR", {
-        message: "Failed to fetch mailboxes from Jelly",
-      });
-    }
-    if (!mailboxes || mailboxes.length === 0) {
-      throw new ORPCError("NOT_FOUND", {
-        message: "No mailboxes found in Jelly",
-      });
-    }
-    const mailboxIds = mailboxes.map((mailbox) => mailbox.id);
-    const existingMailboxes = await db
-      .select()
-      .from(jellyMailbox)
-      .where(inArray(jellyMailbox.jellyMailboxId, mailboxIds));
-    const existingMailboxIds = existingMailboxes.map(
-      (mailbox) => mailbox.jellyMailboxId,
-    );
-    const newMailboxes = mailboxes.filter(
-      (mailbox) => !existingMailboxIds.includes(mailbox.id),
-    );
-    const removedMailboxes = existingMailboxes.filter(
-      (mailbox) => !mailboxIds.includes(mailbox.jellyMailboxId),
-    );
-    if (removedMailboxes.length > 0) {
-      await db
-        .update(jellyMailbox)
-        .set({ existsInJelly: false })
-        .where(
-          inArray(
-            jellyMailbox.jellyMailboxId,
-            removedMailboxes.map((mailbox) => mailbox.jellyMailboxId),
-          ),
-        );
-    }
-    if (newMailboxes.length > 0) {
-      await db.insert(jellyMailbox).values(
-        newMailboxes.map((mailbox) => ({
-          jellyMailboxId: mailbox.id,
-          name: mailbox.name,
-          jellyTeamId: env.JELLY_TEAM_ID,
-          createdAt: new Date(mailbox.created_at).toISOString(),
-          updatedAt: new Date(mailbox.updated_at).toISOString(),
-          isDefault: mailbox.default,
-          isArchived: false,
-          existsInJelly: true,
-        })),
+      const existingTeam = await db
+        .select()
+        .from(jellyTeam)
+        .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
+        .limit(1);
+      if (existingTeam.length === 0) {
+        await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
+      }
+      let mailboxes;
+      try {
+        mailboxes = await jelly.listMailboxes();
+      } catch (e) {
+        throw new ORPCError("INTERNAL_SERVER_ERROR", {
+          message: "Failed to fetch mailboxes from Jelly",
+        });
+      }
+      if (!mailboxes || mailboxes.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "No mailboxes found in Jelly",
+        });
+      }
+      const mailboxIds = mailboxes.map((mailbox) => mailbox.id);
+      const existingMailboxes = await db
+        .select()
+        .from(jellyMailbox)
+        .where(inArray(jellyMailbox.jellyMailboxId, mailboxIds));
+      const existingMailboxIds = existingMailboxes.map(
+        (mailbox) => mailbox.jellyMailboxId,
       );
-    }
-    for (const mailbox of mailboxes) {
+      const newMailboxes = mailboxes.filter(
+        (mailbox) => !existingMailboxIds.includes(mailbox.id),
+      );
+      const removedMailboxes = existingMailboxes.filter(
+        (mailbox) => !mailboxIds.includes(mailbox.jellyMailboxId),
+      );
+      if (removedMailboxes.length > 0) {
+        await db
+          .update(jellyMailbox)
+          .set({ existsInJelly: false })
+          .where(
+            inArray(
+              jellyMailbox.jellyMailboxId,
+              removedMailboxes.map((mailbox) => mailbox.jellyMailboxId),
+            ),
+          );
+      }
+      if (newMailboxes.length > 0) {
+        await db.insert(jellyMailbox).values(
+          newMailboxes.map((mailbox) => ({
+            jellyMailboxId: mailbox.id,
+            name: mailbox.name,
+            jellyTeamId: env.JELLY_TEAM_ID,
+            createdAt: new Date(mailbox.created_at).toISOString(),
+            updatedAt: new Date(mailbox.updated_at).toISOString(),
+            isDefault: mailbox.default,
+            isArchived: false,
+            existsInJelly: true,
+          })),
+        );
+      }
+      for (const mailbox of mailboxes) {
+        await call(
+          mailboxRouter.resyncMembers,
+          {
+            mailboxId: mailbox.id,
+          },
+          {
+            context,
+          },
+        );
+      }
       await call(
-        mailboxRouter.resyncMembers,
+        auditRouter.create,
         {
-          mailboxId: mailbox.id,
+          resource: "mailbox",
+          action: "resync",
         },
         {
           context,
         },
       );
-    }
-    await call(
-      auditRouter.create,
-      {
-        resource: "mailbox",
-        action: "resync",
-      },
-      {
-        context,
-      },
-    );
-    return { message: "Resync completed successfully" };
-  }),
+      return { message: "Resync completed successfully" };
+    }),
   resyncMembers: publicProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/{mailboxId}/members/resync" })
+    .route({
+      method: "POST",
+      path: "/team/{teamId}/mailboxes/{mailboxId}/members/resync",
+    })
     .input(
       z.object({
         mailboxId: z.string().min(1),
@@ -546,7 +557,10 @@ export const mailboxRouter = {
       return { message: "Resync completed successfully" };
     }),
   createMember: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members" })
+    .route({
+      method: "POST",
+      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members",
+    })
     .input(
       z.object({
         marmaladeMailboxId: z.int().min(1),
@@ -607,7 +621,10 @@ export const mailboxRouter = {
       return { message: "Mailbox member created successfully" };
     }),
   removeMember: teamAdminProtectedProcedure
-    .route({ method: "DELETE", path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members/{marmaladeMemberId}" })
+    .route({
+      method: "DELETE",
+      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/members/{marmaladeMemberId}",
+    })
     .input(
       z.object({
         marmaladeMailboxId: z.int().min(1),
@@ -653,7 +670,10 @@ export const mailboxRouter = {
       return { message: "Mailbox member removed successfully" };
     }),
   deactivate: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/deactivate" })
+    .route({
+      method: "POST",
+      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/deactivate",
+    })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
@@ -688,7 +708,10 @@ export const mailboxRouter = {
       return { message: "Mailbox deactivated successfully" };
     }),
   activate: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/activate" })
+    .route({
+      method: "POST",
+      path: "/team/{teamId}/mailboxes/{marmaladeMailboxId}/activate",
+    })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;

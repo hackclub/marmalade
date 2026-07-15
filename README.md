@@ -77,10 +77,12 @@
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel
 - qol
-  - [x] custom error pages
+  - [ ] custom error pages
+  - [x] "unauthorized" redirects to /login
   - [ ] CI
 - dx
   - [x] ~~swagger~~ scalar api docs
+    - [x] documented output schemas
 
 ## stuff that does stuff
 

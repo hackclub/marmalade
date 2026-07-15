@@ -17,6 +17,11 @@ import {
   jellyWebhookProcedure,
   mailboxScopedProcedure,
 } from "../index";
+import {
+  commentSchema,
+  conversationSchema,
+  messageSchema,
+} from "../schemas/output";
 
 const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
 
@@ -79,6 +84,7 @@ export const conversationRouter = {
           sentAt: z.string().optional(),
         }),
       )
+      .output(z.object({ id: z.string() }))
       .handler(async ({ input }) => {
         const existingConversationRows = await db
           .select({ id: conversation.id })
@@ -164,6 +170,7 @@ export const conversationRouter = {
           status: z.string().min(1),
         }),
       )
+      .output(z.object({ success: z.literal(true) }))
       .handler(async ({ input }) => {
         await db
           .update(conversation)
@@ -220,6 +227,14 @@ export const conversationRouter = {
           .default("lastMessageAt"),
         sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
       }),
+    )
+    .output(
+      z.array(
+        z.object({
+          conversation: conversationSchema,
+          mailboxId: z.string(),
+        }),
+      ),
     )
     .handler(async ({ input }) => {
       const conditions = [
@@ -278,6 +293,12 @@ export const conversationRouter = {
         conversationId: z.string().min(1),
       }),
     )
+    .output(
+      conversationSchema.extend({
+        messages: z.array(messageSchema),
+        comments: z.array(commentSchema),
+      }),
+    )
     .handler(async ({ input }) => {
       const rows = await db
         .select()
@@ -332,6 +353,7 @@ export const conversationRouter = {
           sentAt: z.string().optional(),
         }),
       )
+      .output(z.object({ success: z.literal(true) }))
       .handler(async ({ input }) => {
         if (!input.senderEmail) {
           throw new ORPCError("BAD_REQUEST", {
@@ -409,6 +431,7 @@ export const conversationRouter = {
           sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
         }),
       )
+      .output(z.array(messageSchema))
       .handler(async ({ input }) => {
         const conditions = [eq(message.conversationId, input.conversationId)];
 
@@ -444,6 +467,7 @@ export const conversationRouter = {
           messageId: z.string().min(1),
         }),
       )
+      .output(messageSchema)
       .handler(async ({ input }) => {
         const rows = await db
           .select({
@@ -487,6 +511,7 @@ export const conversationRouter = {
           createdAt: z.string(),
         }),
       )
+      .output(z.object({ success: z.literal(true) }))
       .handler(async ({ input }) => {
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
@@ -546,6 +571,7 @@ export const conversationRouter = {
           sortOrder: z.enum(["asc", "desc"]).optional().default("asc"),
         }),
       )
+      .output(z.array(commentSchema))
       .handler(async ({ input }) => {
         const conditions = [eq(comment.conversationId, input.conversationId)];
 
@@ -581,6 +607,7 @@ export const conversationRouter = {
           commentId: z.string().min(1),
         }),
       )
+      .output(commentSchema)
       .handler(async ({ input }) => {
         const rows = await db
           .select({

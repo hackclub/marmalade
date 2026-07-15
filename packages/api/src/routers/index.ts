@@ -4,20 +4,36 @@ import { db } from "@marmalade-v2/db";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
+import z from "zod";
 import { protectedProcedure, publicProcedure } from "../index";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
+import { teamMemberSchema } from "../schemas/output";
 import { teamRouter } from "./team";
 
 export const appRouter = {
   healthCheck: publicProcedure
     .route({ method: "GET", path: "/health" })
+    .output(z.literal("OK"))
     .handler(() => {
       return "OK";
     }),
   privateData: protectedProcedure
     .route({ method: "GET", path: "/me" })
+    .output(
+      z.object({
+        message: z.string(),
+        user: z
+          .object({
+            id: z.string(),
+            name: z.string(),
+            email: z.string(),
+            image: z.string().nullable().optional(),
+          })
+          .nullable(),
+      }),
+    )
     .handler(({ context }) => {
       return {
         message: "This is private",
@@ -26,6 +42,7 @@ export const appRouter = {
     }),
   membershipInfo: protectedProcedure
     .route({ method: "GET", path: "/membership" })
+    .output(teamMemberSchema)
     .handler(async ({ context }) => {
       const teamMember = await db
         .select()

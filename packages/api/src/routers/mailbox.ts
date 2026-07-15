@@ -22,6 +22,7 @@ import {
   teamAdminProtectedProcedure,
 } from "../index";
 import { auditRouter } from "./audit";
+import { mailboxListItemSchema } from "../schemas/output";
 
 const jelly = getJellyClient();
 const jellyMailboxMembersAll = aliasedTable(
@@ -82,6 +83,20 @@ export const mailboxRouter = {
       z.object({
         jellyMailboxId: z.string().min(1),
       }),
+    )
+    .output(
+      z.discriminatedUnion("allowed", [
+        z.object({
+          success: z.literal(true),
+          allowed: z.literal(true),
+          inboxId: z.number(),
+        }),
+        z.object({
+          success: z.literal(true),
+          allowed: z.literal(false),
+          reason: z.string(),
+        }),
+      ]),
     )
     .handler(async ({ input, context }) => {
       requireMailboxAccess(context, input.jellyMailboxId);
@@ -165,6 +180,7 @@ export const mailboxRouter = {
     }),
   list: mailboxScopedProcedure
     .route({ method: "GET", path: "/mailboxes" })
+    .output(z.array(mailboxListItemSchema))
     .handler(async ({ context }) => {
       if ("apiKey" in context) {
         const mailboxes = await db
@@ -347,6 +363,7 @@ export const mailboxRouter = {
   create: teamAdminProtectedProcedure
     .route({ method: "POST", path: "/mailboxes" })
     .input(z.object({ jellyMailboxId: z.string().min(1) }))
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -389,6 +406,7 @@ export const mailboxRouter = {
     }),
   resync: publicProcedure
     .route({ method: "POST", path: "/mailboxes/resync" })
+    .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()
@@ -483,6 +501,7 @@ export const mailboxRouter = {
         mailboxId: z.string().min(1),
       }),
     )
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       let mailboxMembers;
       try {
@@ -567,6 +586,7 @@ export const mailboxRouter = {
         marmaladeMemberId: z.string().min(1),
       }),
     )
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -631,6 +651,7 @@ export const mailboxRouter = {
         marmaladeMemberId: z.string().min(1),
       }),
     )
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -675,6 +696,7 @@ export const mailboxRouter = {
       path: "/mailboxes/{marmaladeMailboxId}/deactivate",
     })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -713,6 +735,7 @@ export const mailboxRouter = {
       path: "/mailboxes/{marmaladeMailboxId}/activate",
     })
     .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;

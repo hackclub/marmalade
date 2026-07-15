@@ -15,6 +15,7 @@ import {
   teamAdminProtectedProcedure,
 } from "../index";
 import { auditRouter } from "./audit";
+import { apiKeySchema } from "../schemas/output";
 
 const KEY_PREFIX_LENGTH = 8;
 
@@ -148,6 +149,16 @@ export const apiKeyRouter = {
         expiresAt: z.string().datetime().optional(),
       }),
     )
+    .output(
+      z.object({
+        id: z.number(),
+        keyPrefix: z.string(),
+        secret: z.string(),
+        name: z.string(),
+        mailboxIds: z.array(z.string()),
+        expiresAt: z.string().nullable(),
+      }),
+    )
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -237,6 +248,16 @@ export const apiKeyRouter = {
         expiresAt: z.string().datetime().optional(),
       }),
     )
+    .output(
+      z.object({
+        id: z.number(),
+        keyPrefix: z.string(),
+        secret: z.string(),
+        name: z.string(),
+        mailboxIds: z.array(z.string()),
+        expiresAt: z.string().nullable(),
+      }),
+    )
     .handler(async ({ input, context }) => {
       const secret = randomBytes(32).toString("hex");
       const keyPrefix = secret.slice(0, KEY_PREFIX_LENGTH);
@@ -288,6 +309,7 @@ export const apiKeyRouter = {
         mailboxId: z.string().min(1),
       }),
     )
+    .output(z.array(apiKeySchema))
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -316,6 +338,7 @@ export const apiKeyRouter = {
 
   listTeam: protectedProcedure
     .route({ method: "GET", path: "/keys" })
+    .output(z.array(apiKeySchema))
     .handler(async ({ context }) => {
       const userEmail = (context as any).session?.user.email;
       const userId = (context as any).session?.user.id;
@@ -336,6 +359,7 @@ export const apiKeyRouter = {
   revokeTeamKey: protectedProcedure
     .route({ method: "POST", path: "/keys/{keyId}/revoke" })
     .input(z.object({ keyId: z.coerce.number().min(1) }))
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const [key] = await db
         .select()
@@ -386,6 +410,7 @@ export const apiKeyRouter = {
         keyId: z.coerce.number().min(1),
       }),
     )
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -445,6 +470,7 @@ export const apiKeyRouter = {
   delete: teamAdminProtectedProcedure
     .route({ method: "DELETE", path: "/admin/keys/{keyId}" })
     .input(z.object({ keyId: z.coerce.number().min(1) }))
+    .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       const [key] = await db
         .select()

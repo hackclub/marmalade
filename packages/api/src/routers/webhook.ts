@@ -83,6 +83,12 @@ export type JellyWebhookInput = z.infer<typeof jellyWebhookSchema>;
 export const adminRouter = {
   jellyEventWebhook: jellyWebhookProcedure
     .input(jellyWebhookSchema)
+    .output(
+      z.discriminatedUnion("success", [
+        z.object({ success: z.literal(true) }),
+        z.object({ success: z.literal(true), reason: z.string() }),
+      ]),
+    )
     .handler(async ({ input, context }) => {
       const conversation = input.data.conversation;
       const mailboxId = conversation.mailboxes?.[0]?.id;

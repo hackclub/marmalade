@@ -4,15 +4,25 @@ import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { eq, inArray } from "drizzle-orm";
+import z from "zod";
 import { apiKeyOrSessionProcedure, publicProcedure } from "..";
 import { getJellyClient } from "../lib/jelly";
 import { auditRouter } from "./audit";
+import { teamMemberSchema, userSchema } from "../schemas/output";
 
 const jelly = getJellyClient();
 
 export const teamRouter = {
   list: apiKeyOrSessionProcedure
     .route({ method: "GET", path: "/members" })
+    .output(
+      z.array(
+        z.object({
+          jelly: teamMemberSchema.nullable(),
+          marmalade: userSchema.nullable(),
+        }),
+      ),
+    )
     .handler(async () => {
       const results = await db
         .select({
@@ -30,6 +40,7 @@ export const teamRouter = {
     }),
   resync: publicProcedure
     .route({ method: "POST", path: "/resync" })
+    .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()

@@ -5,7 +5,7 @@ export const Route = createFileRoute("/docs")({
   component: DocsRoute,
 });
 
-const SPEC_URL = "/api/rpc/api-reference/spec.json";
+const SCALAR_CDN = "https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest";
 
 function DocsRoute() {
   const ref = useRef<HTMLIFrameElement>(null);
@@ -14,12 +14,16 @@ function DocsRoute() {
     const iframe = ref.current;
     if (!iframe) return;
 
+    const origin = window.location.origin;
+    const specUrl = `${origin}/api/rpc/api-reference/spec.json`;
+
     iframe.srcdoc = `<!DOCTYPE html>
 <html lang="en">
 <head>
+  <base href="${origin}/" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest/dist/style.css" />
+  <link rel="stylesheet" href="${SCALAR_CDN}/dist/style.css" />
   <style>
     html, body { margin: 0; padding: 0; background: #0f0f0f; color: #e5e5e5; }
   </style>
@@ -27,14 +31,12 @@ function DocsRoute() {
 <body>
   <div id="scalar-api-reference"></div>
   <script>
-    window.__SPEC_URL__ = ${JSON.stringify(SPEC_URL)};
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference@latest"></script>
-  <script>
-    window.addEventListener('load', function() {
-      if (window.Scalar) {
+    (function() {
+      var s = document.createElement('script');
+      s.src = '${SCALAR_CDN}';
+      s.onload = function() {
         Scalar.createApiReference('#scalar-api-reference', {
-          url: window.__SPEC_URL__,
+          url: '${specUrl}',
           baseTheme: 'dark',
           hideDarkModeToggle: true,
           authentication: {
@@ -43,8 +45,13 @@ function DocsRoute() {
             }
           }
         });
-      }
-    });
+      };
+      s.onerror = function() {
+        document.getElementById('scalar-api-reference').innerHTML =
+          '<p style="color:red;padding:2rem">Failed to load API reference.</p>';
+      };
+      document.head.appendChild(s);
+    })();
   </script>
 </body>
 </html>`;

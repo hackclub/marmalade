@@ -5,6 +5,7 @@ import {
   conversation,
   conversationMailbox,
   message,
+  messageAttachment,
 } from "@marmalade-v2/db/schema/convo";
 import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
@@ -14,6 +15,8 @@ import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionProcedure,
+  checkRouterScope,
+  filterFieldsByScope,
   jellyWebhookProcedure,
   mailboxScopedProcedure,
 } from "../index";
@@ -236,7 +239,9 @@ export const conversationRouter = {
         }),
       ),
     )
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
+      checkRouterScope(context, "convo");
+
       const conditions = [
         eq(conversationMailbox.jellyMailboxId, input.mailboxId),
       ];
@@ -280,7 +285,14 @@ export const conversationRouter = {
         .where(and(...conditions))
         .orderBy(orderFn);
 
-      return rows;
+      return rows.map((row) => ({
+        ...row,
+        conversation: filterFieldsByScope(
+          context,
+          "conversation",
+          row.conversation,
+        ),
+      }));
     }),
   get: apiKeyOrSessionProcedure
     .route({
@@ -299,8 +311,10 @@ export const conversationRouter = {
         comments: z.array(commentSchema),
       }),
     )
-    .handler(async ({ input }) => {
-      const rows = await db
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "message");
+
+        const rows = await db
         .select()
         .from(conversation)
         .innerJoin(
@@ -335,7 +349,15 @@ export const conversationRouter = {
         .where(eq(comment.conversationId, input.conversationId))
         .orderBy(asc(comment.createdAt));
 
-      return { ...convo, messages, comments };
+      return {
+        ...filterFieldsByScope(context, "conversation", convo),
+        messages: messages.map((m) =>
+          filterFieldsByScope(context, "message", m),
+        ),
+        comments: comments.map((c) =>
+          filterFieldsByScope(context, "comment", c),
+        ),
+      };
     }),
   message: {
     create: jellyWebhookProcedure
@@ -351,6 +373,18 @@ export const conversationRouter = {
           isInbound: z.boolean().optional(),
           attachmentsCount: z.number().int().min(0).optional(),
           sentAt: z.string().optional(),
+          attachments: z
+            .array(
+              z.object({
+                id: z.string().min(1),
+                filename: z.string().min(1),
+                content_type: z.string().min(1),
+                byte_size: z.number().int().min(0),
+                inline: z.boolean().optional(),
+                url: z.url().optional(),
+              }),
+            )
+            .optional(),
         }),
       )
       .output(z.object({ success: z.literal(true) }))
@@ -405,6 +439,19 @@ export const conversationRouter = {
           userAgent: null,
         });
 
+        // loop thorugh each item in input.attachments
+        for (const attachment of input.attachments ?? []) {
+          await db.insert(messageAttachment).values({
+            id: attachment.id,
+            messageId: input.jellyMessageId,
+            filename: attachment.filename,
+            contentType: attachment.content_type,
+            byteSize: attachment.byte_size,
+            inline: attachment.inline,
+            url: attachment.url,
+          });
+        }
+
         return { success: true };
       }),
     list: apiKeyOrSessionProcedure
@@ -432,7 +479,9 @@ export const conversationRouter = {
         }),
       )
       .output(z.array(messageSchema))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "message");
+
         const conditions = [eq(message.conversationId, input.conversationId)];
 
         if (input.startDate) {
@@ -454,7 +503,7 @@ export const conversationRouter = {
           .where(and(...conditions))
           .orderBy(orderFn);
 
-        return rows;
+        return rows.map((r) => filterFieldsByScope(context, "message", r));
       }),
     get: apiKeyOrSessionProcedure
       .route({
@@ -468,7 +517,9 @@ export const conversationRouter = {
         }),
       )
       .output(messageSchema)
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "convo");
+
         const rows = await db
           .select({
             message,
@@ -494,7 +545,7 @@ export const conversationRouter = {
           });
         }
 
-        return rows[0]!.message;
+        return filterFieldsByScope(context, "message", rows[0]!.message);
       }),
   },
   comment: {
@@ -572,7 +623,9 @@ export const conversationRouter = {
         }),
       )
       .output(z.array(commentSchema))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "comment");
+
         const conditions = [eq(comment.conversationId, input.conversationId)];
 
         if (input.startDate) {
@@ -594,7 +647,7 @@ export const conversationRouter = {
           .where(and(...conditions))
           .orderBy(orderFn);
 
-        return rows;
+        return rows.map((r) => filterFieldsByScope(context, "comment", r));
       }),
     get: apiKeyOrSessionProcedure
       .route({
@@ -608,7 +661,9 @@ export const conversationRouter = {
         }),
       )
       .output(commentSchema)
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "comment");
+
         const rows = await db
           .select({
             comment,
@@ -634,7 +689,8 @@ export const conversationRouter = {
           });
         }
 
-        return rows[0]!.comment;
+        return filterFieldsByScope(context, "comment", rows[0]!.comment);
       }),
   },
+  attachment: {},
 };

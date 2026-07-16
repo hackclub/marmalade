@@ -100,6 +100,15 @@ export const apiKeySchema = z.object({
   expiresAt: z.date().nullable(),
   revokedAt: z.date().nullable(),
   mailboxIds: z.array(z.string()),
+  resourceScopes: z.array(z.string()).optional(),
+  fieldScopes: z
+    .array(
+      z.object({
+        resourceType: z.string(),
+        field: z.string(),
+      }),
+    )
+    .optional(),
   createdByName: z.string().nullable().optional(),
 });
 

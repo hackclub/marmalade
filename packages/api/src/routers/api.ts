@@ -1,5 +1,9 @@
 import { db } from "@marmalade-v2/db";
-import { apiKey, apiKeyScope } from "@marmalade-v2/db/schema/api";
+import {
+  apiKey,
+  apiKeyFieldScope,
+  apiKeyScope,
+} from "@marmalade-v2/db/schema/api";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
@@ -11,11 +15,12 @@ import z from "zod";
 import { hashSecret } from "../context";
 import {
   mailboxScopedProcedure,
-  protectedProcedure,
+  publicProcedure,
   teamAdminProtectedProcedure,
+  teamMemberProtectedProcedure,
 } from "../index";
-import { auditRouter } from "./audit";
 import { apiKeySchema } from "../schemas/output";
+import { auditRouter } from "./audit";
 
 const KEY_PREFIX_LENGTH = 8;
 
@@ -25,7 +30,8 @@ async function listKeysForMailbox(
   createdBy?: string,
 ) {
   const conditions = [
-    eq(apiKeyScope.scopeMailbox, mailboxId),
+    eq(apiKeyScope.scopeResourceType, "mailbox"),
+    eq(apiKeyScope.scopeResourceId, mailboxId),
     eq(apiKey.jellyTeamId, teamId),
   ];
   if (createdBy) {
@@ -42,7 +48,8 @@ async function listKeysForMailbox(
       lastUsedAt: apiKey.lastUsedAt,
       expiresAt: apiKey.expiresAt,
       revokedAt: apiKey.revokedAt,
-      scopeMailbox: apiKeyScope.scopeMailbox,
+      scopeResourceType: apiKeyScope.scopeResourceType,
+      scopeResourceId: apiKeyScope.scopeResourceId,
     })
     .from(apiKey)
     .innerJoin(apiKeyScope, eq(apiKey.id, apiKeyScope.apiKeyId))
@@ -67,11 +74,15 @@ async function listKeysForTeam(teamId: string, createdBy?: string) {
       lastUsedAt: apiKey.lastUsedAt,
       expiresAt: apiKey.expiresAt,
       revokedAt: apiKey.revokedAt,
-      scopeMailbox: apiKeyScope.scopeMailbox,
+      scopeResourceType: apiKeyScope.scopeResourceType,
+      scopeResourceId: apiKeyScope.scopeResourceId,
+      fieldScopeResourceType: apiKeyFieldScope.scopeResourceType,
+      fieldScopeField: apiKeyFieldScope.scopeField,
       createdByName: authUser.name,
     })
     .from(apiKey)
     .leftJoin(apiKeyScope, eq(apiKey.id, apiKeyScope.apiKeyId))
+    .leftJoin(apiKeyFieldScope, eq(apiKey.id, apiKeyFieldScope.apiKeyId))
     .leftJoin(authUser, eq(apiKey.createdBy, authUser.id))
     .where(and(...conditions));
 
@@ -89,7 +100,10 @@ function aggregateKeys(
     lastUsedAt: Date | null;
     expiresAt: Date | null;
     revokedAt: Date | null;
-    scopeMailbox: string | null;
+    scopeResourceType: string | null;
+    scopeResourceId: string | null;
+    fieldScopeResourceType?: string | null;
+    fieldScopeField?: string | null;
     createdByName?: string | null;
   }>,
 ) {
@@ -106,6 +120,8 @@ function aggregateKeys(
       expiresAt: Date | null;
       revokedAt: Date | null;
       mailboxIds: string[];
+      resourceScopes: string[];
+      fieldScopes: Array<{ resourceType: string; field: string }>;
       createdByName: string | null;
     }
   >();
@@ -113,7 +129,29 @@ function aggregateKeys(
   for (const row of rows) {
     const existing = keyMap.get(row.id);
     if (existing) {
-      if (row.scopeMailbox) existing.mailboxIds.push(row.scopeMailbox);
+      if (row.scopeResourceType === "mailbox" && row.scopeResourceId) {
+        if (!existing.mailboxIds.includes(row.scopeResourceId)) {
+          existing.mailboxIds.push(row.scopeResourceId);
+        }
+      }
+      if (row.scopeResourceType === "router" && row.scopeResourceId) {
+        if (!existing.resourceScopes.includes(row.scopeResourceId)) {
+          existing.resourceScopes.push(row.scopeResourceId);
+        }
+      }
+      if (row.fieldScopeResourceType && row.fieldScopeField) {
+        const exists = existing.fieldScopes.some(
+          (s) =>
+            s.resourceType === row.fieldScopeResourceType &&
+            s.field === row.fieldScopeField,
+        );
+        if (!exists) {
+          existing.fieldScopes.push({
+            resourceType: row.fieldScopeResourceType,
+            field: row.fieldScopeField,
+          });
+        }
+      }
     } else {
       keyMap.set(row.id, {
         id: row.id,
@@ -125,7 +163,23 @@ function aggregateKeys(
         lastUsedAt: row.lastUsedAt,
         expiresAt: row.expiresAt,
         revokedAt: row.revokedAt,
-        mailboxIds: row.scopeMailbox ? [row.scopeMailbox] : [],
+        mailboxIds:
+          row.scopeResourceType === "mailbox" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
+        resourceScopes:
+          row.scopeResourceType === "router" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
+        fieldScopes:
+          row.fieldScopeResourceType && row.fieldScopeField
+            ? [
+                {
+                  resourceType: row.fieldScopeResourceType,
+                  field: row.fieldScopeField,
+                },
+              ]
+            : [],
         createdByName: row.createdByName ?? null,
       });
     }
@@ -146,6 +200,15 @@ export const apiKeyRouter = {
         name: z.string().min(1),
         description: z.string().optional(),
         mailboxIds: z.array(z.string().min(1)).optional(),
+        resourceScopes: z.array(z.string().min(1)).optional(),
+        fieldScopes: z
+          .array(
+            z.object({
+              resourceType: z.string(),
+              field: z.string(),
+            }),
+          )
+          .optional(),
         expiresAt: z.string().datetime().optional(),
       }),
     )
@@ -156,6 +219,13 @@ export const apiKeyRouter = {
         secret: z.string(),
         name: z.string(),
         mailboxIds: z.array(z.string()),
+        resourceScopes: z.array(z.string()),
+        fieldScopes: z.array(
+          z.object({
+            resourceType: z.string(),
+            field: z.string(),
+          }),
+        ),
         expiresAt: z.string().nullable(),
       }),
     )
@@ -210,24 +280,53 @@ export const apiKeyRouter = {
         });
       }
 
-      await db.insert(apiKeyScope).values(
-        targetMailboxIds.map((mbId) => ({
-          apiKeyId: key.id,
-          scopeMailbox: mbId,
-        })),
-      );
+      const scopes: Array<{
+        apiKeyId: number;
+        scopeResourceType: string;
+        scopeResourceId: string;
+      }> = [];
 
-      if ("session" in ctx) {
-        await call(
-          auditRouter.create,
-          {
-            resource: "api_key",
-            action: "create",
-            resourceId: key.id.toString(),
-          },
-          { context: ctx },
+      for (const mbId of targetMailboxIds) {
+        scopes.push({
+          apiKeyId: key.id,
+          scopeResourceType: "mailbox",
+          scopeResourceId: mbId,
+        });
+      }
+
+      if (input.resourceScopes) {
+        for (const router of input.resourceScopes) {
+          scopes.push({
+            apiKeyId: key.id,
+            scopeResourceType: "router",
+            scopeResourceId: router,
+          });
+        }
+      }
+
+      if (scopes.length > 0) {
+        await db.insert(apiKeyScope).values(scopes);
+      }
+
+      if (input.fieldScopes && input.fieldScopes.length > 0) {
+        await db.insert(apiKeyFieldScope).values(
+          input.fieldScopes.map((scope) => ({
+            apiKeyId: key.id,
+            scopeResourceType: scope.resourceType,
+            scopeField: scope.field,
+          })),
         );
       }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "create",
+          resourceId: key.id.toString(),
+        },
+        { context: ctx },
+      );
 
       return {
         id: key.id,
@@ -235,6 +334,8 @@ export const apiKeyRouter = {
         secret,
         name: input.name,
         mailboxIds: targetMailboxIds,
+        resourceScopes: input.resourceScopes ?? [],
+        fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };
     }),
@@ -245,6 +346,15 @@ export const apiKeyRouter = {
       z.object({
         name: z.string().min(1),
         description: z.string().optional(),
+        resourceScopes: z.array(z.string().min(1)).optional(),
+        fieldScopes: z
+          .array(
+            z.object({
+              resourceType: z.string(),
+              field: z.string(),
+            }),
+          )
+          .optional(),
         expiresAt: z.string().datetime().optional(),
       }),
     )
@@ -254,7 +364,13 @@ export const apiKeyRouter = {
         keyPrefix: z.string(),
         secret: z.string(),
         name: z.string(),
-        mailboxIds: z.array(z.string()),
+        resourceScopes: z.array(z.string()),
+        fieldScopes: z.array(
+          z.object({
+            resourceType: z.string(),
+            field: z.string(),
+          }),
+        ),
         expiresAt: z.string().nullable(),
       }),
     )
@@ -282,6 +398,26 @@ export const apiKeyRouter = {
         });
       }
 
+      if (input.resourceScopes && input.resourceScopes.length > 0) {
+        await db.insert(apiKeyScope).values(
+          input.resourceScopes.map((router) => ({
+            apiKeyId: key.id,
+            scopeResourceType: "router",
+            scopeResourceId: router,
+          })),
+        );
+      }
+
+      if (input.fieldScopes && input.fieldScopes.length > 0) {
+        await db.insert(apiKeyFieldScope).values(
+          input.fieldScopes.map((scope) => ({
+            apiKeyId: key.id,
+            scopeResourceType: scope.resourceType,
+            scopeField: scope.field,
+          })),
+        );
+      }
+
       await call(
         auditRouter.create,
         {
@@ -297,7 +433,8 @@ export const apiKeyRouter = {
         keyPrefix,
         secret,
         name: input.name,
-        mailboxIds: [],
+        resourceScopes: input.resourceScopes ?? [],
+        fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };
     }),
@@ -336,7 +473,7 @@ export const apiKeyRouter = {
       return listKeysForMailbox(input.mailboxId, teamId, createdBy);
     }),
 
-  listTeam: protectedProcedure
+  listTeam: teamMemberProtectedProcedure
     .route({ method: "GET", path: "/keys" })
     .output(z.array(apiKeySchema))
     .handler(async ({ context }) => {
@@ -356,7 +493,7 @@ export const apiKeyRouter = {
       return listKeysForTeam(env.JELLY_TEAM_ID, isAdmin ? undefined : userId);
     }),
 
-  revokeTeamKey: protectedProcedure
+  revokeTeamKey: teamMemberProtectedProcedure
     .route({ method: "POST", path: "/keys/{keyId}/revoke" })
     .input(z.object({ keyId: z.coerce.number().min(1) }))
     .output(z.object({ message: z.string() }))
@@ -433,7 +570,8 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
-            eq(apiKeyScope.scopeMailbox, input.mailboxId),
+            eq(apiKeyScope.scopeResourceType, "mailbox"),
+            eq(apiKeyScope.scopeResourceId, input.mailboxId),
           ),
         );
 
@@ -452,17 +590,62 @@ export const apiKeyRouter = {
         .set({ revokedAt: new Date(), active: false })
         .where(eq(apiKey.id, input.keyId));
 
-      if ("session" in ctx) {
-        await call(
-          auditRouter.create,
-          {
-            resource: "api_key",
-            action: "revoke",
-            resourceId: input.keyId.toString(),
-          },
-          { context: ctx },
-        );
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "revoke",
+          resourceId: input.keyId.toString(),
+        },
+        { context: ctx },
+      );
+
+      return { message: "API key revoked" };
+    }),
+  revokePublic: publicProcedure
+    .route({
+      method: "POST",
+      path: "/revoke",
+    })
+    .input(
+      z.object({
+        key: z.string().min(1),
+        revoker: z.string().optional(),
+      }),
+    )
+    .output(z.object({ message: z.string() }))
+    .handler(async ({ input, context }) => {
+      const keyPrefix = input.key.slice(0, KEY_PREFIX_LENGTH);
+      const [key] = await db
+        .select()
+        .from(apiKey)
+        .where(eq(apiKey.keyPrefix, keyPrefix));
+
+      if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
       }
+
+      if (key.revokedAt) {
+        throw new ORPCError("CONFLICT", {
+          message: "API key is already revoked",
+        });
+      }
+
+      await db
+        .update(apiKey)
+        .set({ revokedAt: new Date(), active: false })
+        .where(eq(apiKey.id, key.id));
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "revoke",
+          resourceId: key.id.toString(),
+          metadata: input.revoker ? { revoker: input.revoker } : { revoker: "public" },
+        },
+        { context },
+      );
 
       return { message: "API key revoked" };
     }),

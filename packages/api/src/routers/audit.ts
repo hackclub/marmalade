@@ -4,13 +4,13 @@ import { env } from "@marmalade-v2/env/server";
 
 import z from "zod";
 
-import { protectedProcedure, teamAdminProtectedProcedure } from "../index";
+import { publicProcedure, teamAdminProtectedProcedure } from "../index";
 
 export const auditRouter = {
   list: teamAdminProtectedProcedure.handler(async () => {
     return await db.select().from(auditLog);
   }),
-  create: protectedProcedure
+  create: publicProcedure
     .input(
       z.object({
         resource: z.string().min(1),
@@ -22,11 +22,24 @@ export const auditRouter = {
       }),
     )
     .handler(async ({ input, context }) => {
-      const ipAddress = context.session.session.ipAddress;
-      const userAgent = context.session.session.userAgent;
+      const ctx = context as any;
+
+      let userId: string | null = null;
+      let apiKeyId: number | null = null;
+      let ipAddress: string | null = null;
+      let userAgent: string | null = null;
+
+      if (ctx.session) {
+        userId = ctx.session.user.id;
+        ipAddress = ctx.session.session.ipAddress ?? null;
+        userAgent = ctx.session.session.userAgent ?? null;
+      } else if (ctx.apiKey) {
+        apiKeyId = ctx.apiKey.id;
+      }
 
       return await db.insert(auditLog).values({
-        userId: context.session.user.id,
+        userId,
+        apiKeyId,
         jellyTeamId: env.JELLY_TEAM_ID,
         action: input.action,
         resource: input.resource,

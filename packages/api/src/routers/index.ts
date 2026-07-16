@@ -5,11 +5,11 @@ import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
-import { protectedProcedure, publicProcedure } from "../index";
+import { publicProcedure, teamMemberProtectedProcedure } from "../index";
+import { teamMemberSchema } from "../schemas/output";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
-import { teamMemberSchema } from "../schemas/output";
 import { teamRouter } from "./team";
 
 export const appRouter = {
@@ -19,7 +19,7 @@ export const appRouter = {
     .handler(() => {
       return "OK";
     }),
-  privateData: protectedProcedure
+  privateData: teamMemberProtectedProcedure
     .route({ method: "GET", path: "/me" })
     .output(
       z.object({
@@ -40,7 +40,7 @@ export const appRouter = {
         user: context.session?.user,
       };
     }),
-  membershipInfo: protectedProcedure
+  membershipInfo: teamMemberProtectedProcedure
     .route({ method: "GET", path: "/membership" })
     .output(teamMemberSchema)
     .handler(async ({ context }) => {

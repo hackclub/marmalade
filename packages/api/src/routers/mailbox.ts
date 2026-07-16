@@ -16,13 +16,16 @@ import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import z from "zod";
 import {
+  checkRouterScope,
+  filterFieldsByScope,
   mailboxScopedProcedure,
   publicProcedure,
   requireMailboxAccess,
   teamAdminProtectedProcedure,
+  teamMemberProtectedProcedure,
 } from "../index";
-import { auditRouter } from "./audit";
 import { mailboxListItemSchema } from "../schemas/output";
+import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 const jellyMailboxMembersAll = aliasedTable(
@@ -99,6 +102,7 @@ export const mailboxRouter = {
       ]),
     )
     .handler(async ({ input, context }) => {
+      checkRouterScope(context, "mailbox");
       requireMailboxAccess(context, input.jellyMailboxId);
 
       let jellyMailboxRows: Array<{
@@ -182,6 +186,8 @@ export const mailboxRouter = {
     .route({ method: "GET", path: "/mailboxes" })
     .output(z.array(mailboxListItemSchema))
     .handler(async ({ context }) => {
+      checkRouterScope(context, "mailbox");
+
       if ("apiKey" in context) {
         const mailboxes = await db
           .select()
@@ -195,8 +201,16 @@ export const mailboxRouter = {
           );
 
         return mailboxes.map((row) => ({
-          jellyMailbox: row.jelly_mailbox,
-          marmaladeMailbox: row.mailbox,
+          jellyMailbox: filterFieldsByScope(
+            context,
+            "mailbox",
+            row.jelly_mailbox,
+          ),
+          marmaladeMailbox: filterFieldsByScope(
+            context,
+            "mailbox",
+            row.mailbox,
+          ),
           marmaladeMailboxMembership: null,
         }));
       }
@@ -491,7 +505,7 @@ export const mailboxRouter = {
       );
       return { message: "Resync completed successfully" };
     }),
-  resyncMembers: publicProcedure
+  resyncMembers: teamMemberProtectedProcedure
     .route({
       method: "POST",
       path: "/mailboxes/{mailboxId}/members/resync",

@@ -5,10 +5,14 @@ import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { eq, inArray } from "drizzle-orm";
 import z from "zod";
-import { apiKeyOrSessionProcedure, publicProcedure } from "..";
+import {
+  apiKeyOrSessionProcedure,
+  checkRouterScope,
+  publicProcedure,
+} from "..";
 import { getJellyClient } from "../lib/jelly";
-import { auditRouter } from "./audit";
 import { teamMemberSchema, userSchema } from "../schemas/output";
+import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 
@@ -23,7 +27,9 @@ export const teamRouter = {
         }),
       ),
     )
-    .handler(async () => {
+    .handler(async ({ context }) => {
+      checkRouterScope(context, "team");
+
       const results = await db
         .select({
           jelly: jellyTeamContact,

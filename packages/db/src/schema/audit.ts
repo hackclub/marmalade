@@ -1,4 +1,5 @@
 import {
+  integer,
   jsonb,
   pgTable,
   serial,
@@ -6,6 +7,7 @@ import {
   timestamp,
   varchar,
 } from "drizzle-orm/pg-core";
+import { apiKey } from "./api";
 import { user } from "./auth";
 import { jellyTeam } from "./team";
 
@@ -14,12 +16,13 @@ export const auditLog = pgTable("audit_log", {
   timestamp: timestamp("timestamp")
     .notNull()
     .$default(() => new Date()),
-  userId: text("user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+  apiKeyId: integer("api_key_id").references(() => apiKey.id, {
+    onDelete: "set null",
+  }),
   jellyTeamId: text("jelly_team_id")
     .notNull()
-    .references(() => jellyTeam.id, { onDelete: "cascade" }),
+    .references(() => jellyTeam.id, { onDelete: "set null" }),
   action: text("action").notNull(),
   resource: text("resource").notNull(),
   resourceId: text("resource_id").notNull(),

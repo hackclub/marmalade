@@ -1,6 +1,10 @@
 import { auth } from "@marmalade-v2/auth";
 import { db } from "@marmalade-v2/db";
-import { apiKey, apiKeyScope } from "@marmalade-v2/db/schema/api";
+import {
+  apiKey,
+  apiKeyFieldScope,
+  apiKeyScope,
+} from "@marmalade-v2/db/schema/api";
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
@@ -127,10 +131,14 @@ export async function createApiKeyContext({ req }: { req: Request }) {
       expiresAt: apiKey.expiresAt,
       revokedAt: apiKey.revokedAt,
       lastUsedAt: apiKey.lastUsedAt,
-      scopeMailbox: apiKeyScope.scopeMailbox,
+      scopeResourceType: apiKeyScope.scopeResourceType,
+      scopeResourceId: apiKeyScope.scopeResourceId,
+      fieldScopeResourceType: apiKeyFieldScope.scopeResourceType,
+      fieldScopeField: apiKeyFieldScope.scopeField,
     })
     .from(apiKey)
     .leftJoin(apiKeyScope, eq(apiKey.id, apiKeyScope.apiKeyId))
+    .leftJoin(apiKeyFieldScope, eq(apiKey.id, apiKeyFieldScope.apiKeyId))
     .where(eq(apiKey.keyPrefix, keyPrefix));
 
   if (rows.length === 0) {
@@ -170,9 +178,39 @@ export async function createApiKeyContext({ req }: { req: Request }) {
     });
   }
 
-  const mailboxIds = rows
-    .map((r) => r.scopeMailbox)
-    .filter((id): id is string => id !== null);
+  const mailboxIds: string[] = [];
+  const resourceScopes: string[] = [];
+  const fieldScopes: Array<{ resourceType: string; field: string }> = [];
+
+  for (const row of rows) {
+    if (!row.scopeResourceType || !row.scopeResourceId) continue;
+    if (
+      row.scopeResourceType === "mailbox" &&
+      !mailboxIds.includes(row.scopeResourceId)
+    ) {
+      mailboxIds.push(row.scopeResourceId);
+    }
+    if (
+      row.scopeResourceType === "router" &&
+      !resourceScopes.includes(row.scopeResourceId)
+    ) {
+      resourceScopes.push(row.scopeResourceId);
+    }
+    if (row.fieldScopeResourceType && row.fieldScopeField) {
+      if (
+        !fieldScopes.some(
+          (f) =>
+            f.resourceType === row.fieldScopeResourceType &&
+            f.field === row.fieldScopeField,
+        )
+      ) {
+        fieldScopes.push({
+          resourceType: row.fieldScopeResourceType,
+          field: row.fieldScopeField,
+        });
+      }
+    }
+  }
 
   await db
     .update(apiKey)
@@ -185,6 +223,8 @@ export async function createApiKeyContext({ req }: { req: Request }) {
       keyPrefix: keyRow.keyPrefix,
       name: keyRow.name,
       mailboxIds,
+      resourceScopes,
+      fieldScopes,
       jellyTeamId: keyRow.jellyTeamId,
     },
   };

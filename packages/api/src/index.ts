@@ -118,6 +118,37 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
     }
   },
 );
+export const teamMemberProtectedProcedure = protectedProcedure.use(
+  async ({ context, next }) => {
+    const userEmail = context.session.user.email;
+    let role;
+    try {
+      const teamMember = await db
+        .select()
+        .from(jellyTeamContact)
+        .where(
+          and(
+            eq(jellyTeamContact.email, userEmail),
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+          ),
+        );
+      if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
+        throw new ORPCError("FORBIDDEN");
+      }
+      role = teamMember[0].role;
+      if (role !== "member" && role !== "admin" && role !== "owner") {
+        throw new ORPCError("FORBIDDEN");
+      }
+      return next({
+        context: {
+          session: context.session,
+        },
+      });
+    } catch {
+      throw new ORPCError("FORBIDDEN");
+    }
+  },
+);
 
 export const mailboxScopedProcedure = authO
   .use(requireAuthOrApiKeyOrWebhook)
@@ -175,4 +206,53 @@ export function requireMailboxAccess(
       message: "Not authorized for this mailbox",
     });
   }
+}
+
+export function checkRouterScope(context: AppContext, routerName: string) {
+  const hasSession =
+    "session" in context && Boolean((context as any).session?.user);
+  const hasWebhook = "request" in context && "rawBody" in context;
+
+  if (hasSession || hasWebhook) return;
+
+  if ("apiKey" in context && context.apiKey) {
+    const { resourceScopes } = context.apiKey;
+    if (resourceScopes.includes("*") || resourceScopes.includes(routerName))
+      return;
+  }
+
+  throw new ORPCError("FORBIDDEN", {
+    message: `Not authorized for router: ${routerName}`,
+  });
+}
+
+export function filterFieldsByScope<T extends Record<string, any>>(
+  context: AppContext,
+  resourceType: string,
+  data: T,
+): T {
+  if ("session" in context || ("request" in context && "rawBody" in context)) {
+    return data;
+  }
+
+  if ("apiKey" in context && context.apiKey) {
+    const { fieldScopes } = context.apiKey;
+    const allowedFields = fieldScopes
+      .filter((f) => f.resourceType === resourceType)
+      .map((f) => f.field);
+
+    if (allowedFields.length === 0) {
+      return data;
+    }
+
+    const filtered: Record<string, any> = {};
+    for (const key of Object.keys(data)) {
+      if (allowedFields.includes(key) || allowedFields.includes("*")) {
+        filtered[key] = data[key];
+      }
+    }
+    return filtered as T;
+  }
+
+  return data;
 }

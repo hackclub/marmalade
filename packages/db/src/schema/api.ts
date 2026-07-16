@@ -33,10 +33,40 @@ export const apiKey = pgTable(
   (t) => [unique().on(t.name, t.jellyTeamId)],
 );
 
-export const apiKeyScope = pgTable("api_key_scope", {
-  id: serial("id").primaryKey(),
-  apiKeyId: integer("api_key_id")
-    .notNull()
-    .references(() => apiKey.id, { onDelete: "cascade" }),
-  scopeMailbox: text("scope_mailbox").notNull(),
-});
+export const apiKeyScope = pgTable(
+  "api_key_scope",
+  {
+    id: serial("id").primaryKey(),
+    apiKeyId: integer("api_key_id")
+      .notNull()
+      .references(() => apiKey.id, { onDelete: "cascade" }),
+    scopeResourceType: text("scope_resource_type").notNull(),
+    scopeResourceId: text("scope_resource_id").notNull(),
+  },
+  (r) => ({
+    apiKeyIdScopeResourceTypeScopeResourceId: unique().on(
+      r.apiKeyId,
+      r.scopeResourceType,
+      r.scopeResourceId,
+    ),
+  }),
+);
+
+export const apiKeyFieldScope = pgTable(
+  "api_key_field_scope",
+  {
+    id: serial("id").primaryKey(),
+    apiKeyId: integer("api_key_id")
+      .notNull()
+      .references(() => apiKey.id, { onDelete: "cascade" }),
+    scopeResourceType: text("scope_resource_type").notNull(), // e.g. "conversation", "contact"
+    scopeField: text("scope_field").notNull(), // e.g. "content", "sender"
+  },
+  (r) => ({
+    apiKeyIdResourceTypeField: unique().on(
+      r.apiKeyId,
+      r.scopeResourceType,
+      r.scopeField,
+    ),
+  }),
+);

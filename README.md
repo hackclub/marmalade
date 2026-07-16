@@ -6,8 +6,8 @@
 
 - simple to use
 - everything opt-in
-- least-permissioned and fully audit-trailed
-- no slopcoding
+- finely-grained and least-privelidged api access
+- fully audit-trailed
 
 ## tasks
 
@@ -37,8 +37,8 @@
     - [x] grant/rescind api perms for marmalade mailbox members
       - [x] mailbox-scoped perms
       - [ ] data-scoped perms
-        - [ ] metadata
-        - [ ] content
+        - [ ] perm presets
+          - [ ] metadata vs content
   - [ ] member actions
     - [ ] request own/other member access to be granted
 - [ ] keys
@@ -68,7 +68,8 @@
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately
   - [ ] admins should not be able to mutate owners
-  - [ ] standardized key prefix (for [revokability](https://revoke.hackclub.com))
+  - [ ] standardized key prefix
+    - [ ] [revokability](https://revoke.hackclub.com))
 - [ ] plumbing
   - [ ] ensure uniqueness of relational tables and make references "official"
   - [ ] first time sync on registration and scheduled/manual org teammember resyncs

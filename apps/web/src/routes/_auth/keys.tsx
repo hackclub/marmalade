@@ -1,4 +1,11 @@
 import { orpc } from "@/utils/orpc";
+import {
+  apiKeySchema,
+  commentSchema,
+  conversationSchema,
+  messageSchema,
+  teamMemberSchema,
+} from "@marmalade-v2/api/schemas";
 import { Badge } from "@marmalade-v2/ui/components/badge";
 import { Button } from "@marmalade-v2/ui/components/button";
 import {
@@ -24,8 +31,70 @@ import { Input } from "@marmalade-v2/ui/components/input";
 import { Label } from "@marmalade-v2/ui/components/label";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { Check, Copy, Loader2 } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
+
+const COMMON_EXCLUSIONS = ["id", "createdAt", "updatedAt", "url"];
+
+const RESOURCE_EXCLUSIONS: Record<string, string[]> = {
+  conversation: [
+    ...COMMON_EXCLUSIONS,
+    "snoozedUntil",
+    "draftReplyUrl",
+    "markdownUrl",
+    "messagesUrl",
+    "commentsUrl",
+  ],
+  message: [...COMMON_EXCLUSIONS, "conversationId"],
+  comment: [...COMMON_EXCLUSIONS, "conversationId"],
+  team: [...COMMON_EXCLUSIONS],
+  // apiKey: [...COMMON_EXCLUSIONS, "keyPrefix"],
+};
+
+const SCHEMA_MAP: Record<string, { schema: any; label: string; scopeId: string }> = {
+  conversation: { schema: conversationSchema, label: "Conversation", scopeId: "convo" },
+  message: { schema: messageSchema, label: "Message", scopeId: "message" },
+  comment: { schema: commentSchema, label: "Comment", scopeId: "comment" },
+  team: { schema: teamMemberSchema, label: "Team Contact", scopeId: "team" },
+  apiKey: { schema: apiKeySchema, label: "API Key", scopeId: "apiKey" },
+};
+
+function getScorableFields(resourceType: string): string[] {
+  const entry = SCHEMA_MAP[resourceType];
+  if (!entry) return [];
+  const exclusions = RESOURCE_EXCLUSIONS[resourceType] ?? COMMON_EXCLUSIONS;
+  return Object.keys(entry.schema.shape).filter(
+    (key) => !exclusions.includes(key),
+  );
+}
+
+const RESOURCE_DEFINITIONS: Array<{
+  id: string;
+  scopeId: string;
+  label: string;
+  fields: string[];
+  hasMailboxList?: boolean;
+}> = [
+  {
+    id: "mailbox",
+    scopeId: "mailbox",
+    label: "Mailbox",
+    fields: [],
+    hasMailboxList: true,
+  },
+  ...Object.entries(SCHEMA_MAP).map(([id, { label, scopeId }]) => ({
+    id,
+    scopeId,
+    label,
+    fields: getScorableFields(id),
+  })),
+  // {
+  //   id: "attachment",
+  //   scopeId: "convo",
+  //   label: "Attachment",
+  //   fields: ["filename", "content_type", "byte_size", "url", "inline"],
+  // },
+];
 
 export const Route = createFileRoute("/_auth/keys")({
   component: KeysRoute,
@@ -42,10 +111,10 @@ function KeyCard({
 }) {
   const isAdmin = teamMemberRole === "owner" || teamMemberRole === "admin";
   const isExpired = apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date();
-  const [mailboxesShowing, setMailboxesShowing] = useState(false);
+  const [detailsShowing, setDetailsShowing] = useState(false);
 
-  function toggleMailboxesShowing() {
-    setMailboxesShowing(!mailboxesShowing);
+  function toggleDetailsShowing() {
+    setDetailsShowing(!detailsShowing);
   }
 
   return (
@@ -83,13 +152,11 @@ function KeyCard({
           )}
         </div>
         <div className="flex flex-row items-center justify-end gap-2">
-          {apiKey.mailboxIds.length === 0 ? null : mailboxesShowing ? (
-            <Button onClick={toggleMailboxesShowing} variant="outline">
-              🙈 Hide Mailboxes
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={toggleMailboxesShowing}>
-              👀 Show Mailboxes
+          {(apiKey.mailboxIds.length > 0 ||
+            apiKey.resourceScopes?.length > 0 ||
+            apiKey.fieldScopes?.length > 0) && (
+            <Button onClick={toggleDetailsShowing} variant="outline">
+              {detailsShowing ? "🙈 Hide" : "👀 Show"} Scopes
             </Button>
           )}
           {isAdmin && !apiKey.revokedAt && (
@@ -103,20 +170,218 @@ function KeyCard({
           )}
         </div>
       </div>
-      {mailboxesShowing && apiKey.mailboxIds.length > 0 && (
-        <div>
-          <p className="text-muted-foreground mb-1 text-xs font-semibold">
-            Scoped Mailboxes ({apiKey.mailboxIds.length}):
-          </p>
-
-          <ul className="text-muted-foreground list-disc pl-4 text-xs">
-            {apiKey.mailboxIds.map((id: string) => (
-              <li key={id}>{id}</li>
-            ))}
-          </ul>
+      {detailsShowing && (
+        <div className="space-y-2">
+          {apiKey.resourceScopes?.length > 0 && (
+            <div>
+              <p className="text-muted-foreground mb-1 text-xs font-semibold">
+                Resource Scopes ({apiKey.resourceScopes.length}):
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {apiKey.resourceScopes.map((scope: string) => (
+                  <Badge key={scope} variant="secondary" className="text-xs">
+                    {scope}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          {apiKey.mailboxIds.length > 0 && (
+            <div>
+              <p className="text-muted-foreground mb-1 text-xs font-semibold">
+                Scoped Mailboxes ({apiKey.mailboxIds.length}):
+              </p>
+              <ul className="text-muted-foreground list-disc pl-4 text-xs">
+                {apiKey.mailboxIds.map((id: string) => (
+                  <li key={id}>{id}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {apiKey.fieldScopes?.length > 0 && (
+            <div>
+              <p className="text-muted-foreground mb-1 text-xs font-semibold">
+                Field Scopes ({apiKey.fieldScopes.length}):
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {apiKey.fieldScopes.map(
+                  (scope: { resourceType: string; field: string }) => (
+                    <Badge
+                      key={`${scope.resourceType}:${scope.field}`}
+                      variant="secondary"
+                      className="text-xs"
+                    >
+                      {scope.resourceType}.{scope.field}
+                    </Badge>
+                  ),
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </li>
+  );
+}
+
+function ResourceScopeSection({
+  scopeId,
+  label,
+  fields,
+  hasMailboxList,
+  expanded,
+  onToggleExpanded,
+  selectedResourceScopes,
+  selectedFieldScopes,
+  selectedMailboxIds,
+  accessibleMailboxes,
+  mailboxesLoading,
+  onToggleResource,
+  onToggleField,
+  onToggleMailbox,
+}: {
+  scopeId: string;
+  label: string;
+  fields: string[];
+  hasMailboxList?: boolean;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  selectedResourceScopes: string[];
+  selectedFieldScopes: Array<{ resourceType: string; field: string }>;
+  selectedMailboxIds: string[];
+  accessibleMailboxes: Array<{
+    jellyMailbox: { jellyMailboxId: string; name: string };
+  }>;
+  mailboxesLoading: boolean;
+  onToggleResource: (scopeId: string) => void;
+  onToggleField: (resourceType: string, field: string) => void;
+  onToggleMailbox: (mailboxId: string) => void;
+}) {
+  const isRouterSelected = selectedResourceScopes.includes(scopeId);
+  const hasSubItems = hasMailboxList || fields.length > 0;
+
+  const allMailboxIds = accessibleMailboxes.map(
+    (m) => m.jellyMailbox.jellyMailboxId,
+  );
+  const allMailboxesSelected =
+    hasMailboxList &&
+    allMailboxIds.length > 0 &&
+    allMailboxIds.every((id) => selectedMailboxIds.includes(id));
+  const someMailboxesSelected =
+    hasMailboxList &&
+    allMailboxIds.some((id) => selectedMailboxIds.includes(id)) &&
+    !allMailboxesSelected;
+
+  const allFieldsSelected =
+    fields.length > 0 &&
+    fields.every((field) =>
+      selectedFieldScopes.some(
+        (s) => s.resourceType === scopeId && s.field === field,
+      ),
+    );
+  const someFieldsSelected =
+    fields.length > 0 &&
+    fields.some((field) =>
+      selectedFieldScopes.some(
+        (s) => s.resourceType === scopeId && s.field === field,
+      ),
+    ) &&
+    !allFieldsSelected;
+
+  const hasIndeterminate = someMailboxesSelected || someFieldsSelected;
+
+  return (
+    <div className="rounded-md border">
+      <div className="hover:bg-muted flex items-center gap-2 px-3 py-2">
+        {hasSubItems ? (
+          <button
+            type="button"
+            onClick={onToggleExpanded}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        ) : (
+          <div className="w-4" />
+        )}
+        <Checkbox
+          checked={isRouterSelected}
+          indeterminate={hasIndeterminate && !isRouterSelected}
+          onCheckedChange={() => onToggleResource(scopeId)}
+        />
+        <span className="text-sm font-medium">{label}</span>
+      </div>
+
+      {expanded && hasSubItems && (
+        <div className="border-t px-6 py-2">
+          {hasMailboxList && (
+            <div>
+              <p className="text-muted-foreground mb-1 text-xs font-semibold">
+                Mailboxes
+              </p>
+              {mailboxesLoading ? (
+                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading...
+                </div>
+              ) : accessibleMailboxes.length === 0 ? (
+                <p className="text-muted-foreground text-xs">
+                  No mailboxes available
+                </p>
+              ) : (
+                <div className="max-h-32 overflow-y-auto">
+                  {accessibleMailboxes.map((mailbox) => (
+                    <label
+                      key={mailbox.jellyMailbox.jellyMailboxId}
+                      className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1"
+                    >
+                      <Checkbox
+                        checked={selectedMailboxIds.includes(
+                          mailbox.jellyMailbox.jellyMailboxId,
+                        )}
+                        onCheckedChange={() =>
+                          onToggleMailbox(mailbox.jellyMailbox.jellyMailboxId)
+                        }
+                      />
+                      <span className="text-xs">
+                        {mailbox.jellyMailbox.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {fields.length > 0 && (
+            <div className={hasMailboxList ? "mt-2" : ""}>
+              <p className="text-muted-foreground mb-1 text-xs font-semibold">
+                Fields
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {fields.map((field) => (
+                  <label
+                    key={field}
+                    className="hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1"
+                  >
+                    <Checkbox
+                      checked={selectedFieldScopes.some(
+                        (s) => s.resourceType === scopeId && s.field === field,
+                      )}
+                       onCheckedChange={() => onToggleField(scopeId, field)}
+                    />
+                    <span className="text-xs">{field}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -124,10 +389,13 @@ function CreateKeyDialog({
   createTeamMutate,
   createScopedMutate,
   isPending,
+  teamMemberRole,
 }: {
   createTeamMutate: (variables: {
     name: string;
     description?: string;
+    resourceScopes?: string[];
+    fieldScopes?: Array<{ resourceType: string; field: string }>;
     expiresAt?: string;
   }) => void;
   createScopedMutate: (variables: {
@@ -135,15 +403,32 @@ function CreateKeyDialog({
     name: string;
     description?: string;
     mailboxIds?: string[];
+    resourceScopes?: string[];
+    fieldScopes?: Array<{ resourceType: string; field: string }>;
     expiresAt?: string;
   }) => void;
   isPending: boolean;
+  teamMemberRole: string;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
+  const [selectedResourceScopes, setSelectedResourceScopes] = useState<string[]>(
+    [],
+  );
+  const [selectedFieldScopes, setSelectedFieldScopes] = useState<
+    Array<{ resourceType: string; field: string }>
+  >([]);
+
+  const isAdmin = teamMemberRole === "owner" || teamMemberRole === "admin";
+  const visibleResourceDefs = RESOURCE_DEFINITIONS.filter(
+    (r) => isAdmin || r.id !== "apiKey",
+  );
+  const [expandedResources, setExpandedResources] = useState<
+    Record<string, boolean>
+  >({});
 
   const mailboxes = useQuery(orpc.mailbox.list.queryOptions());
   const accessibleMailboxes =
@@ -153,18 +438,35 @@ function CreateKeyDialog({
     e.preventDefault();
     if (!name.trim()) return;
 
-    if (selectedMailboxIds.length > 0) {
+    const hasScopes =
+      selectedMailboxIds.length > 0 ||
+      selectedResourceScopes.length > 0 ||
+      selectedFieldScopes.length > 0;
+
+    if (hasScopes && selectedMailboxIds.length > 0) {
       createScopedMutate({
         mailboxId: selectedMailboxIds[0],
         name: name.trim(),
         description: description.trim() || undefined,
         mailboxIds: selectedMailboxIds,
+        resourceScopes:
+          selectedResourceScopes.length > 0
+            ? selectedResourceScopes
+            : undefined,
+        fieldScopes:
+          selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       });
     } else {
       createTeamMutate({
         name: name.trim(),
         description: description.trim() || undefined,
+        resourceScopes:
+          selectedResourceScopes.length > 0
+            ? selectedResourceScopes
+            : undefined,
+        fieldScopes:
+          selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
       });
     }
@@ -173,7 +475,73 @@ function CreateKeyDialog({
     setDescription("");
     setExpiresAt("");
     setSelectedMailboxIds([]);
+    setSelectedResourceScopes([]);
+    setSelectedFieldScopes([]);
+    setExpandedResources({});
     setOpen(false);
+  };
+
+  const toggleExpandedResource = (routerId: string) => {
+    setExpandedResources((prev) => ({
+      ...prev,
+      [routerId]: !prev[routerId],
+    }));
+  };
+
+  const toggleResource = (scopeId: string) => {
+    const routerDef = RESOURCE_DEFINITIONS.find((r) => r.scopeId === scopeId);
+    if (!routerDef) return;
+
+    const isCurrentlySelected = selectedResourceScopes.includes(scopeId);
+
+    if (isCurrentlySelected) {
+      setSelectedResourceScopes((prev) => prev.filter((id) => id !== scopeId));
+      setExpandedResources((prev) => ({ ...prev, [routerDef.id]: false }));
+
+      if (routerDef.hasMailboxList) {
+        setSelectedMailboxIds([]);
+      }
+      if (routerDef.fields.length > 0) {
+        setSelectedFieldScopes((prev) =>
+          prev.filter((s) => s.resourceType !== scopeId),
+        );
+      }
+    } else {
+      setSelectedResourceScopes((prev) => [...prev, scopeId]);
+      setExpandedResources((prev) => ({ ...prev, [routerDef.id]: true }));
+
+      if (routerDef.hasMailboxList) {
+        setSelectedMailboxIds(
+          accessibleMailboxes.map((m) => m.jellyMailbox.jellyMailboxId),
+        );
+      }
+      if (routerDef.fields.length > 0) {
+        setSelectedFieldScopes((prev) => {
+          const withoutThisRouter = prev.filter(
+            (s) => s.resourceType !== scopeId,
+          );
+          const newFields = routerDef.fields.map((field) => ({
+            resourceType: scopeId,
+            field,
+          }));
+          return [...withoutThisRouter, ...newFields];
+        });
+      }
+    }
+  };
+
+  const toggleField = (resourceType: string, field: string) => {
+    setSelectedFieldScopes((prev) => {
+      const exists = prev.some(
+        (s) => s.resourceType === resourceType && s.field === field,
+      );
+      if (exists) {
+        return prev.filter(
+          (s) => !(s.resourceType === resourceType && s.field === field),
+        );
+      }
+      return [...prev, { resourceType, field }];
+    });
   };
 
   const toggleMailbox = (jellyMailboxId: string) => {
@@ -189,15 +557,15 @@ function CreateKeyDialog({
       <DialogTrigger
         render={<Button className="mb-4">Create API Key</Button>}
       />
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={handleSubmit}>
+      <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-md">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <DialogHeader>
             <DialogTitle>Create API Key</DialogTitle>
             <DialogDescription>
               Create a new API key for marmalade API access.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto py-4">
             <div className="grid gap-2">
               <Label htmlFor="key-name">Name</Label>
               <Input
@@ -209,16 +577,18 @@ function CreateKeyDialog({
                 required
               />
             </div>
+            {/* 
+            description probably isn't helpful for now
             <div className="grid gap-2">
               <Label htmlFor="key-description">Description (optional)</Label>
               <Input
                 id="key-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="describe it"
+                placeholder="describe it?"
                 disabled={isPending}
               />
-            </div>
+            </div> */}
             <div className="grid gap-2">
               <Label htmlFor="key-expires">Expires (optional)</Label>
               <Input
@@ -231,44 +601,31 @@ function CreateKeyDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label>Scoped Mailboxes (optional)</Label>
-              {mailboxes.isLoading ? (
-                <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading
-                  mailboxes...
-                </div>
-              ) : accessibleMailboxes.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  You need to join a mailbox
-                </p>
-              ) : (
-                <div className="max-h-40 overflow-y-auto rounded-md border p-2">
-                  {accessibleMailboxes.map((mailbox) => (
-                    <label
-                      key={mailbox.jellyMailbox.jellyMailboxId}
-                      className="hover:bg-muted flex cursor-pointer items-center gap-2 rounded-sm px-1 py-1.5"
-                    >
-                      <Checkbox
-                        checked={selectedMailboxIds.includes(
-                          mailbox.jellyMailbox.jellyMailboxId,
-                        )}
-                        onCheckedChange={() =>
-                          toggleMailbox(mailbox.jellyMailbox.jellyMailboxId)
-                        }
-                      />
-                      <span className="text-sm">
-                        {mailbox.jellyMailbox.name}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-              {selectedMailboxIds.length > 0 && (
-                <p className="text-muted-foreground text-xs">
-                  {selectedMailboxIds.length} mailbox
-                  {selectedMailboxIds.length !== 1 ? "es" : ""} selected.
-                </p>
-              )}
+              <Label>Resource Scopes (optional)</Label>
+              <p className="text-muted-foreground text-xs">
+                Select the minimum resources, mailboxes, and fields your key needs access.
+              </p>
+              <div className="flex flex-col gap-1">
+                    {visibleResourceDefs.map((router) => (
+                      <ResourceScopeSection
+                        key={router.id}
+                        scopeId={router.scopeId}
+                        label={router.label}
+                        fields={router.fields}
+                        hasMailboxList={router.hasMailboxList}
+                        expanded={expandedResources[router.id] ?? false}
+                        onToggleExpanded={() => toggleExpandedResource(router.id)}
+                    selectedResourceScopes={selectedResourceScopes}
+                    selectedFieldScopes={selectedFieldScopes}
+                    selectedMailboxIds={selectedMailboxIds}
+                    accessibleMailboxes={accessibleMailboxes}
+                    mailboxesLoading={mailboxes.isLoading}
+                    onToggleResource={toggleResource}
+                    onToggleField={toggleField}
+                    onToggleMailbox={toggleMailbox}
+                  />
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
@@ -388,6 +745,7 @@ function KeysRoute() {
               isPending={
                 createMutation.isPending || createScopedMutation.isPending
               }
+              teamMemberRole={teamMember.role}
             />
           </CardAction>
         </CardHeader>

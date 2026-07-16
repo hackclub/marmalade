@@ -47,6 +47,18 @@ const jellyMessageSchema = z.object({
   inbound: z.boolean().optional(),
   sent_at: z.string().optional(),
   from: z.array(z.string()).optional(),
+  attachments: z
+    .array(
+      z.object({
+        id: z.string(),
+        filename: z.string(),
+        content_type: z.string(),
+        byte_size: z.number(),
+        inline: z.boolean(),
+        url: z.url().optional(),
+      }),
+    )
+    .optional(),
 });
 
 const jellyCommentSchema = z.object({
@@ -150,6 +162,7 @@ export const adminRouter = {
             isInbound: message.inbound ?? true,
             attachmentsCount: message.attachments_count ?? 0,
             sentAt: message.sent_at,
+            attachments: message.attachments,
           },
           { context },
         );

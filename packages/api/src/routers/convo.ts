@@ -11,6 +11,7 @@ import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
@@ -394,16 +395,27 @@ export const conversationRouter = {
             message: "Message sender email is required",
           });
         }
+        let senderId: string | null = null;
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
           .where(eq(jellyTeamContact.email, input.senderEmail))
           .limit(1);
 
-        if (!existingContactRows || existingContactRows.length === 0) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: "Message sender is not a known contact",
+        if (existingContactRows.length > 0) {
+          senderId = existingContactRows[0]!.id;
+        } else {
+          const newContactId = randomUUID();
+          const name = input.senderEmail.split("@")[0]!;
+          await db.insert(jellyTeamContact).values({
+            id: newContactId,
+            name,
+            email: input.senderEmail,
+            role: "contact",
+            jellyTeamId: env.JELLY_TEAM_ID,
+            existsInJelly: false,
           });
+          senderId = newContactId;
         }
         await db
           .insert(message)
@@ -412,7 +424,7 @@ export const conversationRouter = {
             conversationId: input.conversationId,
             content: input.content ?? null,
             contentHtml: input.contentHtml ?? null,
-            senderId: existingContactRows[0]?.id ?? null,
+            senderId,
             isInbound: input.isInbound ?? true,
             metadata: {
               attachments_count: input.attachmentsCount ?? 0,

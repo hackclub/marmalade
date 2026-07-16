@@ -24,6 +24,24 @@ import { auditRouter } from "./audit";
 
 const KEY_PREFIX_LENGTH = 8;
 
+async function getUniqueKeyName(
+  baseName: string,
+  teamId: string,
+): Promise<string> {
+  let candidate = baseName;
+  let suffix = 1;
+  while (true) {
+    const [existing] = await db
+      .select({ id: apiKey.id })
+      .from(apiKey)
+      .where(and(eq(apiKey.name, candidate), eq(apiKey.jellyTeamId, teamId)))
+      .limit(1);
+    if (!existing) return candidate;
+    candidate = `${baseName}-${suffix}`;
+    suffix++;
+  }
+}
+
 async function listKeysForMailbox(
   mailboxId: string,
   teamId: string,
@@ -261,12 +279,14 @@ export const apiKeyRouter = {
       const teamId =
         "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
 
+      const uniqueName = await getUniqueKeyName(input.name, teamId);
+
       const [key] = await db
         .insert(apiKey)
         .values({
           keyPrefix,
           secretHash,
-          name: input.name,
+          name: uniqueName,
           description: input.description ?? null,
           createdBy: userId,
           jellyTeamId: teamId,
@@ -334,105 +354,6 @@ export const apiKeyRouter = {
         secret,
         name: input.name,
         mailboxIds: targetMailboxIds,
-        resourceScopes: input.resourceScopes ?? [],
-        fieldScopes: input.fieldScopes ?? [],
-        expiresAt: input.expiresAt ?? null,
-      };
-    }),
-
-  createTeam: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/keys" })
-    .input(
-      z.object({
-        name: z.string().min(1),
-        description: z.string().optional(),
-        resourceScopes: z.array(z.string().min(1)).optional(),
-        fieldScopes: z
-          .array(
-            z.object({
-              resourceType: z.string(),
-              field: z.string(),
-            }),
-          )
-          .optional(),
-        expiresAt: z.string().datetime().optional(),
-      }),
-    )
-    .output(
-      z.object({
-        id: z.number(),
-        keyPrefix: z.string(),
-        secret: z.string(),
-        name: z.string(),
-        resourceScopes: z.array(z.string()),
-        fieldScopes: z.array(
-          z.object({
-            resourceType: z.string(),
-            field: z.string(),
-          }),
-        ),
-        expiresAt: z.string().nullable(),
-      }),
-    )
-    .handler(async ({ input, context }) => {
-      const secret = randomBytes(32).toString("hex");
-      const keyPrefix = secret.slice(0, KEY_PREFIX_LENGTH);
-      const secretHash = hashSecret(secret);
-
-      const [key] = await db
-        .insert(apiKey)
-        .values({
-          keyPrefix,
-          secretHash,
-          name: input.name,
-          description: input.description ?? null,
-          createdBy: context.session.user.id,
-          jellyTeamId: env.JELLY_TEAM_ID,
-          expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
-        })
-        .returning({ id: apiKey.id });
-
-      if (!key) {
-        throw new ORPCError("INTERNAL_SERVER_ERROR", {
-          message: "Failed to create API key",
-        });
-      }
-
-      if (input.resourceScopes && input.resourceScopes.length > 0) {
-        await db.insert(apiKeyScope).values(
-          input.resourceScopes.map((router) => ({
-            apiKeyId: key.id,
-            scopeResourceType: "router",
-            scopeResourceId: router,
-          })),
-        );
-      }
-
-      if (input.fieldScopes && input.fieldScopes.length > 0) {
-        await db.insert(apiKeyFieldScope).values(
-          input.fieldScopes.map((scope) => ({
-            apiKeyId: key.id,
-            scopeResourceType: scope.resourceType,
-            scopeField: scope.field,
-          })),
-        );
-      }
-
-      await call(
-        auditRouter.create,
-        {
-          resource: "api_key",
-          action: "create",
-          resourceId: key.id.toString(),
-        },
-        { context },
-      );
-
-      return {
-        id: key.id,
-        keyPrefix,
-        secret,
-        name: input.name,
         resourceScopes: input.resourceScopes ?? [],
         fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,

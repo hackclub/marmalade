@@ -370,18 +370,9 @@ function ResourceScopeSection({
 }
 
 function CreateKeyDialog({
-  createTeamMutate,
   createScopedMutate,
   isPending,
-  teamMemberRole,
 }: {
-  createTeamMutate: (variables: {
-    name: string;
-    description?: string;
-    resourceScopes?: string[];
-    fieldScopes?: Array<{ resourceType: string; field: string }>;
-    expiresAt?: string;
-  }) => void;
   createScopedMutate: (variables: {
     mailboxId: string;
     name: string;
@@ -392,7 +383,6 @@ function CreateKeyDialog({
     expiresAt?: string;
   }) => void;
   isPending: boolean;
-  teamMemberRole: string;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -406,10 +396,6 @@ function CreateKeyDialog({
     Array<{ resourceType: string; field: string }>
   >([]);
 
-  const isAdmin = teamMemberRole === "owner" || teamMemberRole === "admin";
-  const visibleResourceDefs = RESOURCE_DEFINITIONS.filter(
-    (r) => isAdmin || r.id !== "apiKey",
-  );
   const [expandedResources, setExpandedResources] = useState<
     Record<string, boolean>
   >({});
@@ -420,40 +406,21 @@ function CreateKeyDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || selectedMailboxIds.length === 0) return;
 
-    const hasScopes =
-      selectedMailboxIds.length > 0 ||
-      selectedResourceScopes.length > 0 ||
-      selectedFieldScopes.length > 0;
-
-    if (hasScopes && selectedMailboxIds.length > 0) {
-      createScopedMutate({
-        mailboxId: selectedMailboxIds[0],
-        name: name.trim(),
-        description: description.trim() || undefined,
-        mailboxIds: selectedMailboxIds,
-        resourceScopes:
-          selectedResourceScopes.length > 0
-            ? selectedResourceScopes
-            : undefined,
-        fieldScopes:
-          selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
-      });
-    } else {
-      createTeamMutate({
-        name: name.trim(),
-        description: description.trim() || undefined,
-        resourceScopes:
-          selectedResourceScopes.length > 0
-            ? selectedResourceScopes
-            : undefined,
-        fieldScopes:
-          selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
-      });
-    }
+    createScopedMutate({
+      mailboxId: selectedMailboxIds[0],
+      name: name.trim(),
+      description: description.trim() || undefined,
+      mailboxIds: selectedMailboxIds,
+      resourceScopes:
+        selectedResourceScopes.length > 0
+          ? selectedResourceScopes
+          : undefined,
+      fieldScopes:
+        selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+    });
 
     setName("");
     setDescription("");
@@ -590,7 +557,7 @@ function CreateKeyDialog({
                 Select the minimum resources, mailboxes, and fields your key needs access.
               </p>
               <div className="flex flex-col gap-1">
-                    {visibleResourceDefs.map((router) => (
+                    {RESOURCE_DEFINITIONS.map((router) => (
                       <ResourceScopeSection
                         key={router.id}
                         scopeId={router.scopeId}
@@ -620,7 +587,7 @@ function CreateKeyDialog({
                 </Button>
               }
             />
-            <Button type="submit" disabled={isPending || !name.trim()}>
+            <Button type="submit" disabled={isPending || !name.trim() || selectedMailboxIds.length === 0}>
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
@@ -686,16 +653,6 @@ function KeysRoute() {
   const [createdSecret, setCreatedSecret] = useState<string | null>(null);
   const [showCreatedDialog, setShowCreatedDialog] = useState(false);
 
-  const createMutation = useMutation(
-    orpc.apiKey.createTeam.mutationOptions({
-      onSuccess: (data) => {
-        setCreatedSecret(data.secret);
-        setShowCreatedDialog(true);
-        keys.refetch();
-      },
-    }),
-  );
-
   const createScopedMutation = useMutation(
     orpc.apiKey.create.mutationOptions({
       onSuccess: (data) => {
@@ -724,12 +681,8 @@ function KeysRoute() {
           </CardDescription>
           <CardAction>
             <CreateKeyDialog
-              createTeamMutate={createMutation.mutate}
               createScopedMutate={createScopedMutation.mutate}
-              isPending={
-                createMutation.isPending || createScopedMutation.isPending
-              }
-              teamMemberRole={teamMember.role}
+              isPending={createScopedMutation.isPending}
             />
           </CardAction>
         </CardHeader>

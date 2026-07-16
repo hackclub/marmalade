@@ -120,7 +120,9 @@ function KeyCard({
             <Badge variant="outline">Expired</Badge>
           ) : apiKey.active ? (
             <Badge>
-              Expires {new Date(apiKey.expiresAt).toLocaleDateString()}
+              {apiKey.expiresAt
+                ? `Expires ${new Date(apiKey.expiresAt).toLocaleDateString()}`
+                : "No expiry"}
             </Badge>
           ) : (
             <Badge variant="destructive">Revoked</Badge>

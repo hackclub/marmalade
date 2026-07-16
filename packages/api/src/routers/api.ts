@@ -210,11 +210,10 @@ export const apiKeyRouter = {
   create: mailboxScopedProcedure
     .route({
       method: "POST",
-      path: "/mailboxes/{mailboxId}/keys",
+      path: "/keys",
     })
     .input(
       z.object({
-        mailboxId: z.string().min(1),
         name: z.string().min(1),
         description: z.string().optional(),
         mailboxIds: z.array(z.string().min(1)).optional(),
@@ -253,7 +252,7 @@ export const apiKeyRouter = {
         throw new ORPCError("UNAUTHORIZED");
       }
 
-      const targetMailboxIds = input.mailboxIds ?? [input.mailboxId];
+      const targetMailboxIds = input.mailboxIds ?? [];
 
       for (const mbId of targetMailboxIds) {
         if (

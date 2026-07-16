@@ -42,10 +42,10 @@
   - [ ] member actions
     - [ ] request own/other member access to be granted
 - [ ] keys
-  - [ ] admin actions
-    - [ ] view all keys regardless of ownership (toggle)
-  - [ ] member actions
-    - [ ] view all apikeys in permissioned mailboxes
+  - [x] admin actions
+    - [x] view all keys regardless of ownership (toggle)
+  - [x] member actions
+    - [x] view all apikeys in permissioned mailboxes
     - [x] view all their apikeys
     - [x] ‼️ create api keys
     - [x] rescind api keys
@@ -58,12 +58,12 @@
     - [ ] + email/password auth?
   - [x] ‼️ basic audit logging
     - [ ] audit changelogs (e.g. deletion archives & update diffs)
-  - [ ] ‼️ orpc openapi setup!
-    - [ ] permissions with keys
+  - [x] ‼️ orpc openapi setup!
+    - [x] permissions with keys
       - [x] mailbox-scoped keys
-      - [ ] data-scoped keys
-        - [ ] metadata
-        - [ ] content
+      - [x] data-scoped keys
+        - [x] metadata
+        - [x] content
   - [ ] more throroughly audit log request attempts regardless of status
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately

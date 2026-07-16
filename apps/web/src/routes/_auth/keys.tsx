@@ -4,6 +4,7 @@ import {
   commentSchema,
   conversationSchema,
   messageSchema,
+  NON_SCOPABLE_FIELDS,
   teamMemberSchema,
 } from "@marmalade-v2/api/schemas";
 import { Badge } from "@marmalade-v2/ui/components/badge";
@@ -34,23 +35,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 
-const COMMON_EXCLUSIONS = ["id", "createdAt", "updatedAt", "url"];
-
-const RESOURCE_EXCLUSIONS: Record<string, string[]> = {
-  conversation: [
-    ...COMMON_EXCLUSIONS,
-    "snoozedUntil",
-    "draftReplyUrl",
-    "markdownUrl",
-    "messagesUrl",
-    "commentsUrl",
-  ],
-  message: [...COMMON_EXCLUSIONS, "conversationId"],
-  comment: [...COMMON_EXCLUSIONS, "conversationId"],
-  team: [...COMMON_EXCLUSIONS],
-  // apiKey: [...COMMON_EXCLUSIONS, "keyPrefix"],
-};
-
 const SCHEMA_MAP: Record<string, { schema: any; label: string; scopeId: string }> = {
   conversation: { schema: conversationSchema, label: "Conversation", scopeId: "convo" },
   message: { schema: messageSchema, label: "Message", scopeId: "message" },
@@ -62,7 +46,7 @@ const SCHEMA_MAP: Record<string, { schema: any; label: string; scopeId: string }
 function getScorableFields(resourceType: string): string[] {
   const entry = SCHEMA_MAP[resourceType];
   if (!entry) return [];
-  const exclusions = RESOURCE_EXCLUSIONS[resourceType] ?? COMMON_EXCLUSIONS;
+  const exclusions = NON_SCOPABLE_FIELDS[resourceType] ?? [];
   return Object.keys(entry.schema.shape).filter(
     (key) => !exclusions.includes(key),
   );

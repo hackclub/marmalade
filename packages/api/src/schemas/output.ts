@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+export const NON_SCOPABLE_FIELDS: Record<string, string[]> = {
+  conversation: ["id", "createdAt", "updatedAt", "url", "snoozedUntil", "markdownUrl", "messagesUrl", "commentsUrl", "draftReplyUrl"],
+  message: ["id", "createdAt", "conversationId"],
+  comment: ["id", "createdAt", "conversationId"],
+  team: ["id", "createdAt", "updatedAt"],
+};
+
 export const userSchema = z.object({
   id: z.string(),
   name: z.string(),

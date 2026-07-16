@@ -14,6 +14,7 @@ import type {
   AuthContext,
   WebhookContext,
 } from "./context";
+import { NON_SCOPABLE_FIELDS } from "./schemas/output";
 
 export const authO = os.$context<AuthContext>();
 export const webhookO = os.$context<WebhookContext>();
@@ -245,9 +246,10 @@ export function filterFieldsByScope<T extends Record<string, any>>(
       return data;
     }
 
+    const alwaysInclude = NON_SCOPABLE_FIELDS[resourceType] ?? [];
     const filtered: Record<string, any> = {};
     for (const key of Object.keys(data)) {
-      if (allowedFields.includes(key) || allowedFields.includes("*")) {
+      if (allowedFields.includes(key) || allowedFields.includes("*") || alwaysInclude.includes(key)) {
         filtered[key] = data[key];
       }
     }

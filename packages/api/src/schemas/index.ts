@@ -8,6 +8,7 @@ export {
   mailboxMemberSchema,
   marmaladeMailboxSchema,
   messageSchema,
+  NON_SCOPABLE_FIELDS,
   sessionSchema,
   teamMemberSchema,
   userSchema,

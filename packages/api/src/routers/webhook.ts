@@ -3,6 +3,7 @@ import z from "zod";
 import { jellyWebhookProcedure } from "../index";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
+import { teamRouter } from "./team";
 
 function parseFrom(fromArray: string[] | undefined): {
   name: string | null;
@@ -77,6 +78,7 @@ const jellyCommentSchema = z.object({
 const jellyWebhookSchema = z.object({
   event: z.enum([
     "new_message",
+    "assigned",
     "conversation_archived",
     "conversation_unarchived",
     "comment_added",
@@ -208,6 +210,42 @@ export const adminRouter = {
           },
           { context },
         );
+      }
+
+      if (input.event === "assigned") {
+        const conversation = input.data.conversation;
+        const assignee  = input.data.assignee as { id: string, name: string, email: string };
+        
+        if (!assignee) {
+          throw new ORPCError("BAD_REQUEST", {
+            message: "Webhook assignee payload is required",
+          });
+        }
+
+        const assigneeContact = await call(
+          teamRouter.get,
+          {
+            id: assignee.id,
+          },
+          { context },
+        );
+
+        if (!assigneeContact) {
+          await call(teamRouter.add, {
+            id: assignee.id,
+            name: assignee.name,
+            email: assignee.email,
+          }, { context });
+        }
+        await call(
+          conversationRouter.convo.assign,
+          {
+            jellyConversationId: conversation.id,
+            assignedToId: assignee.id,
+          },
+          { context },
+        );
+
       }
 
       return { success: true };

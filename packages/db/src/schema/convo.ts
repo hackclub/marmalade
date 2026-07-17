@@ -133,7 +133,7 @@ export const messageAttachment = pgTable("jelly_message_attachment", {
     .references(() => message.id, { onDelete: "cascade" }),
   filename: text("filename").notNull(),
   contentType: text("content_type"),
-  byte_size: integer("byte_size"),
+  byteSize: integer("byte_size"),
   url: text("url"),
   inline: boolean("inline").notNull().default(false),
   metadata: jsonb("metadata"),

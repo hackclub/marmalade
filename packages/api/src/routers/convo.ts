@@ -5,6 +5,7 @@ import {
   conversation,
   conversationMailbox,
   message,
+  conversationAssignment,
   messageAttachment,
 } from "@marmalade-v2/db/schema/convo";
 import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
@@ -15,7 +16,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import z from "zod";
 import {
-  apiKeyOrSessionProcedure,
+  apiKeyOrSessionOrWebhookProcedure,
   checkRouterScope,
   filterFieldsByScope,
   jellyWebhookProcedure,
@@ -203,7 +204,26 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-  },
+      assign: jellyWebhookProcedure
+      .input(
+        z.object({
+          jellyConversationId: z.string().min(1),
+          assignedToId: z.string().min(1),
+        }),
+      )
+      .output(z.object({ success: z.literal(true) }))
+      .handler(async ({ input }) => {
+        await db
+          .insert(conversationAssignment)
+          .values({
+            conversationId: input.jellyConversationId,
+            jellyContactId: input.assignedToId,
+          })
+          .onConflictDoNothing();
+
+        return { success: true };
+      }),
+    },
   list: mailboxScopedProcedure
     .route({
       method: "GET",
@@ -295,7 +315,7 @@ export const conversationRouter = {
         ),
       }));
     }),
-  get: apiKeyOrSessionProcedure
+  get: apiKeyOrSessionOrWebhookProcedure
     .route({
       method: "GET",
       path: "/mailboxes/{mailboxId}/conversations/{conversationId}",
@@ -451,7 +471,6 @@ export const conversationRouter = {
           userAgent: null,
         });
 
-        // loop thorugh each item in input.attachments
         for (const attachment of input.attachments ?? []) {
           await db.insert(messageAttachment).values({
             id: attachment.id,
@@ -466,7 +485,7 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-    list: apiKeyOrSessionProcedure
+    list: apiKeyOrSessionOrWebhookProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/conversations/{conversationId}/messages",
@@ -517,7 +536,7 @@ export const conversationRouter = {
 
         return rows.map((r) => filterFieldsByScope(context, "message", r));
       }),
-    get: apiKeyOrSessionProcedure
+    get: apiKeyOrSessionOrWebhookProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/messages/{messageId}",
@@ -619,7 +638,7 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-    list: apiKeyOrSessionProcedure
+    list: apiKeyOrSessionOrWebhookProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/conversations/{conversationId}/comments",
@@ -661,7 +680,7 @@ export const conversationRouter = {
 
         return rows.map((r) => filterFieldsByScope(context, "comment", r));
       }),
-    get: apiKeyOrSessionProcedure
+    get: apiKeyOrSessionOrWebhookProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/comments/{commentId}",

@@ -3,10 +3,11 @@ import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import z from "zod";
 import {
-  apiKeyOrSessionProcedure,
+  apiKeyOrSessionOrWebhookProcedure,
+  jellyWebhookProcedure,
   checkRouterScope,
   publicProcedure,
 } from "..";
@@ -17,7 +18,7 @@ import { auditRouter } from "./audit";
 const jelly = getJellyClient();
 
 export const teamRouter = {
-  list: apiKeyOrSessionProcedure
+  list: apiKeyOrSessionOrWebhookProcedure
     .route({ method: "GET", path: "/members" })
     .output(
       z.array(
@@ -43,6 +44,113 @@ export const teamRouter = {
         jelly: row.jelly ?? null,
         marmalade: row.marmalade ?? null,
       }));
+    }),
+  get: apiKeyOrSessionOrWebhookProcedure
+    .route({ method: "GET", path: "/members/:id" })
+    .input(z.object({ id: z.string() }))
+    .output(
+      z.object({
+        jelly: teamMemberSchema.nullable(),
+        marmalade: userSchema.nullable(),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      checkRouterScope(context, "team");
+
+      const result = await db
+        .select({
+          jelly: jellyTeamContact,
+          marmalade: authUser,
+        })
+        .from(jellyTeamContact)
+        .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
+        .where(
+          and(
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.id, input.id),
+          ),
+        )
+        .limit(1);
+
+      if (result.length === 0) {
+        throw new ORPCError("NOT_FOUND");
+      }
+
+      return {
+        jelly: result[0]?.jelly ?? null,
+        marmalade: result[0]?.marmalade ?? null,
+      };
+    }),
+    add: jellyWebhookProcedure
+    .route({ method: "POST", path: "/members" })
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        email: z.string().email().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        jelly: teamMemberSchema.nullable(),
+        marmalade: userSchema.nullable(),
+      }),
+    )
+    .handler(async ({ context, input }) => {
+      checkRouterScope(context, "team");
+      
+      const existingMember = await db
+        .select()
+        .from(jellyTeamContact)
+        .where(
+          and(
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.id, input.id),
+          ),
+        )
+        .limit(1);
+        
+      if (existingMember.length > 0) {
+        throw new ORPCError("CONFLICT", {
+          message: "Team member already exists",
+        });
+      }
+      
+      if (!input.email) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Email must be provided",
+        });
+      }
+
+      await db.insert(jellyTeamContact).values({
+        id: input.id,
+        name: input.name ?? null,
+        email: input.email ?? null,
+        role: "contact",
+        active: true,
+        jellyTeamId: env.JELLY_TEAM_ID,
+        existsInJelly: true,
+      });
+      
+      const result = await db
+        .select({
+          jelly: jellyTeamContact,
+          marmalade: authUser,
+        })
+        .from(jellyTeamContact)
+        .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
+        .where(
+          and(
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.id, input.id),
+          ),
+        )
+        .limit(1);
+        
+      return {
+        jelly: result[0]?.jelly ?? null,
+        marmalade: result[0]?.marmalade ?? null,
+      };
     }),
   resync: publicProcedure
     .route({ method: "POST", path: "/resync" })

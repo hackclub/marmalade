@@ -6,8 +6,10 @@
 
 - simple to use
 - everything opt-in
-- finely-grained and least-privelidged api access
+- finely-grained & least-privelidged api access
 - fully audit-trailed
+
+> note: currently marmalade's api access is read-only, while write access (required for use cases such as fully-featured custom clients) is being worked on
 
 ## tasks
 
@@ -20,7 +22,7 @@
   - [ ] ‼️ sync through jelly webhook
     - [ ] markdown
     - [x] new_message
-    - [ ] assigned
+    - [x] assigned
     - [x] comment_added
     - [x] conversation_archived
     - [x] conversation_unarchived
@@ -50,6 +52,7 @@
     - [x] ‼️ create api keys
     - [x] rescind api keys
 - [x] convos
+- [x] conversation assignment
 - [x] messages
 - [x] comments
 - [ ] attachments
@@ -75,6 +78,7 @@
   - [ ] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
     - [ ] for now, simply track every jelly request in db and monitor success/fail
+  - [ ] completely jelly-backwards-compatible api? (api v2)
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel
 - qol

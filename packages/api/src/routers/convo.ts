@@ -3,17 +3,17 @@ import { auditLog } from "@marmalade-v2/db/schema/audit";
 import {
   comment,
   conversation,
+  conversationAssignment,
   conversationMailbox,
   message,
-  conversationAssignment,
   messageAttachment,
 } from "@marmalade-v2/db/schema/convo";
 import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
-import { randomUUID } from "node:crypto";
 import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
@@ -26,6 +26,7 @@ import {
   commentSchema,
   conversationSchema,
   messageSchema,
+  conversationAssignmentSchema
 } from "../schemas/output";
 
 const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
@@ -204,7 +205,7 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-      assign: jellyWebhookProcedure
+    assign: jellyWebhookProcedure
       .input(
         z.object({
           jellyConversationId: z.string().min(1),
@@ -223,7 +224,32 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-    },
+  getAssignment: mailboxScopedProcedure
+    .route({
+      method: "GET",
+      path: "/mailboxes/{mailboxId}/conversations/{conversationId}/assignment", 
+    })
+    .input(
+      z.object({
+        mailboxId: z.string().min(1),
+        conversationId: z.string().min(1),
+      }),
+    )
+    .output(z.array(conversationAssignmentSchema))
+    .handler(async ({ input, context }) => {
+      checkRouterScope(context, "convo");
+
+      const rows = await db
+        .select()
+        .from(conversationAssignment)
+        .where(
+          and(
+            eq(conversationAssignment.conversationId, input.conversationId),
+          ),
+        );
+
+      return rows;
+    }),
   list: mailboxScopedProcedure
     .route({
       method: "GET",
@@ -332,10 +358,10 @@ export const conversationRouter = {
         comments: z.array(commentSchema),
       }),
     )
-      .handler(async ({ input, context }) => {
-        checkRouterScope(context, "message");
+    .handler(async ({ input, context }) => {
+      checkRouterScope(context, "message");
 
-        const rows = await db
+      const rows = await db
         .select()
         .from(conversation)
         .innerJoin(
@@ -380,6 +406,7 @@ export const conversationRouter = {
         ),
       };
     }),
+  },
   message: {
     create: jellyWebhookProcedure
       .input(

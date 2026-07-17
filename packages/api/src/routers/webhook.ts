@@ -1,4 +1,8 @@
 import { ORPCError, call } from "@orpc/server";
+import { eq, and } from "drizzle-orm";
+import { db } from "@marmalade-v2/db";
+import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
+import { env } from "@marmalade-v2/env/server";
 import z from "zod";
 import { jellyWebhookProcedure } from "../index";
 import { conversationRouter } from "./convo";
@@ -30,6 +34,9 @@ const jellyConversationSchema = z.object({
   id: z.string(),
   subject: z.string().nullable().optional(),
   status: z.string().optional(),
+  url: z.string().optional(),
+  markdown_url: z.string().optional(),
+  draft_reply_url: z.string().optional(),
   mailboxes: z
     .array(
       z.object({
@@ -94,14 +101,11 @@ const jellyWebhookSchema = z.object({
 
 export type JellyWebhookInput = z.infer<typeof jellyWebhookSchema>;
 
-export const adminRouter = {
+export const webhookRouter = {
   jellyEventWebhook: jellyWebhookProcedure
     .input(jellyWebhookSchema)
     .output(
-      z.discriminatedUnion("success", [
-        z.object({ success: z.literal(true) }),
-        z.object({ success: z.literal(true), reason: z.string() }),
-      ]),
+      z.object({ success: z.boolean(), reason: z.string().optional() }),
     )
     .handler(async ({ input, context }) => {
       const conversation = input.data.conversation;
@@ -226,25 +230,61 @@ export const adminRouter = {
           });
         }
 
-        const assigneeContact = await call(
-          teamRouter.get,
+        let assigneeContact;
+        try {
+          assigneeContact = await call(
+            teamRouter.get,
+            {
+              id: assignee.id,
+            },
+            { context },
+          );
+        } catch {
+          assigneeContact = null;
+        }
+
+        if (!assigneeContact?.jelly) {
+          const existingByEmail = await db
+            .select({ id: jellyTeamContact.id })
+            .from(jellyTeamContact)
+            .where(
+              and(
+                eq(jellyTeamContact.email, assignee.email),
+                eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+              ),
+            )
+            .limit(1);
+
+          if (existingByEmail.length === 0) {
+            await db
+              .insert(jellyTeamContact)
+              .values({
+                id: assignee.id,
+                name: assignee.name,
+                email: assignee.email,
+                role: "contact",
+                active: true,
+                jellyTeamId: env.JELLY_TEAM_ID,
+                existsInJelly: true,
+              })
+              .onConflictDoNothing();
+          }
+        }
+
+        await call(
+          conversationRouter.convo.create,
           {
-            id: assignee.id,
+            inboxId: mailboxDetails.inboxId,
+            jellyConversationId: conversation.id,
+            subject: conversation.subject ?? null,
+            status: conversation.status ?? "open",
+            url: conversation.url ?? undefined,
+            markdownUrl: conversation.markdown_url ?? undefined,
+            draftReplyUrl: conversation.draft_reply_url ?? undefined,
           },
           { context },
         );
 
-        if (!assigneeContact) {
-          await call(
-            teamRouter.add,
-            {
-              id: assignee.id,
-              name: assignee.name,
-              email: assignee.email,
-            },
-            { context },
-          );
-        }
         await call(
           conversationRouter.convo.assign,
           {

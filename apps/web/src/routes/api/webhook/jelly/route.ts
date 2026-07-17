@@ -1,6 +1,6 @@
 import { createJellyWebhookContext } from "@marmalade-v2/api/context";
 import {
-  adminRouter,
+  webhookRouter,
   type JellyWebhookInput,
 } from "@marmalade-v2/api/routers/webhook";
 import { ORPCError, call } from "@orpc/server";
@@ -25,7 +25,7 @@ async function handleWebhook({ request }: { request: Request }) {
 
   try {
     const result = await call(
-      adminRouter.jellyEventWebhook,
+      webhookRouter.jellyEventWebhook,
       body as JellyWebhookInput,
       {
         context: {

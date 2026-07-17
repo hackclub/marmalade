@@ -88,6 +88,9 @@ export const conversationRouter = {
           subject: z.string().nullable().optional(),
           status: z.string().optional(),
           sentAt: z.string().optional(),
+          url: z.string().optional(),
+          markdownUrl: z.string().optional(),
+          draftReplyUrl: z.string().optional(),
         }),
       )
       .output(z.object({ id: z.string() }))
@@ -108,6 +111,9 @@ export const conversationRouter = {
               subject: input.subject ?? null,
               status: input.status ?? "open",
               lastMessageAt: input.sentAt ? new Date(input.sentAt) : new Date(),
+              url: input.url ?? null,
+              markdownUrl: input.markdownUrl ?? null,
+              draftReplyUrl: input.draftReplyUrl ?? null,
             })
             .onConflictDoNothing()
             .returning({ id: conversation.id });
@@ -122,6 +128,20 @@ export const conversationRouter = {
               .limit(1);
 
             conversationId = refreshedConversationRows[0]?.id ?? null;
+          }
+        } else {
+          const updates: Record<string, unknown> = {};
+          if (input.subject !== undefined) updates.subject = input.subject;
+          if (input.status !== undefined) updates.status = input.status;
+          if (input.sentAt) updates.lastMessageAt = new Date(input.sentAt);
+          if (input.url !== undefined) updates.url = input.url;
+          if (input.markdownUrl !== undefined) updates.markdownUrl = input.markdownUrl;
+          if (input.draftReplyUrl !== undefined) updates.draftReplyUrl = input.draftReplyUrl;
+          if (Object.keys(updates).length > 0) {
+            await db
+              .update(conversation)
+              .set(updates)
+              .where(eq(conversation.id, conversationId));
           }
         }
 

@@ -19,8 +19,7 @@
   - [x] ‼️ manually sync mailboxes and team members
   - [ ] routinely resync mailboxes and team members
   - [x] resync mailboxes and team members on registration
-  - [ ] ‼️ sync through jelly webhook
-    - [ ] markdown
+  - [x] ‼️ sync through jelly webhook
     - [x] new_message
     - [x] assigned
     - [x] comment_added
@@ -85,6 +84,7 @@
   - [ ] custom error pages
   - [x] "unauthorized" redirects to /login
   - [ ] CI
+  - [ ] store markdown in addition to html content?
 - dx
   - [x] ~~swagger~~ scalar api docs
     - [x] documented output schemas

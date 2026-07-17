@@ -22,6 +22,7 @@ import {
 import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
+const KEY_PREFIX = "mrmld_";
 const KEY_PREFIX_LENGTH = 8;
 
 async function getUniqueKeyName(
@@ -350,7 +351,7 @@ export const apiKeyRouter = {
       return {
         id: key.id,
         keyPrefix,
-        secret,
+        secret: `${KEY_PREFIX}${secret}`,
         name: input.name,
         mailboxIds: targetMailboxIds,
         resourceScopes: input.resourceScopes ?? [],
@@ -535,7 +536,11 @@ export const apiKeyRouter = {
     )
     .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
-      const keyPrefix = input.key.slice(0, KEY_PREFIX_LENGTH);
+      if (!input.key.startsWith(KEY_PREFIX)) {
+        throw new ORPCError("BAD_REQUEST", { message: "Invalid API key format" });
+      }
+      const rawKey = input.key.slice(KEY_PREFIX.length);
+      const keyPrefix = rawKey.slice(0, KEY_PREFIX_LENGTH);
       const [key] = await db
         .select()
         .from(apiKey)

@@ -96,6 +96,7 @@ export async function createJellyWebhookContext({
   };
 }
 
+const KEY_PREFIX = "mrmld_";
 const KEY_PREFIX_LENGTH = 8;
 
 export function hashSecret(secret: string): string {
@@ -111,14 +112,20 @@ export async function createApiKeyContext({ req }: { req: Request }) {
   }
 
   const token = authHeader.slice(7);
-  if (token.length < KEY_PREFIX_LENGTH) {
+  if (!token.startsWith(KEY_PREFIX)) {
+    throw new ORPCError("UNAUTHORIZED", {
+      message: "Invalid API key format",
+    });
+  }
+  const rawKey = token.slice(KEY_PREFIX.length);
+  if (rawKey.length < KEY_PREFIX_LENGTH) {
     throw new ORPCError("UNAUTHORIZED", {
       message: "Invalid API key",
     });
   }
 
-  const keyPrefix = token.slice(0, KEY_PREFIX_LENGTH);
-  const secretHash = hashSecret(token);
+  const keyPrefix = rawKey.slice(0, KEY_PREFIX_LENGTH);
+  const secretHash = hashSecret(rawKey);
 
   const rows = await db
     .select({

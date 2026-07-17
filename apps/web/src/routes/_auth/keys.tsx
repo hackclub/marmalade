@@ -58,6 +58,7 @@ const RESOURCE_DEFINITIONS: Array<{
   label: string;
   fields: string[];
   hasMailboxList?: boolean;
+  requiresMailbox?: boolean;
 }> = [
   {
     id: "mailbox",
@@ -71,6 +72,7 @@ const RESOURCE_DEFINITIONS: Array<{
     scopeId,
     label,
     fields: getScorableFields(id),
+    requiresMailbox: id === "conversation" || id === "message" || id === "comment",
   })),
   // {
   //   id: "attachment",
@@ -225,6 +227,7 @@ function ResourceScopeSection({
   onToggleResource,
   onToggleField,
   onToggleMailbox,
+  disabled,
 }: {
   scopeId: string;
   label: string;
@@ -242,6 +245,7 @@ function ResourceScopeSection({
   onToggleResource: (scopeId: string) => void;
   onToggleField: (resourceType: string, field: string) => void;
   onToggleMailbox: (mailboxId: string) => void;
+  disabled?: boolean;
 }) {
   const isRouterSelected = selectedResourceScopes.includes(scopeId);
   const hasSubItems = hasMailboxList || fields.length > 0;
@@ -298,8 +302,9 @@ function ResourceScopeSection({
           checked={isRouterSelected}
           indeterminate={hasIndeterminate && !isRouterSelected}
           onCheckedChange={() => onToggleResource(scopeId)}
+          disabled={disabled}
         />
-        <span className="text-sm font-medium">{label}</span>
+        <span className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}>{label}</span>
       </div>
 
       {expanded && hasSubItems && (
@@ -376,7 +381,6 @@ function CreateKeyDialog({
   isPending,
 }: {
   createScopedMutate: (variables: {
-    mailboxId: string;
     name: string;
     description?: string;
     mailboxIds?: string[];
@@ -408,13 +412,13 @@ function CreateKeyDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || selectedMailboxIds.length === 0) return;
+    if (!name.trim()) return;
+    if (selectedMailboxIds.length === 0 && selectedResourceScopes.length === 0) return;
 
     createScopedMutate({
-      mailboxId: selectedMailboxIds[0],
       name: name.trim(),
       description: description.trim() || undefined,
-      mailboxIds: selectedMailboxIds,
+      mailboxIds: selectedMailboxIds.length > 0 ? selectedMailboxIds : undefined,
       resourceScopes:
         selectedResourceScopes.length > 0
           ? selectedResourceScopes
@@ -576,6 +580,7 @@ function CreateKeyDialog({
                     onToggleResource={toggleResource}
                     onToggleField={toggleField}
                     onToggleMailbox={toggleMailbox}
+                    disabled={router.requiresMailbox && selectedMailboxIds.length === 0}
                   />
                 ))}
               </div>
@@ -589,7 +594,7 @@ function CreateKeyDialog({
                 </Button>
               }
             />
-            <Button type="submit" disabled={isPending || !name.trim() || selectedMailboxIds.length === 0}>
+            <Button type="submit" disabled={isPending || !name.trim() || (selectedMailboxIds.length === 0 && selectedResourceScopes.length === 0)}>
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

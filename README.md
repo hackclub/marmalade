@@ -42,7 +42,12 @@
           - [ ] metadata vs content
   - [ ] member actions
     - [ ] request own/other member access to be granted
-- [ ] keys
+- [ ] admin panel
+  - [ ] see all better auth users
+    - [ ] bans
+    - [ ] impersonation
+  - [ ] see all audit logs
+- [x] keys
   - [x] admin actions
     - [x] view all keys regardless of ownership (toggle)
   - [x] member actions
@@ -54,10 +59,11 @@
 - [x] conversation assignment
 - [x] messages
 - [x] comments
-- [ ] attachments
+- [x] attachments
+- [ ] labels
 - [ ] security/access
   - [x] ‼️ hack club oidc auth
-    - [ ] + email/password auth?
+    - [ ] + email OTP auth?
   - [x] ‼️ basic audit logging
     - [ ] audit changelogs (e.g. deletion archives & update diffs)
   - [x] ‼️ orpc openapi setup!
@@ -73,15 +79,16 @@
   - [ ] standardized key prefix
     - [ ] [revokability](https://revoke.hackclub.com))
 - [ ] plumbing
-  - [ ] ensure uniqueness of relational tables and make references "official"
-  - [ ] first time sync on registration and scheduled/manual org teammember resyncs
+  - [x] ensure uniqueness of relational tables and make references "official"
+  - [x] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
     - [ ] for now, simply track every jelly request in db and monitor success/fail
   - [ ] completely jelly-backwards-compatible api? (api v2)
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel
 - qol
-  - [ ] custom error pages
+  - [ ] use better auth's apikey [system](https://better-auth.com/docs/plugins/api-key/advanced#rate-limiting) cause im a dumb dumb
+  - [ ] custom error pages/toasts
   - [x] "unauthorized" redirects to /login
   - [ ] CI
   - [ ] store markdown in addition to html content?

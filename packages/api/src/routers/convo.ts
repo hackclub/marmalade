@@ -29,7 +29,7 @@ import {
   conversationAssignmentSchema
 } from "../schemas/output";
 
-const SYSTEM_WEBHOOK_USER_ID = "system:webhook";
+
 
 function parseSubjectSearch(search: string) {
   const terms: { exact: boolean; value: string }[] = [];
@@ -171,7 +171,7 @@ export const conversationRouter = {
         }
 
         await db.insert(auditLog).values({
-          userId: SYSTEM_WEBHOOK_USER_ID,
+          userId: null,
           jellyTeamId: env.JELLY_TEAM_ID,
           action: "create",
           resource: "conversation",
@@ -207,7 +207,7 @@ export const conversationRouter = {
           .where(eq(conversation.id, input.jellyConversationId));
 
         await db.insert(auditLog).values({
-          userId: SYSTEM_WEBHOOK_USER_ID,
+          userId: null,
           jellyTeamId: env.JELLY_TEAM_ID,
           action: "update_status",
           resource: "conversation",
@@ -501,7 +501,7 @@ export const conversationRouter = {
           .onConflictDoNothing();
 
         await db.insert(auditLog).values({
-          userId: SYSTEM_WEBHOOK_USER_ID,
+          userId: null,
           jellyTeamId: env.JELLY_TEAM_ID,
           action: "create",
           resource: "message",
@@ -666,7 +666,7 @@ export const conversationRouter = {
           .onConflictDoNothing();
 
         await db.insert(auditLog).values({
-          userId: SYSTEM_WEBHOOK_USER_ID,
+          userId: null,
           jellyTeamId: env.JELLY_TEAM_ID,
           action: "create",
           resource: "comment",

@@ -7,8 +7,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
-  jellyWebhookProcedure,
   checkRouterScope,
+  jellyWebhookProcedure,
   publicProcedure,
 } from "..";
 import { getJellyClient } from "../lib/jelly";
@@ -81,7 +81,7 @@ export const teamRouter = {
         marmalade: result[0]?.marmalade ?? null,
       };
     }),
-    add: jellyWebhookProcedure
+  add: jellyWebhookProcedure
     .route({ method: "POST", path: "/members" })
     .input(
       z.object({
@@ -98,7 +98,7 @@ export const teamRouter = {
     )
     .handler(async ({ context, input }) => {
       checkRouterScope(context, "team");
-      
+
       const existingMember = await db
         .select()
         .from(jellyTeamContact)
@@ -109,13 +109,13 @@ export const teamRouter = {
           ),
         )
         .limit(1);
-        
+
       if (existingMember.length > 0) {
         throw new ORPCError("CONFLICT", {
           message: "Team member already exists",
         });
       }
-      
+
       if (!input.email) {
         throw new ORPCError("BAD_REQUEST", {
           message: "Email must be provided",
@@ -131,7 +131,7 @@ export const teamRouter = {
         jellyTeamId: env.JELLY_TEAM_ID,
         existsInJelly: true,
       });
-      
+
       const result = await db
         .select({
           jelly: jellyTeamContact,
@@ -146,7 +146,7 @@ export const teamRouter = {
           ),
         )
         .limit(1);
-        
+
       return {
         jelly: result[0]?.jelly ?? null,
         marmalade: result[0]?.marmalade ?? null,

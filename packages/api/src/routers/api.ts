@@ -537,7 +537,9 @@ export const apiKeyRouter = {
     .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
       if (!input.key.startsWith(KEY_PREFIX)) {
-        throw new ORPCError("BAD_REQUEST", { message: "Invalid API key format" });
+        throw new ORPCError("BAD_REQUEST", {
+          message: "Invalid API key format",
+        });
       }
       const rawKey = input.key.slice(KEY_PREFIX.length);
       const keyPrefix = rawKey.slice(0, KEY_PREFIX_LENGTH);
@@ -567,7 +569,9 @@ export const apiKeyRouter = {
           resource: "api_key",
           action: "revoke",
           resourceId: key.id.toString(),
-          metadata: input.revoker ? { revoker: input.revoker } : { revoker: "public" },
+          metadata: input.revoker
+            ? { revoker: input.revoker }
+            : { revoker: "public" },
         },
         { context },
       );

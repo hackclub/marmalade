@@ -71,8 +71,9 @@ const requireAuthOrApiKeyOrWebhook = authOrApiKeyOrWebhookO.middleware(
     return next({ context });
   },
 );
-export const apiKeyOrSessionOrWebhookProcedure =
-  authOrApiKeyOrWebhookO.use(requireAuthOrApiKeyOrWebhook);
+export const apiKeyOrSessionOrWebhookProcedure = authOrApiKeyOrWebhookO.use(
+  requireAuthOrApiKeyOrWebhook,
+);
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
 export const authOrWebhookProtectedProcedure =
@@ -238,7 +239,11 @@ export function filterFieldsByScope<T extends Record<string, any>>(
     const alwaysInclude = NON_SCOPABLE_FIELDS[resourceType] ?? [];
     const filtered: Record<string, any> = {};
     for (const key of Object.keys(data)) {
-      if (allowedFields.includes(key) || allowedFields.includes("*") || alwaysInclude.includes(key)) {
+      if (
+        allowedFields.includes(key) ||
+        allowedFields.includes("*") ||
+        alwaysInclude.includes(key)
+      ) {
         filtered[key] = data[key];
       }
     }

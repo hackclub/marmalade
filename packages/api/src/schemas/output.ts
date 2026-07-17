@@ -1,7 +1,17 @@
 import { z } from "zod";
 
 export const NON_SCOPABLE_FIELDS: Record<string, string[]> = {
-  conversation: ["id", "createdAt", "updatedAt", "url", "snoozedUntil", "markdownUrl", "messagesUrl", "commentsUrl", "draftReplyUrl"],
+  conversation: [
+    "id",
+    "createdAt",
+    "updatedAt",
+    "url",
+    "snoozedUntil",
+    "markdownUrl",
+    "messagesUrl",
+    "commentsUrl",
+    "draftReplyUrl",
+  ],
   message: ["id", "createdAt", "conversationId"],
   comment: ["id", "createdAt", "conversationId"],
   team: ["id", "createdAt", "updatedAt"],
@@ -71,6 +81,13 @@ export const conversationSchema = z.object({
   createdAt: z.date(),
   lastMessageAt: z.date(),
   updatedAt: z.date(),
+});
+
+export const conversationAssignmentSchema = z.object({
+  id: z.number(),
+  conversationId: z.string(),
+  jellyContactId: z.string(),
+  createdAt: z.date(),
 });
 
 export const messageSchema = z.object({

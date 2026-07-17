@@ -1,4 +1,5 @@
 export {
+  NON_SCOPABLE_FIELDS,
   apiKeySchema,
   auditLogSchema,
   commentSchema,
@@ -8,7 +9,6 @@ export {
   mailboxMemberSchema,
   marmaladeMailboxSchema,
   messageSchema,
-  NON_SCOPABLE_FIELDS,
   sessionSchema,
   teamMemberSchema,
   userSchema,

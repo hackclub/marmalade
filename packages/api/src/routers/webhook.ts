@@ -214,8 +214,12 @@ export const adminRouter = {
 
       if (input.event === "assigned") {
         const conversation = input.data.conversation;
-        const assignee  = input.data.assignee as { id: string, name: string, email: string };
-        
+        const assignee = input.data.assignee as {
+          id: string;
+          name: string;
+          email: string;
+        };
+
         if (!assignee) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Webhook assignee payload is required",
@@ -231,11 +235,15 @@ export const adminRouter = {
         );
 
         if (!assigneeContact) {
-          await call(teamRouter.add, {
-            id: assignee.id,
-            name: assignee.name,
-            email: assignee.email,
-          }, { context });
+          await call(
+            teamRouter.add,
+            {
+              id: assignee.id,
+              name: assignee.name,
+              email: assignee.email,
+            },
+            { context },
+          );
         }
         await call(
           conversationRouter.convo.assign,
@@ -245,7 +253,6 @@ export const adminRouter = {
           },
           { context },
         );
-
       }
 
       return { success: true };

@@ -35,8 +35,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
 
-const SCHEMA_MAP: Record<string, { schema: any; label: string; scopeId: string }> = {
-  conversation: { schema: conversationSchema, label: "Conversation", scopeId: "convo" },
+const SCHEMA_MAP: Record<
+  string,
+  { schema: any; label: string; scopeId: string }
+> = {
+  conversation: {
+    schema: conversationSchema,
+    label: "Conversation",
+    scopeId: "convo",
+  },
   message: { schema: messageSchema, label: "Message", scopeId: "message" },
   comment: { schema: commentSchema, label: "Comment", scopeId: "comment" },
   team: { schema: teamMemberSchema, label: "Team Contact", scopeId: "team" },
@@ -72,7 +79,8 @@ const RESOURCE_DEFINITIONS: Array<{
     scopeId,
     label,
     fields: getScorableFields(id),
-    requiresMailbox: id === "conversation" || id === "message" || id === "comment",
+    requiresMailbox:
+      id === "conversation" || id === "message" || id === "comment",
   })),
   // {
   //   id: "attachment",
@@ -304,7 +312,11 @@ function ResourceScopeSection({
           onCheckedChange={() => onToggleResource(scopeId)}
           disabled={disabled}
         />
-        <span className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}>{label}</span>
+        <span
+          className={`text-sm font-medium ${disabled ? "text-muted-foreground" : ""}`}
+        >
+          {label}
+        </span>
       </div>
 
       {expanded && hasSubItems && (
@@ -362,7 +374,7 @@ function ResourceScopeSection({
                       checked={selectedFieldScopes.some(
                         (s) => s.resourceType === scopeId && s.field === field,
                       )}
-                       onCheckedChange={() => onToggleField(scopeId, field)}
+                      onCheckedChange={() => onToggleField(scopeId, field)}
                     />
                     <span className="text-xs">{field}</span>
                   </label>
@@ -395,9 +407,9 @@ function CreateKeyDialog({
   const [description, setDescription] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
-  const [selectedResourceScopes, setSelectedResourceScopes] = useState<string[]>(
-    [],
-  );
+  const [selectedResourceScopes, setSelectedResourceScopes] = useState<
+    string[]
+  >([]);
   const [selectedFieldScopes, setSelectedFieldScopes] = useState<
     Array<{ resourceType: string; field: string }>
   >([]);
@@ -413,16 +425,16 @@ function CreateKeyDialog({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    if (selectedMailboxIds.length === 0 && selectedResourceScopes.length === 0) return;
+    if (selectedMailboxIds.length === 0 && selectedResourceScopes.length === 0)
+      return;
 
     createScopedMutate({
       name: name.trim(),
       description: description.trim() || undefined,
-      mailboxIds: selectedMailboxIds.length > 0 ? selectedMailboxIds : undefined,
+      mailboxIds:
+        selectedMailboxIds.length > 0 ? selectedMailboxIds : undefined,
       resourceScopes:
-        selectedResourceScopes.length > 0
-          ? selectedResourceScopes
-          : undefined,
+        selectedResourceScopes.length > 0 ? selectedResourceScopes : undefined,
       fieldScopes:
         selectedFieldScopes.length > 0 ? selectedFieldScopes : undefined,
       expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
@@ -560,18 +572,19 @@ function CreateKeyDialog({
             <div className="grid gap-2">
               <Label>Resource Scopes (optional)</Label>
               <p className="text-muted-foreground text-xs">
-                Select the minimum resources, mailboxes, and fields your key needs access.
+                Select the minimum resources, mailboxes, and fields your key
+                needs access.
               </p>
               <div className="flex flex-col gap-1">
-                    {RESOURCE_DEFINITIONS.map((router) => (
-                      <ResourceScopeSection
-                        key={router.id}
-                        scopeId={router.scopeId}
-                        label={router.label}
-                        fields={router.fields}
-                        hasMailboxList={router.hasMailboxList}
-                        expanded={expandedResources[router.id] ?? false}
-                        onToggleExpanded={() => toggleExpandedResource(router.id)}
+                {RESOURCE_DEFINITIONS.map((router) => (
+                  <ResourceScopeSection
+                    key={router.id}
+                    scopeId={router.scopeId}
+                    label={router.label}
+                    fields={router.fields}
+                    hasMailboxList={router.hasMailboxList}
+                    expanded={expandedResources[router.id] ?? false}
+                    onToggleExpanded={() => toggleExpandedResource(router.id)}
                     selectedResourceScopes={selectedResourceScopes}
                     selectedFieldScopes={selectedFieldScopes}
                     selectedMailboxIds={selectedMailboxIds}
@@ -580,7 +593,9 @@ function CreateKeyDialog({
                     onToggleResource={toggleResource}
                     onToggleField={toggleField}
                     onToggleMailbox={toggleMailbox}
-                    disabled={router.requiresMailbox && selectedMailboxIds.length === 0}
+                    disabled={
+                      router.requiresMailbox && selectedMailboxIds.length === 0
+                    }
                   />
                 ))}
               </div>
@@ -594,7 +609,15 @@ function CreateKeyDialog({
                 </Button>
               }
             />
-            <Button type="submit" disabled={isPending || !name.trim() || (selectedMailboxIds.length === 0 && selectedResourceScopes.length === 0)}>
+            <Button
+              type="submit"
+              disabled={
+                isPending ||
+                !name.trim() ||
+                (selectedMailboxIds.length === 0 &&
+                  selectedResourceScopes.length === 0)
+              }
+            >
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

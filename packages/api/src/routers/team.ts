@@ -3,7 +3,7 @@ import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, not } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
@@ -181,8 +181,12 @@ export const teamRouter = {
       const existingTeamMembers = await db
         .select()
         .from(jellyTeamContact)
-        .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
-
+        .where(
+          and(
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            not(eq(jellyTeamContact.role, "contact")),
+          ),
+        );
       const existingTeamMemberIds = existingTeamMembers.map(
         (teamMember) => teamMember.id,
       );
@@ -226,7 +230,7 @@ export const teamRouter = {
           .set({ existsInJelly: false })
           .where(
             inArray(
-              jellyTeamContact.jellyTeamId,
+              jellyTeamContact.id,
               removedTeamMembers.map((team) => team.jellyTeamId),
             ),
           );

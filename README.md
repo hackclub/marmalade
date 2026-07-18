@@ -13,7 +13,7 @@
 
 ## tasks
 
-**key:** ‼️ = mvp-critical
+**key:** ‼️ = poc-critical
 
 - [ ] jelly sync
   - [x] ‼️ manually sync mailboxes and team members
@@ -29,7 +29,8 @@
   - [ ] admin actions
     - [x] ‼️ create marmalade mailbox for jelly mailbox
     - [x] de/re-activate marmalade mailboxes
-    - [ ] view all mailboxes regardless of membership (toggle)
+    - [x] view all mailboxes regardless of membership (toggle)
+    - [ ] immune from member deletions
   - [ ] member actions
     - [ ] request marmalade mailbox created for jelly mailbox
 - [ ] mailbox members
@@ -63,7 +64,7 @@
 - [ ] labels
 - [ ] security/access
   - [x] ‼️ hack club oidc auth
-    - [ ] + email OTP auth?
+    - [x] + email OTP auth?
   - [x] ‼️ basic audit logging
     - [ ] audit changelogs (e.g. deletion archives & update diffs)
   - [x] ‼️ orpc openapi setup!
@@ -86,6 +87,7 @@
   - [ ] completely jelly-backwards-compatible api? (api v2)
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel
+    - [ ] move to enterprise vercel
 - qol
   - [ ] use better auth's apikey [system](https://better-auth.com/docs/plugins/api-key/advanced#rate-limiting) cause im a dumb dumb
   - [ ] custom error pages/toasts

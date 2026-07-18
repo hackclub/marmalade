@@ -44,7 +44,6 @@ async function handleWebhook({ request }: { request: Request }) {
         NOT_FOUND: 404,
         UNAUTHORIZED: 401,
       };
-
       return Response.json(
         { error: error.message || error.code },
         { status: statusMap[error.code] ?? 500 },

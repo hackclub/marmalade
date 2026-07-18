@@ -1,8 +1,8 @@
-import { ORPCError, call } from "@orpc/server";
-import { eq, and } from "drizzle-orm";
 import { db } from "@marmalade-v2/db";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
+import { ORPCError, call } from "@orpc/server";
+import { and, eq } from "drizzle-orm";
 import z from "zod";
 import { jellyWebhookProcedure } from "../index";
 import { conversationRouter } from "./convo";
@@ -104,9 +104,7 @@ export type JellyWebhookInput = z.infer<typeof jellyWebhookSchema>;
 export const webhookRouter = {
   jellyEventWebhook: jellyWebhookProcedure
     .input(jellyWebhookSchema)
-    .output(
-      z.object({ success: z.boolean(), reason: z.string().optional() }),
-    )
+    .output(z.object({ success: z.boolean(), reason: z.string().optional() }))
     .handler(async ({ input, context }) => {
       const conversation = input.data.conversation;
       const mailboxId = conversation.mailboxes?.[0]?.id;

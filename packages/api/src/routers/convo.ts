@@ -24,12 +24,10 @@ import {
 } from "../index";
 import {
   commentSchema,
+  conversationAssignmentSchema,
   conversationSchema,
   messageSchema,
-  conversationAssignmentSchema
 } from "../schemas/output";
-
-
 
 function parseSubjectSearch(search: string) {
   const terms: { exact: boolean; value: string }[] = [];
@@ -135,8 +133,10 @@ export const conversationRouter = {
           if (input.status !== undefined) updates.status = input.status;
           if (input.sentAt) updates.lastMessageAt = new Date(input.sentAt);
           if (input.url !== undefined) updates.url = input.url;
-          if (input.markdownUrl !== undefined) updates.markdownUrl = input.markdownUrl;
-          if (input.draftReplyUrl !== undefined) updates.draftReplyUrl = input.draftReplyUrl;
+          if (input.markdownUrl !== undefined)
+            updates.markdownUrl = input.markdownUrl;
+          if (input.draftReplyUrl !== undefined)
+            updates.draftReplyUrl = input.draftReplyUrl;
           if (Object.keys(updates).length > 0) {
             await db
               .update(conversation)
@@ -244,188 +244,190 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-  getAssignment: mailboxScopedProcedure
-    .route({
-      method: "GET",
-      path: "/mailboxes/{mailboxId}/conversations/{conversationId}/assignment", 
-    })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-        conversationId: z.string().min(1),
-      }),
-    )
-    .output(z.array(conversationAssignmentSchema))
-    .handler(async ({ input, context }) => {
-      checkRouterScope(context, "convo");
-
-      const rows = await db
-        .select()
-        .from(conversationAssignment)
-        .where(
-          and(
-            eq(conversationAssignment.conversationId, input.conversationId),
-          ),
-        );
-
-      return rows;
-    }),
-  list: mailboxScopedProcedure
-    .route({
-      method: "GET",
-      path: "/mailboxes/{mailboxId}/conversations",
-    })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-        status: z.string().optional(),
-        search: z.string().optional(),
-        startDate: z.string().datetime().optional(),
-        endDate: z.string().datetime().optional(),
-        sortBy: z
-          .enum([
-            "createdAt",
-            "updatedAt",
-            "lastMessageAt",
-            "subject",
-            "status",
-            "messagesCount",
-            "commentsCount",
-            "attachmentsCount",
-          ])
-          .optional()
-          .default("lastMessageAt"),
-        sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
-      }),
-    )
-    .output(
-      z.array(
+    getAssignment: mailboxScopedProcedure
+      .route({
+        method: "GET",
+        path: "/mailboxes/{mailboxId}/conversations/{conversationId}/assignment",
+      })
+      .input(
         z.object({
-          conversation: conversationSchema,
-          mailboxId: z.string(),
+          mailboxId: z.string().min(1),
+          conversationId: z.string().min(1),
         }),
-      ),
-    )
-    .handler(async ({ input, context }) => {
-      checkRouterScope(context, "convo");
+      )
+      .output(z.array(conversationAssignmentSchema))
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "convo");
 
-      const conditions = [
-        eq(conversationMailbox.jellyMailboxId, input.mailboxId),
-      ];
+        const rows = await db
+          .select()
+          .from(conversationAssignment)
+          .where(
+            and(
+              eq(conversationAssignment.conversationId, input.conversationId),
+            ),
+          );
 
-      if (input.status) {
-        conditions.push(eq(conversation.status, input.status));
-      }
+        return rows;
+      }),
+    list: mailboxScopedProcedure
+      .route({
+        method: "GET",
+        path: "/mailboxes/{mailboxId}/conversations",
+      })
+      .input(
+        z.object({
+          mailboxId: z.string().min(1),
+          status: z.string().optional(),
+          search: z.string().optional(),
+          startDate: z.string().datetime().optional(),
+          endDate: z.string().datetime().optional(),
+          sortBy: z
+            .enum([
+              "createdAt",
+              "updatedAt",
+              "lastMessageAt",
+              "subject",
+              "status",
+              "messagesCount",
+              "commentsCount",
+              "attachmentsCount",
+            ])
+            .optional()
+            .default("lastMessageAt"),
+          sortOrder: z.enum(["asc", "desc"]).optional().default("desc"),
+        }),
+      )
+      .output(
+        z.array(
+          z.object({
+            conversation: conversationSchema,
+            mailboxId: z.string(),
+          }),
+        ),
+      )
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "convo");
 
-      if (input.search) {
-        const searchConditions = buildSubjectConditions(input.search);
-        if (searchConditions.length === 1) {
-          conditions.push(searchConditions[0]!);
-        } else if (searchConditions.length > 1) {
-          conditions.push(and(...searchConditions)!);
+        const conditions = [
+          eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+        ];
+
+        if (input.status) {
+          conditions.push(eq(conversation.status, input.status));
         }
-      }
 
-      if (input.startDate) {
-        conditions.push(gte(conversation.createdAt, new Date(input.startDate)));
-      }
-      if (input.endDate) {
-        conditions.push(lte(conversation.createdAt, new Date(input.endDate)));
-      }
+        if (input.search) {
+          const searchConditions = buildSubjectConditions(input.search);
+          if (searchConditions.length === 1) {
+            conditions.push(searchConditions[0]!);
+          } else if (searchConditions.length > 1) {
+            conditions.push(and(...searchConditions)!);
+          }
+        }
 
-      const sortCol = conversationSortFields[input.sortBy]!;
-      const orderFn =
-        input.sortOrder === "asc"
-          ? sql`${sortCol} asc nulls last`
-          : sql`${sortCol} desc nulls last`;
+        if (input.startDate) {
+          conditions.push(
+            gte(conversation.createdAt, new Date(input.startDate)),
+          );
+        }
+        if (input.endDate) {
+          conditions.push(lte(conversation.createdAt, new Date(input.endDate)));
+        }
 
-      const rows = await db
-        .select({
-          conversation,
-          mailboxId: conversationMailbox.jellyMailboxId,
-        })
-        .from(conversation)
-        .innerJoin(
-          conversationMailbox,
-          eq(conversation.id, conversationMailbox.conversationId),
-        )
-        .where(and(...conditions))
-        .orderBy(orderFn);
+        const sortCol = conversationSortFields[input.sortBy]!;
+        const orderFn =
+          input.sortOrder === "asc"
+            ? sql`${sortCol} asc nulls last`
+            : sql`${sortCol} desc nulls last`;
 
-      return rows.map((row) => ({
-        ...row,
-        conversation: filterFieldsByScope(
-          context,
-          "conversation",
-          row.conversation,
-        ),
-      }));
-    }),
-  get: apiKeyOrSessionOrWebhookProcedure
-    .route({
-      method: "GET",
-      path: "/mailboxes/{mailboxId}/conversations/{conversationId}",
-    })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-        conversationId: z.string().min(1),
-      }),
-    )
-    .output(
-      conversationSchema.extend({
-        messages: z.array(messageSchema),
-        comments: z.array(commentSchema),
-      }),
-    )
-    .handler(async ({ input, context }) => {
-      checkRouterScope(context, "message");
+        const rows = await db
+          .select({
+            conversation,
+            mailboxId: conversationMailbox.jellyMailboxId,
+          })
+          .from(conversation)
+          .innerJoin(
+            conversationMailbox,
+            eq(conversation.id, conversationMailbox.conversationId),
+          )
+          .where(and(...conditions))
+          .orderBy(orderFn);
 
-      const rows = await db
-        .select()
-        .from(conversation)
-        .innerJoin(
-          conversationMailbox,
-          eq(conversation.id, conversationMailbox.conversationId),
-        )
-        .where(
-          and(
-            eq(conversation.id, input.conversationId),
-            eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+        return rows.map((row) => ({
+          ...row,
+          conversation: filterFieldsByScope(
+            context,
+            "conversation",
+            row.conversation,
           ),
-        )
-        .limit(1);
+        }));
+      }),
+    get: apiKeyOrSessionOrWebhookProcedure
+      .route({
+        method: "GET",
+        path: "/mailboxes/{mailboxId}/conversations/{conversationId}",
+      })
+      .input(
+        z.object({
+          mailboxId: z.string().min(1),
+          conversationId: z.string().min(1),
+        }),
+      )
+      .output(
+        conversationSchema.extend({
+          messages: z.array(messageSchema),
+          comments: z.array(commentSchema),
+        }),
+      )
+      .handler(async ({ input, context }) => {
+        checkRouterScope(context, "message");
 
-      if (rows.length === 0) {
-        throw new ORPCError("NOT_FOUND", {
-          message: "Conversation not found",
-        });
-      }
+        const rows = await db
+          .select()
+          .from(conversation)
+          .innerJoin(
+            conversationMailbox,
+            eq(conversation.id, conversationMailbox.conversationId),
+          )
+          .where(
+            and(
+              eq(conversation.id, input.conversationId),
+              eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+            ),
+          )
+          .limit(1);
 
-      const convo = rows[0]!.jelly_conversation;
+        if (rows.length === 0) {
+          throw new ORPCError("NOT_FOUND", {
+            message: "Conversation not found",
+          });
+        }
 
-      const messages = await db
-        .select()
-        .from(message)
-        .where(eq(message.conversationId, input.conversationId))
-        .orderBy(asc(message.sentAt));
+        const convo = rows[0]!.jelly_conversation;
 
-      const comments = await db
-        .select()
-        .from(comment)
-        .where(eq(comment.conversationId, input.conversationId))
-        .orderBy(asc(comment.createdAt));
+        const messages = await db
+          .select()
+          .from(message)
+          .where(eq(message.conversationId, input.conversationId))
+          .orderBy(asc(message.sentAt));
 
-      return {
-        ...filterFieldsByScope(context, "conversation", convo),
-        messages: messages.map((m) =>
-          filterFieldsByScope(context, "message", m),
-        ),
-        comments: comments.map((c) =>
-          filterFieldsByScope(context, "comment", c),
-        ),
-      };
-    }),
+        const comments = await db
+          .select()
+          .from(comment)
+          .where(eq(comment.conversationId, input.conversationId))
+          .orderBy(asc(comment.createdAt));
+
+        return {
+          ...filterFieldsByScope(context, "conversation", convo),
+          messages: messages.map((m) =>
+            filterFieldsByScope(context, "message", m),
+          ),
+          comments: comments.map((c) =>
+            filterFieldsByScope(context, "comment", c),
+          ),
+        };
+      }),
   },
   message: {
     create: jellyWebhookProcedure
@@ -462,7 +464,7 @@ export const conversationRouter = {
             message: "Message sender email is required",
           });
         }
-        let senderId: string | null = null;
+        let senderId: string;
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)

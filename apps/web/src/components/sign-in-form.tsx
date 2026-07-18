@@ -56,7 +56,7 @@ export default function SignInForm() {
       >
         Sign in with Hack Club
       </Button>
-      <details className="mt-4">
+      <details className="mt-8">
         <summary className="my-4 text-white">
           but... my jelly account email is different from my HCA
         </summary>

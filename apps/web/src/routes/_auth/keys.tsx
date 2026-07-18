@@ -34,6 +34,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 const SCHEMA_MAP: Record<
   string,
@@ -696,6 +697,7 @@ function KeysRoute() {
   const revokeMutation = useMutation(
     orpc.apiKey.revokeTeamKey.mutationOptions({
       onSuccess: () => {
+        toast.success("API key revoked successfully");
         keys.refetch();
       },
     }),

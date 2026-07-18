@@ -2,8 +2,9 @@ import { orpc } from "@/utils/orpc";
 import { Button } from "@marmalade-v2/ui/components/button";
 import { Input } from "@marmalade-v2/ui/components/input";
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/keys/revoke")({
   component: RevokeComponent,
@@ -12,10 +13,13 @@ export const Route = createFileRoute("/keys/revoke")({
 function RevokeComponent() {
   const [revokingKey, setRevokingKey] = useState("");
   const [revoker, setRevoker] = useState("");
+
+  const navigate = useNavigate();
+
   const revokeKeyMutation = useMutation(
     orpc.apiKey.revokePublic.mutationOptions({
       onSuccess: () => {
-        alert(`Key revoked successfully!`);
+        toast.success("API key revoked successfully");
         navigate({ to: "/" });
       },
     }),

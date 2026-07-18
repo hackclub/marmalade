@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 import { MemberCard } from "./team";
 
 import { orpc } from "@/utils/orpc";
@@ -236,6 +237,7 @@ function MailboxesRoute() {
     orpc.mailbox.resync.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
+        toast.success("Mailboxes resynced successfully");
       },
     }),
   );
@@ -243,6 +245,7 @@ function MailboxesRoute() {
     orpc.mailbox.create.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
+        toast.success("Mailbox created successfully");
       },
     }),
   );
@@ -250,6 +253,7 @@ function MailboxesRoute() {
     orpc.mailbox.deactivate.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
+        toast.info("Mailbox deactivated successfully");
       },
     }),
   );
@@ -257,6 +261,7 @@ function MailboxesRoute() {
     orpc.mailbox.activate.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
+        toast.info("Mailbox reactivated successfully");
       },
     }),
   );
@@ -264,12 +269,14 @@ function MailboxesRoute() {
     orpc.mailbox.createMember.mutationOptions({
       onSuccess: () => {
         mailboxes.refetch();
+        toast.success("Mailbox member added successfully");
       },
     }),
   );
   const removeMailboxMemberMutation = useMutation(
     orpc.mailbox.removeMember.mutationOptions({
       onSuccess: () => {
+        toast.info("Mailbox member removed successfully");
         mailboxes.refetch();
       },
     }),

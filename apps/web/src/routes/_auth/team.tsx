@@ -13,7 +13,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
 import { orpc } from "@/utils/orpc";
-
+import { toast } from "sonner";
 export const Route = createFileRoute("/_auth/team")({
   component: MembersRoute,
 });
@@ -91,6 +91,7 @@ function MembersRoute() {
   const resyncMutation = useMutation(
     orpc.team.resync.mutationOptions({
       onSuccess: () => {
+        toast.success("Team members resynced successfully");
         members.refetch();
       },
     }),
@@ -127,7 +128,7 @@ function MembersRoute() {
             <ul className="space-y-2">
               {members.data?.map((member) => (
                 <MemberCard
-                  key={member.jelly.id}
+                  key={member.jelly?.id ?? 0}
                   member={member}
                   teamMemberRole={teamMember.role}
                 />

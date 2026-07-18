@@ -12,7 +12,7 @@ import { Skeleton } from "@marmalade-v2/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
-
+import { toast } from "sonner";
 export default function UserMenu() {
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
@@ -47,6 +47,7 @@ export default function UserMenu() {
                 authClient.signOut({
                   fetchOptions: {
                     onSuccess: () => {
+                      toast.info("Signed out successfully");
                       navigate({
                         to: "/",
                       });

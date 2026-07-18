@@ -41,9 +41,10 @@ function DocsRoute() {
           hideDarkModeToggle: true,
           authentication: {
             securitySchemes: {
-              bearerAuth: { token: '' }
+              bearerAuth: {}
             }
-          }
+          },
+          persistAuth: true
         });
       };
       s.onerror = function() {

@@ -534,7 +534,12 @@ export const mailboxRouter = {
       const existingMembers = await db
         .select()
         .from(jellyMailboxMember)
-        .where(and(inArray(jellyMailboxMember.jellyContactId, memberIds), eq(jellyMailboxMember.jellyMailboxId, input.mailboxId)));
+        .where(
+          and(
+            inArray(jellyMailboxMember.jellyContactId, memberIds),
+            eq(jellyMailboxMember.jellyMailboxId, input.mailboxId),
+          ),
+        );
       const existingMemberIds = existingMembers.map(
         (member) => member.jellyContactId,
       );

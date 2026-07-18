@@ -81,7 +81,9 @@ class JellyApiClient {
     });
 
     if (!response.ok) {
-      console.warn(`Jelly API error: ${response.status} ${response.statusText}`);
+      console.warn(
+        `Jelly API error: ${response.status} ${response.statusText}`,
+      );
       throw new Error(
         `Jelly API error: ${response.status} ${response.statusText}`,
       );

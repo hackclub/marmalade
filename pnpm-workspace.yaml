@@ -17,7 +17,7 @@ catalog:
   "@orpc/openapi": ^1.13.14
   "@orpc/zod": ^1.13.14
   "@orpc/tanstack-query": ^1.13.14
-  better-auth: 1.6.11
+  better-auth: 1.6.13
   "@tanstack/react-form": ^1.28.0
   "@types/react-dom": ^19.2.3
   "@better-auth/expo": 1.6.11

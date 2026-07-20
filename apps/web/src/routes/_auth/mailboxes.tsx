@@ -174,14 +174,14 @@ function MailboxCard({
                     <Badge
                       variant={
                         mailbox.marmaladeMailbox.members.find(
-                          (m: { id: string }) => m.id == member.id,
+                          (m: any) => m.jelly.id == member.jelly.id,
                         )
                           ? "default"
                           : "destructive"
                       }
                     >
                       {mailbox.marmaladeMailbox.members.find(
-                        (m: { id: string }) => m.id == member.id,
+                        (m: any) => m.jelly.id == member.jelly.id,
                       )
                         ? "🍊 api perms"
                         : "🍊 no perms"}
@@ -194,7 +194,7 @@ function MailboxCard({
                   member.marmalade ? (
                     teamMember.role == "owner" || teamMember.role == "admin" ? (
                       mailbox.marmaladeMailbox.members.find(
-                        (m: { id: string }) => m.id == member.id,
+                        (m: any) => m.jelly.id == member.jelly.id,
                       ) ? (
                         <Button
                           variant="secondary"

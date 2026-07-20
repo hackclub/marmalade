@@ -381,7 +381,7 @@ export const conversationRouter = {
         }),
       )
       .handler(async ({ input, context }) => {
-        checkRouterScope(context, "message");
+        checkRouterScope(context, "convo");
 
         const rows = await db
           .select()
@@ -598,7 +598,7 @@ export const conversationRouter = {
       )
       .output(messageSchema)
       .handler(async ({ input, context }) => {
-        checkRouterScope(context, "convo");
+        checkRouterScope(context, "message");
 
         const rows = await db
           .select({

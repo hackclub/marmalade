@@ -10,6 +10,7 @@ export const NON_SCOPABLE_FIELDS: Record<string, string[]> = {
     "markdownUrl",
     "messagesUrl",
     "commentsUrl",
+    "jellyTeamId",
     "draftReplyUrl",
   ],
   message: ["id", "createdAt", "conversationId"],

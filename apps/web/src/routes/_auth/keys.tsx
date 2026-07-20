@@ -223,6 +223,7 @@ function KeyCard({
 
 function ResourceScopeSection({
   scopeId,
+  resourceType,
   label,
   fields,
   hasMailboxList,
@@ -239,6 +240,7 @@ function ResourceScopeSection({
   disabled,
 }: {
   scopeId: string;
+  resourceType: string;
   label: string;
   fields: string[];
   hasMailboxList?: boolean;
@@ -275,14 +277,14 @@ function ResourceScopeSection({
     fields.length > 0 &&
     fields.every((field) =>
       selectedFieldScopes.some(
-        (s) => s.resourceType === scopeId && s.field === field,
+        (s) => s.resourceType === resourceType && s.field === field,
       ),
     );
   const someFieldsSelected =
     fields.length > 0 &&
     fields.some((field) =>
       selectedFieldScopes.some(
-        (s) => s.resourceType === scopeId && s.field === field,
+        (s) => s.resourceType === resourceType && s.field === field,
       ),
     ) &&
     !allFieldsSelected;
@@ -373,9 +375,9 @@ function ResourceScopeSection({
                   >
                     <Checkbox
                       checked={selectedFieldScopes.some(
-                        (s) => s.resourceType === scopeId && s.field === field,
+                        (s) => s.resourceType === resourceType && s.field === field,
                       )}
-                      onCheckedChange={() => onToggleField(scopeId, field)}
+                      onCheckedChange={() => onToggleField(resourceType, field)}
                     />
                     <span className="text-xs">{field}</span>
                   </label>
@@ -473,7 +475,7 @@ function CreateKeyDialog({
       }
       if (routerDef.fields.length > 0) {
         setSelectedFieldScopes((prev) =>
-          prev.filter((s) => s.resourceType !== scopeId),
+          prev.filter((s) => s.resourceType !== routerDef.id),
         );
       }
     } else {
@@ -488,10 +490,10 @@ function CreateKeyDialog({
       if (routerDef.fields.length > 0) {
         setSelectedFieldScopes((prev) => {
           const withoutThisRouter = prev.filter(
-            (s) => s.resourceType !== scopeId,
+            (s) => s.resourceType !== routerDef.id,
           );
           const newFields = routerDef.fields.map((field) => ({
-            resourceType: scopeId,
+            resourceType: routerDef.id,
             field,
           }));
           return [...withoutThisRouter, ...newFields];
@@ -581,6 +583,7 @@ function CreateKeyDialog({
                   <ResourceScopeSection
                     key={router.id}
                     scopeId={router.scopeId}
+                    resourceType={router.id}
                     label={router.label}
                     fields={router.fields}
                     hasMailboxList={router.hasMailboxList}

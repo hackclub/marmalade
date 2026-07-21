@@ -181,12 +181,7 @@ export const teamRouter = {
       const existingTeamMembers = await db
         .select()
         .from(jellyTeamContact)
-        .where(
-          and(
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
-            not(eq(jellyTeamContact.role, "contact")),
-          ),
-        );
+        .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
       const existingTeamMemberIds = existingTeamMembers.map(
         (teamMember) => teamMember.id,
       );
@@ -231,22 +226,25 @@ export const teamRouter = {
           .where(
             inArray(
               jellyTeamContact.id,
-              removedTeamMembers.map((team) => team.jellyTeamId),
+              removedTeamMembers.map((team) => team.id),
             ),
           );
       }
       if (newTeamMembers.length > 0) {
-        await db.insert(jellyTeamContact).values(
-          newTeamMembers.map((member) => ({
-            id: member.id,
-            name: member.name,
-            email: member.email,
-            role: member.role,
-            active: member.active,
-            jellyTeamId: env.JELLY_TEAM_ID,
-            existsInJelly: true,
-          })),
-        );
+        await db
+          .insert(jellyTeamContact)
+          .values(
+            newTeamMembers.map((member) => ({
+              id: member.id,
+              name: member.name,
+              email: member.email,
+              role: member.role,
+              active: member.active,
+              jellyTeamId: env.JELLY_TEAM_ID,
+              existsInJelly: true,
+            })),
+          )
+          .onConflictDoNothing();
       }
       await call(
         auditRouter.create,

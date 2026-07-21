@@ -10,7 +10,7 @@ const internalLinks = [
 ] as const;
 
 const externalLinks = [
-  { href: "https://github.com/quackclub/marmalade", label: "Repo" },
+  { href: "https://github.com/hackclub/marmalade", label: "Repo" },
 ] as const;
 
 export default function Header() {

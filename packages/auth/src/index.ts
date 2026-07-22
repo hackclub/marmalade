@@ -6,7 +6,6 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP, genericOAuth } from "better-auth/plugins";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
-import nodemailer from "nodemailer";
 
 export type AuthOptions = {
   databaseHooks?: BetterAuthOptions["databaseHooks"];
@@ -19,29 +18,20 @@ async function sendEmailVerificationOTP({
   email: string;
   otp: string;
 }) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    secure: true,
-    port: 465,
-    auth: {
-      user: env.EMAIL_USER,
-      pass: env.EMAIL_PASSWORD,
+  const res = await fetch(env.LOOPS_API_URL + "/api/v1/transactional", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${env.LOOPS_API_KEY}`,
     },
-    tls: {
-      rejectUnauthorized: false,
-    },
+    body: JSON.stringify({
+      transactionalId: "cmrv63typ01ma0j03qecudz35",
+      email,
+      dataVariables: { otp },
+    }),
   });
-  const mailOptions = {
-    from: env.EMAIL_USER,
-    to: email,
-    subject: "Marmalade One Time Password",
-    html: `<div><p>*sigh* i guess you're really serious about making my life harder, so here's your one-time code vro: </p> <h1>${otp}</h1>
-    <i>PS: in case it wasn't clear, i'd appreciate if you considered switching your HCA over to this address since i don't want to deal with sending email OTPs or maintaining two different authentication methods, kthxbye</i></div>`,
-  };
-  try {
-    await transporter.sendMail(mailOptions);
-  } finally {
-    transporter.close();
+  if (!res.ok) {
+    throw new Error(`Failed to send OTP email: ${res.status} ${await res.text()}`);
   }
 }
 

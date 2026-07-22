@@ -11,15 +11,13 @@
         "BETTER_AUTH_URL",
         "CORS_ORIGIN",
         "DATABASE_URL",
-        "EMAIL_PASSWORD",
-        "EMAIL_USER",
         "HACKCLUB_CLIENT_ID",
         "HACKCLUB_CLIENT_SECRET",
         "JELLY_API_URL",
         "JELLY_API_KEY",
         "JELLY_TEAM_ID",
         "JELLY_WEBHOOK_SECRET",
-        "SMTP_HOST",
+        "LOOPS_API_KEY",
         "WEBHOOK_USERNAME",
         "WEBHOOK_PASSWORD"
       ]

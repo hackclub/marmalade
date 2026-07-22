@@ -58,7 +58,7 @@ export default function SignInForm() {
       </Button>
       <details className="mt-8">
         <summary className="my-4 text-white">
-          but... my jelly account email is different from my HCA
+          but... my jelly email is different from my HCA
         </summary>
         <div className="flex flex-col gap-4">
           <p className="text-gray-400">

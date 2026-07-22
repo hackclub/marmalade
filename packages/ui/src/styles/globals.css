@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Sprig Sans";
+  src: url("https://cdn.hackclub.com/019f87a5-438f-72e5-b7fd-85d7f6784aec/FAIRE-SprigSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -76,7 +84,7 @@
 }
 
 @theme inline {
-  --font-sans: "Inter Variable", sans-serif;
+  --font-sans: "Sprig Sans", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

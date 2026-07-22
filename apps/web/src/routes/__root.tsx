@@ -35,6 +35,12 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
     ],
     links: [
       {
+        rel: "preload",
+        href: "https://cdn.hackclub.com/019f87a5-438f-72e5-b7fd-85d7f6784aec/FAIRE-SprigSans-Regular.woff2",
+        as: "font",
+        type: "font/woff2",
+      },
+      {
         rel: "stylesheet",
         href: appCss,
       },

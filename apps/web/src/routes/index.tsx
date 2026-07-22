@@ -32,7 +32,7 @@ function HomeComponent() {
           </p>
           <ul className="list-inside list-disc pl-6">
             <li>
-              made for silliness, freedom, and :3 in{" "}
+              made with :3 in{" "}
               <a
                 href="https://hackclub.com"
                 className="hover:text-[#ec3750] hover:underline"

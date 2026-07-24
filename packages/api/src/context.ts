@@ -29,32 +29,32 @@ export async function createJellyWebhookContext({
   rawBody: string;
 }) {
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Basic ")) {
-    throw new ORPCError("UNAUTHORIZED", {
-      message: "Invalid webhook credentials",
-    });
-  }
+  // if (!authHeader?.startsWith("Basic ")) {
+  //   throw new ORPCError("UNAUTHORIZED", {
+  //     message: "Invalid webhook credentials",
+  //   });
+  // }
 
-  const credentials = Buffer.from(authHeader.slice(6), "base64").toString(
-    "utf-8",
-  );
-  const separatorIndex = credentials.indexOf(":");
-  if (separatorIndex === -1) {
-    throw new ORPCError("UNAUTHORIZED", {
-      message: "Invalid webhook credentials",
-    });
-  }
+  // const credentials = Buffer.from(authHeader.slice(6), "base64").toString(
+  //   "utf-8",
+  // );
+  // const separatorIndex = credentials.indexOf(":");
+  // if (separatorIndex === -1) {
+  //   throw new ORPCError("UNAUTHORIZED", {
+  //     message: "Invalid webhook credentials",
+  //   });
+  // }
 
-  const username = credentials.slice(0, separatorIndex);
-  const password = credentials.slice(separatorIndex + 1);
+  // const username = credentials.slice(0, separatorIndex);
+  // const password = credentials.slice(separatorIndex + 1);
 
-  const expectedUser = env.WEBHOOK_USERNAME || "jelly";
-  const expectedPass = env.WEBHOOK_PASSWORD;
-  if (!expectedPass || username !== expectedUser || password !== expectedPass) {
-    throw new ORPCError("UNAUTHORIZED", {
-      message: "Invalid webhook credentials",
-    });
-  }
+  // const expectedUser = env.WEBHOOK_USERNAME || "jelly";
+  // const expectedPass = env.WEBHOOK_PASSWORD;
+  // if (!expectedPass || username !== expectedUser || password !== expectedPass) {
+  //   throw new ORPCError("UNAUTHORIZED", {
+  //     message: "Invalid webhook credentials",
+  //   });
+  // }
 
   const signatureHeader = req.headers.get("X-Jelly-Signature");
   if (!signatureHeader) {

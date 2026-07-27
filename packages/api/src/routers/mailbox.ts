@@ -8,7 +8,7 @@ import {
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
 import { getJellyClient } from "../lib/jelly";
 
@@ -189,8 +189,158 @@ export const mailboxRouter = {
       checkRouterScope(context, "mailbox");
 
       if ("apiKey" in context) {
+        const hasTeamScope =
+          "apiKey" in context &&
+          context.apiKey.resourceScopes.includes("team");
+
+        if (hasTeamScope) {
+          const results = ((await db
+            .select({
+              jellyMailbox: jellyMailbox,
+              jellyMailboxMemberTeamMember: jellyMailboxMemberTeamMember,
+              jellyMailboxMemberUser: jellyMailboxMemberUser,
+              marmaladeMailbox: marmaladeMailbox,
+              marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
+              marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
+            })
+            .from(jellyMailbox)
+            .innerJoin(
+              marmaladeMailbox,
+              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+            )
+            .where(
+              inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+            )
+            .leftJoin(
+              jellyMailboxMembersAll,
+              eq(
+                jellyMailbox.jellyMailboxId,
+                jellyMailboxMembersAll.jellyMailboxId,
+              ),
+            )
+            .leftJoin(
+              jellyMailboxMemberTeamMember,
+              eq(
+                jellyMailboxMembersAll.jellyContactId,
+                jellyMailboxMemberTeamMember.id,
+              ),
+            )
+            .leftJoin(
+              jellyMailboxMemberUser,
+              eq(
+                jellyMailboxMemberTeamMember.email,
+                jellyMailboxMemberUser.email,
+              ),
+            )
+            .leftJoin(
+              marmaladeMailboxMembersAll,
+              eq(
+                marmaladeMailbox.id,
+                marmaladeMailboxMembersAll.marmaladeMailboxId,
+              ),
+            )
+            .leftJoin(
+              marmaladeMailboxMemberUser,
+              eq(
+                marmaladeMailboxMembersAll.marmaladeUserId,
+                marmaladeMailboxMemberUser.id,
+              ),
+            )
+            .leftJoin(
+              marmaladeMailboxMemberTeamMember,
+              and(
+                eq(
+                  marmaladeMailboxMemberUser.email,
+                  marmaladeMailboxMemberTeamMember.email,
+                ),
+              ),
+            )) ?? []) as any[];
+
+          const mailboxById = new Map<number, any>();
+
+          for (const result of results) {
+            const mailboxId = result.jellyMailbox.id;
+            let entry = mailboxById.get(mailboxId);
+
+            if (!entry) {
+              const jellyMembers: MailboxMemberItem[] = [];
+              const marmaladeMembers: MailboxMemberItem[] = [];
+              entry = {
+                jellyMailbox: {
+                  ...filterFieldsByScope(
+                    context,
+                    "mailbox",
+                    result.jellyMailbox,
+                  ),
+                  memberCount: 0,
+                  members: jellyMembers,
+                },
+                marmaladeMailbox: {
+                  ...filterFieldsByScope(
+                    context,
+                    "mailbox",
+                    result.marmaladeMailbox,
+                  ),
+                  memberCount: 0,
+                  members: marmaladeMembers,
+                },
+                jellyMemberIds: new Set<number>(),
+                marmaladeMemberIds: new Set<number>(),
+              };
+              mailboxById.set(mailboxId, entry);
+            }
+
+            if (
+              result.jellyMailboxMemberTeamMember &&
+              !entry.jellyMemberIds.has(result.jellyMailboxMemberTeamMember.id)
+            ) {
+              entry.jellyMemberIds.add(result.jellyMailboxMemberTeamMember.id);
+              entry.jellyMailbox.members.push({
+                jelly: result.jellyMailboxMemberTeamMember,
+                marmalade: result.jellyMailboxMemberUser,
+              });
+              entry.jellyMailbox.memberCount =
+                entry.jellyMailbox.members.length;
+            }
+
+            if (
+              result.marmaladeMailboxMemberTeamMember &&
+              !entry.marmaladeMemberIds.has(
+                result.marmaladeMailboxMemberTeamMember.id,
+              )
+            ) {
+              entry.marmaladeMemberIds.add(
+                result.marmaladeMailboxMemberTeamMember.id,
+              );
+              entry.marmaladeMailbox.members.push({
+                jelly: result.marmaladeMailboxMemberTeamMember,
+                marmalade: result.marmaladeMailboxMemberUser,
+              });
+              entry.marmaladeMailbox.memberCount =
+                entry.marmaladeMailbox.members.length;
+            }
+          }
+
+          return Array.from(mailboxById.values()).map((entry) => ({
+            jellyMailbox: entry.jellyMailbox,
+            marmaladeMailbox: entry.marmaladeMailbox,
+            marmaladeMailboxMembership: null,
+          }));
+        }
+
         const mailboxes = await db
-          .select()
+          .select({
+            jelly_mailbox: jellyMailbox,
+            mailbox: marmaladeMailbox,
+            jellyMemberCount: sql<number>`coalesce((
+              select count(*)::int from ${jellyMailboxMember}
+              where ${jellyMailboxMember.jellyMailboxId} = ${jellyMailbox.jellyMailboxId}
+            ), 0)`,
+            marmaladeMemberCount: sql<number>`coalesce((
+              select count(*)::int from ${marmaladeMailboxMember}
+              where ${marmaladeMailboxMember.marmaladeMailboxId} = ${marmaladeMailbox.id}
+            ), 0)`,
+          })
           .from(jellyMailbox)
           .innerJoin(
             marmaladeMailbox,
@@ -203,12 +353,12 @@ export const mailboxRouter = {
         return mailboxes.map((row) => ({
           jellyMailbox: {
             ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
-            memberCount: 0,
+            memberCount: row.jellyMemberCount,
             members: [],
           },
           marmaladeMailbox: {
             ...filterFieldsByScope(context, "mailbox", row.mailbox),
-            memberCount: 0,
+            memberCount: row.marmaladeMemberCount,
             members: [],
           },
           marmaladeMailboxMembership: null,

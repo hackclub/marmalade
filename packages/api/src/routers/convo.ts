@@ -8,7 +8,7 @@ import {
   message,
   messageAttachment,
 } from "@marmalade-v2/db/schema/convo";
-import { jellyMailbox } from "@marmalade-v2/db/schema/mailbox";
+import { marmaladeMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
@@ -152,9 +152,9 @@ export const conversationRouter = {
         }
 
         const mailboxRows = await db
-          .select({ jellyMailboxId: jellyMailbox.jellyMailboxId })
-          .from(jellyMailbox)
-          .where(eq(jellyMailbox.id, input.inboxId))
+          .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
+          .from(marmaladeMailbox)
+          .where(eq(marmaladeMailbox.id, input.inboxId))
           .limit(1);
 
         const mailboxId = mailboxRows[0]?.jellyMailboxId ?? null;

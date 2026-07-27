@@ -201,16 +201,16 @@ export const mailboxRouter = {
           );
 
         return mailboxes.map((row) => ({
-          jellyMailbox: filterFieldsByScope(
-            context,
-            "mailbox",
-            row.jelly_mailbox,
-          ),
-          marmaladeMailbox: filterFieldsByScope(
-            context,
-            "mailbox",
-            row.mailbox,
-          ),
+          jellyMailbox: {
+            ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
+            memberCount: 0,
+            members: [],
+          },
+          marmaladeMailbox: {
+            ...filterFieldsByScope(context, "mailbox", row.mailbox),
+            memberCount: 0,
+            members: [],
+          },
           marmaladeMailboxMembership: null,
         }));
       }

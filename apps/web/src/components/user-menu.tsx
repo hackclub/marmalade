@@ -1,4 +1,4 @@
-import { Button } from "@marmalade-v2/ui/components/button";
+import { Button } from "@marm/ui/components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -7,8 +7,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@marmalade-v2/ui/components/dropdown-menu";
-import { Skeleton } from "@marmalade-v2/ui/components/skeleton";
+} from "@marm/ui/components/dropdown-menu";
+import { Skeleton } from "@marm/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";

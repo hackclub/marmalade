@@ -1,8 +1,8 @@
-import { createJellyWebhookContext } from "@marmalade-v2/api/context";
+import { createJellyWebhookContext } from "@marm/api/context";
 import {
   webhookRouter,
   type JellyWebhookInput,
-} from "@marmalade-v2/api/routers/webhook";
+} from "@marm/api/routers/webhook";
 import { ORPCError, call } from "@orpc/server";
 import { createFileRoute } from "@tanstack/react-router";
 

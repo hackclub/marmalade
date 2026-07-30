@@ -1,0 +1,5 @@
+{
+  "extends": "@marm/config/tsconfig/package.json",
+  "include": ["src/**/*.ts"]
+}
+

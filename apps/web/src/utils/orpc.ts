@@ -1,5 +1,5 @@
-import { createAuthContext } from "@marmalade-v2/api/context";
-import { appRouter } from "@marmalade-v2/api/routers/index";
+import { createAuthContext } from "@marm/api/context";
+import { appRouter } from "@marm/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
 import type { RouterClient } from "@orpc/server";

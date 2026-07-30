@@ -1,15 +1,15 @@
-import { auth } from "@marmalade-v2/auth";
-import { db } from "@marmalade-v2/db";
+import { auth } from "@marm/auth";
+import { db } from "@marm/db";
 import {
   apiKey,
   apiKeyFieldScope,
   apiKeyScope,
-} from "@marmalade-v2/db/schema/api";
+} from "@marm/db/schema/api";
 import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
-import { env } from "@marmalade-v2/env/server";
+import { env } from "@marm/env/server";
 
 export async function createAuthContext({ req }: { req: Request }) {
   const session = await auth.api.getSession({

@@ -1,5 +1,5 @@
-import { db } from "@marmalade-v2/db";
-import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { db } from "@marm/db";
+import { auditLog } from "@marm/db/schema/audit";
 import {
   comment,
   conversation,
@@ -7,10 +7,10 @@ import {
   conversationMailbox,
   message,
   messageAttachment,
-} from "@marmalade-v2/db/schema/convo";
-import { marmaladeMailbox } from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
+} from "@marm/db/schema/convo";
+import { marmaladeMailbox } from "@marm/db/schema/mailbox";
+import { jellyTeamContact } from "@marm/db/schema/team";
+import { env } from "@marm/env/server";
 import { ORPCError } from "@orpc/server";
 import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -27,7 +27,7 @@ import {
   conversationAssignmentSchema,
   conversationSchema,
   messageSchema,
-} from "../schemas/output";
+} from "@marm/contract/schemas/entities";
 
 function parseSubjectSearch(search: string) {
   const terms: { exact: boolean; value: string }[] = [];

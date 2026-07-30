@@ -1,5 +1,5 @@
 {
-  "name": "@marmalade-v2/env",
+  "name": "@marm/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@marmalade-v2/config": "workspace:*",
+    "@marm/config": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "catalog:"
   }

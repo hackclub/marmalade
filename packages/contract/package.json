@@ -1,5 +1,5 @@
 {
-  "name": "@marm/auth",
+  "name": "@marm/contract",
   "type": "module",
   "exports": {
     ".": {
@@ -7,15 +7,15 @@
     },
     "./*": {
       "default": "./src/*.ts"
+    },
+    "./schemas/*": {
+      "default": "./src/schemas/*.ts"
     }
   },
   "scripts": {},
   "dependencies": {
-    "@better-auth/expo": "catalog:",
-    "@marm/db": "workspace:*",
-    "@marm/env": "workspace:*",
-    "better-auth": "catalog:",
-    "dotenv": "catalog:",
+    "@orpc/contract": "catalog:",
+    "@orpc/server": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

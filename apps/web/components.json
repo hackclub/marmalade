@@ -13,8 +13,8 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@marmalade-v2/ui/lib/utils",
-    "ui": "@marmalade-v2/ui/components",
+    "utils": "@marm/ui/lib/utils",
+    "ui": "@marm/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

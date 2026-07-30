@@ -1,8 +1,8 @@
-import { db } from "@marmalade-v2/db";
-import { auditLog } from "@marmalade-v2/db/schema/audit";
-import { env } from "@marmalade-v2/env/server";
+import { db } from "@marm/db";
+import { auditLog } from "@marm/db/schema/audit";
+import { env } from "@marm/env/server";
 
-import z from "zod";
+import { auditCreateInputSchema } from "@marm/contract/schemas/procedures";
 
 import { publicProcedure, teamAdminProtectedProcedure } from "../index";
 
@@ -11,16 +11,7 @@ export const auditRouter = {
     return await db.select().from(auditLog);
   }),
   create: publicProcedure
-    .input(
-      z.object({
-        resource: z.string().min(1),
-        action: z.string().min(1),
-        resourceId: z.string().optional(),
-        status: z.string().optional(),
-        changes: z.any().optional(),
-        metadata: z.any().optional(),
-      }),
-    )
+    .input(auditCreateInputSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as any;
 

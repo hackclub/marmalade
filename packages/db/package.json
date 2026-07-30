@@ -1,5 +1,5 @@
 {
-  "name": "@marmalade-v2/db",
+  "name": "@marm/db",
   "type": "module",
   "exports": {
     ".": {
@@ -16,14 +16,14 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "@marmalade-v2/env": "workspace:*",
+    "@marm/env": "workspace:*",
     "dotenv": "catalog:",
     "drizzle-orm": "catalog:",
     "pg": "^8.17.1",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@marmalade-v2/config": "workspace:*",
+    "@marm/config": "workspace:*",
     "@types/pg": "catalog:",
     "drizzle-kit": "^0.31.8",
     "typescript": "catalog:"

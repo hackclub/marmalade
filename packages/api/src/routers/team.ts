@@ -1,10 +1,18 @@
-import { db } from "@marmalade-v2/db";
-import { user as authUser } from "@marmalade-v2/db/schema/auth";
-import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
+import { db } from "@marm/db";
+import { user as authUser } from "@marm/db/schema/auth";
+import { jellyTeam, jellyTeamContact } from "@marm/db/schema/team";
+import { env } from "@marm/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { and, eq, inArray, not } from "drizzle-orm";
-import z from "zod";
+import {
+  routes,
+  teamAddInputSchema,
+  teamAddOutputSchema,
+  teamGetInputSchema,
+  teamGetOutputSchema,
+  teamListOutputSchema,
+  teamResyncOutputSchema,
+} from "@marm/contract/schemas/procedures";
 import {
   apiKeyOrSessionOrWebhookProcedure,
   checkRouterScope,
@@ -12,22 +20,14 @@ import {
   publicProcedure,
 } from "..";
 import { getJellyClient } from "../lib/jelly";
-import { teamMemberSchema, userSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 
 export const teamRouter = {
   list: apiKeyOrSessionOrWebhookProcedure
-    .route({ method: "GET", path: "/members" })
-    .output(
-      z.array(
-        z.object({
-          jelly: teamMemberSchema.nullable(),
-          marmalade: userSchema.nullable(),
-        }),
-      ),
-    )
+    .route(routes.team.list)
+    .output(teamListOutputSchema)
     .handler(async ({ context }) => {
       checkRouterScope(context, "team");
 
@@ -46,14 +46,9 @@ export const teamRouter = {
       }));
     }),
   get: apiKeyOrSessionOrWebhookProcedure
-    .route({ method: "GET", path: "/members/:id" })
-    .input(z.object({ id: z.string() }))
-    .output(
-      z.object({
-        jelly: teamMemberSchema.nullable(),
-        marmalade: userSchema.nullable(),
-      }),
-    )
+    .route(routes.team.get)
+    .input(teamGetInputSchema)
+    .output(teamGetOutputSchema)
     .handler(async ({ context, input }) => {
       checkRouterScope(context, "team");
 
@@ -82,20 +77,9 @@ export const teamRouter = {
       };
     }),
   add: jellyWebhookProcedure
-    .route({ method: "POST", path: "/members" })
-    .input(
-      z.object({
-        id: z.string(),
-        name: z.string().optional(),
-        email: z.string().email().optional(),
-      }),
-    )
-    .output(
-      z.object({
-        jelly: teamMemberSchema.nullable(),
-        marmalade: userSchema.nullable(),
-      }),
-    )
+    .route(routes.team.add)
+    .input(teamAddInputSchema)
+    .output(teamAddOutputSchema)
     .handler(async ({ context, input }) => {
       checkRouterScope(context, "team");
 
@@ -153,8 +137,8 @@ export const teamRouter = {
       };
     }),
   resync: publicProcedure
-    .route({ method: "POST", path: "/resync" })
-    .output(z.object({ message: z.string() }))
+    .route(routes.team.resync)
+    .output(teamResyncOutputSchema)
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()

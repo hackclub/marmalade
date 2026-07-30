@@ -1,12 +1,12 @@
 import { ORPCError, os } from "@orpc/server";
 
-import { db } from "@marmalade-v2/db";
+import { db } from "@marm/db";
 import {
   jellyMailbox,
   jellyMailboxMember,
-} from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
+} from "@marm/db/schema/mailbox";
+import { jellyTeamContact } from "@marm/db/schema/team";
+import { env } from "@marm/env/server";
 import { and, eq } from "drizzle-orm";
 import type {
   ApiKeyContext,
@@ -14,7 +14,7 @@ import type {
   AuthContext,
   WebhookContext,
 } from "./context";
-import { NON_SCOPABLE_FIELDS } from "./schemas/output";
+import { NON_SCOPABLE_FIELDS } from "@marm/contract/schemas/entities";
 
 export const authO = os.$context<AuthContext>();
 export const webhookO = os.$context<WebhookContext>();

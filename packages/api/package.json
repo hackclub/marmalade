@@ -1,5 +1,5 @@
 {
-  "name": "@marmalade-v2/api",
+  "name": "@marm/api",
   "type": "module",
   "exports": {
     ".": {
@@ -14,9 +14,10 @@
   },
   "scripts": {},
   "dependencies": {
-    "@marmalade-v2/auth": "workspace:*",
-    "@marmalade-v2/db": "workspace:*",
-    "@marmalade-v2/env": "workspace:*",
+    "@marm/auth": "workspace:*",
+    "@marm/contract": "workspace:*",
+    "@marm/db": "workspace:*",
+    "@marm/env": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
@@ -27,7 +28,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@marmalade-v2/config": "workspace:*",
+    "@marm/config": "workspace:*",
     "typescript": "catalog:"
   }
 }

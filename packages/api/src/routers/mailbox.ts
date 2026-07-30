@@ -1,20 +1,37 @@
-import { db } from "@marmalade-v2/db";
-import { user as authUser } from "@marmalade-v2/db/schema/auth";
+import { db } from "@marm/db";
+import { user as authUser } from "@marm/db/schema/auth";
 import {
   jellyMailbox,
   jellyMailboxMember,
   marmaladeMailbox,
   marmaladeMailboxMember,
-} from "@marmalade-v2/db/schema/mailbox";
-import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
+} from "@marm/db/schema/mailbox";
+import { jellyTeam, jellyTeamContact } from "@marm/db/schema/team";
 import { call } from "@orpc/server";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
 import { getJellyClient } from "../lib/jelly";
 
-import { env } from "@marmalade-v2/env/server";
+import { env } from "@marm/env/server";
 import { ORPCError } from "@orpc/client";
-import z from "zod";
+import {
+  mailboxActivateOutputSchema,
+  mailboxCreateInputSchema,
+  mailboxCreateMemberInputSchema,
+  mailboxCreateMemberOutputSchema,
+  mailboxCreateOutputSchema,
+  mailboxDeactivateOutputSchema,
+  mailboxGetMailboxDetailsInputSchema,
+  mailboxGetMailboxDetailsOutputSchema,
+  mailboxListOutputSchema,
+  mailboxRemoveMemberInputSchema,
+  mailboxRemoveMemberOutputSchema,
+  mailboxResyncMembersInputSchema,
+  mailboxResyncMembersOutputSchema,
+  mailboxResyncOutputSchema,
+  mailboxToggleActiveInputSchema,
+  routes,
+} from "@marm/contract/schemas/procedures";
 import {
   checkRouterScope,
   filterFieldsByScope,
@@ -24,7 +41,6 @@ import {
   teamAdminProtectedProcedure,
   teamMemberProtectedProcedure,
 } from "../index";
-import { mailboxListItemSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
@@ -81,26 +97,9 @@ type MailboxListQueryRow = {
 
 export const mailboxRouter = {
   getMailboxDetails: mailboxScopedProcedure
-    .route({ method: "GET", path: "/mailboxes/{jellyMailboxId}" })
-    .input(
-      z.object({
-        jellyMailboxId: z.string().min(1),
-      }),
-    )
-    .output(
-      z.discriminatedUnion("allowed", [
-        z.object({
-          success: z.literal(true),
-          allowed: z.literal(true),
-          inboxId: z.number(),
-        }),
-        z.object({
-          success: z.literal(true),
-          allowed: z.literal(false),
-          reason: z.string(),
-        }),
-      ]),
-    )
+    .route(routes.mailbox.getMailboxDetails)
+    .input(mailboxGetMailboxDetailsInputSchema)
+    .output(mailboxGetMailboxDetailsOutputSchema)
     .handler(async ({ input, context }) => {
       checkRouterScope(context, "mailbox");
       requireMailboxAccess(context, input.jellyMailboxId);
@@ -183,8 +182,8 @@ export const mailboxRouter = {
       };
     }),
   list: mailboxScopedProcedure
-    .route({ method: "GET", path: "/mailboxes" })
-    .output(z.array(mailboxListItemSchema))
+    .route(routes.mailbox.list)
+    .output(mailboxListOutputSchema)
     .handler(async ({ context }) => {
       checkRouterScope(context, "mailbox");
 
@@ -525,9 +524,9 @@ export const mailboxRouter = {
       }));
     }),
   create: teamAdminProtectedProcedure
-    .route({ method: "POST", path: "/mailboxes" })
-    .input(z.object({ jellyMailboxId: z.string().min(1) }))
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.create)
+    .input(mailboxCreateInputSchema)
+    .output(mailboxCreateOutputSchema)
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -569,8 +568,8 @@ export const mailboxRouter = {
       return { message: "Mailbox created successfully" };
     }),
   resync: publicProcedure
-    .route({ method: "POST", path: "/mailboxes/resync" })
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.resync)
+    .output(mailboxResyncOutputSchema)
     .handler(async ({ context }) => {
       const existingTeam = await db
         .select()
@@ -656,16 +655,9 @@ export const mailboxRouter = {
       return { message: "Resync completed successfully" };
     }),
   resyncMembers: teamMemberProtectedProcedure
-    .route({
-      method: "POST",
-      path: "/mailboxes/{mailboxId}/members/resync",
-    })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-      }),
-    )
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.resyncMembers)
+    .input(mailboxResyncMembersInputSchema)
+    .output(mailboxResyncMembersOutputSchema)
     .handler(async ({ input, context }) => {
       let mailboxMembers;
       try {
@@ -745,17 +737,9 @@ export const mailboxRouter = {
       return { message: "Resync completed successfully" };
     }),
   createMember: teamAdminProtectedProcedure
-    .route({
-      method: "POST",
-      path: "/mailboxes/{marmaladeMailboxId}/members",
-    })
-    .input(
-      z.object({
-        marmaladeMailboxId: z.int().min(1),
-        marmaladeMemberId: z.string().min(1),
-      }),
-    )
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.createMember)
+    .input(mailboxCreateMemberInputSchema)
+    .output(mailboxCreateMemberOutputSchema)
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -810,17 +794,9 @@ export const mailboxRouter = {
       return { message: "Mailbox member created successfully" };
     }),
   removeMember: teamAdminProtectedProcedure
-    .route({
-      method: "DELETE",
-      path: "/mailboxes/{marmaladeMailboxId}/members/{marmaladeMemberId}",
-    })
-    .input(
-      z.object({
-        marmaladeMailboxId: z.int().min(1),
-        marmaladeMemberId: z.string().min(1),
-      }),
-    )
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.removeMember)
+    .input(mailboxRemoveMemberInputSchema)
+    .output(mailboxRemoveMemberOutputSchema)
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -860,12 +836,9 @@ export const mailboxRouter = {
       return { message: "Mailbox member removed successfully" };
     }),
   deactivate: teamAdminProtectedProcedure
-    .route({
-      method: "POST",
-      path: "/mailboxes/{marmaladeMailboxId}/deactivate",
-    })
-    .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.deactivate)
+    .input(mailboxToggleActiveInputSchema)
+    .output(mailboxDeactivateOutputSchema)
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;
@@ -899,12 +872,9 @@ export const mailboxRouter = {
       return { message: "Mailbox deactivated successfully" };
     }),
   activate: teamAdminProtectedProcedure
-    .route({
-      method: "POST",
-      path: "/mailboxes/{marmaladeMailboxId}/activate",
-    })
-    .input(z.object({ marmaladeMailboxId: z.int().min(1) }))
-    .output(z.object({ message: z.string() }))
+    .route(routes.mailbox.activate)
+    .input(mailboxToggleActiveInputSchema)
+    .output(mailboxActivateOutputSchema)
     .handler(async ({ input, context }) => {
       const requesterId = context.session.user.id;
       const requesterEmail = context.session.user.email;

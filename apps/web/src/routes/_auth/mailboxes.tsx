@@ -1,5 +1,5 @@
-import { Badge } from "@marmalade-v2/ui/components/badge";
-import { Button } from "@marmalade-v2/ui/components/button";
+import { Badge } from "@marm/ui/components/badge";
+import { Button } from "@marm/ui/components/button";
 import {
   Card,
   CardAction,
@@ -7,7 +7,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@marmalade-v2/ui/components/card";
+} from "@marm/ui/components/card";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";

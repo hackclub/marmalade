@@ -1,4 +1,4 @@
-import { cn } from "@marmalade-v2/ui/lib/utils";
+import { cn } from "@marm/ui/lib/utils";
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

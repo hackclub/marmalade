@@ -1,7 +1,7 @@
 import { expo } from "@better-auth/expo";
-import { createDb } from "@marmalade-v2/db";
-import * as schema from "@marmalade-v2/db/schema/auth";
-import { env } from "@marmalade-v2/env/server";
+import { createDb } from "@marm/db";
+import * as schema from "@marm/db/schema/auth";
+import { env } from "@marm/env/server";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP, genericOAuth } from "better-auth/plugins";
@@ -46,7 +46,7 @@ export function createAuth(options?: AuthOptions) {
     }),
     trustedOrigins: [
       env.CORS_ORIGIN,
-      "marmalade-v2://",
+      "marm://",
       "exp://",
       "http://localhost:8081",
     ],

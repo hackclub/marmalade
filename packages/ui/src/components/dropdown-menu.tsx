@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
-import { cn } from "@marmalade-v2/ui/lib/utils";
+import { cn } from "@marm/ui/lib/utils";
 import { CheckIcon, ChevronRightIcon } from "lucide-react";
 import * as React from "react";
 

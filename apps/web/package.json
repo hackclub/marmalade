@@ -8,11 +8,11 @@
     "dev": "vite dev"
   },
   "dependencies": {
-    "@marmalade-v2/api": "workspace:*",
-    "@marmalade-v2/auth": "workspace:*",
-    "@marmalade-v2/db": "workspace:*",
-    "@marmalade-v2/env": "workspace:*",
-    "@marmalade-v2/ui": "workspace:*",
+    "@marm/api": "workspace:*",
+    "@marm/auth": "workspace:*",
+    "@marm/db": "workspace:*",
+    "@marm/env": "workspace:*",
+    "@marm/ui": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
@@ -36,7 +36,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@marmalade-v2/config": "workspace:*",
+    "@marm/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.166.13",
     "@testing-library/dom": "^10.4.1",

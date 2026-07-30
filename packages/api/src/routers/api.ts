@@ -1,17 +1,32 @@
-import { db } from "@marmalade-v2/db";
+import { db } from "@marm/db";
 import {
   apiKey,
   apiKeyFieldScope,
   apiKeyScope,
-} from "@marmalade-v2/db/schema/api";
-import { user as authUser } from "@marmalade-v2/db/schema/auth";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
+} from "@marm/db/schema/api";
+import { user as authUser } from "@marm/db/schema/auth";
+import { jellyTeamContact } from "@marm/db/schema/team";
+import { env } from "@marm/env/server";
 import { ORPCError } from "@orpc/client";
 import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import z from "zod";
+import {
+  apiKeyCreateInputSchema,
+  apiKeyCreateOutputSchema,
+  apiKeyDeleteInputSchema,
+  apiKeyDeleteOutputSchema,
+  apiKeyListMailboxInputSchema,
+  apiKeyListMailboxOutputSchema,
+  apiKeyListTeamOutputSchema,
+  apiKeyRevokeInputSchema,
+  apiKeyRevokeOutputSchema,
+  apiKeyRevokePublicInputSchema,
+  apiKeyRevokePublicOutputSchema,
+  apiKeyRevokeTeamKeyInputSchema,
+  apiKeyRevokeTeamKeyOutputSchema,
+  routes,
+} from "@marm/contract/schemas/procedures";
 import { hashSecret } from "../context";
 import {
   mailboxScopedProcedure,
@@ -19,7 +34,6 @@ import {
   teamAdminProtectedProcedure,
   teamMemberProtectedProcedure,
 } from "../index";
-import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
 const KEY_PREFIX = "mrmld_";
@@ -209,44 +223,9 @@ function aggregateKeys(
 
 export const apiKeyRouter = {
   create: mailboxScopedProcedure
-    .route({
-      method: "POST",
-      path: "/keys",
-    })
-    .input(
-      z.object({
-        name: z.string().min(1),
-        description: z.string().optional(),
-        mailboxIds: z.array(z.string().min(1)).optional(),
-        resourceScopes: z.array(z.string().min(1)).optional(),
-        fieldScopes: z
-          .array(
-            z.object({
-              resourceType: z.string(),
-              field: z.string(),
-            }),
-          )
-          .optional(),
-        expiresAt: z.string().datetime().optional(),
-      }),
-    )
-    .output(
-      z.object({
-        id: z.number(),
-        keyPrefix: z.string(),
-        secret: z.string(),
-        name: z.string(),
-        mailboxIds: z.array(z.string()),
-        resourceScopes: z.array(z.string()),
-        fieldScopes: z.array(
-          z.object({
-            resourceType: z.string(),
-            field: z.string(),
-          }),
-        ),
-        expiresAt: z.string().nullable(),
-      }),
-    )
+    .route(routes.apiKey.create)
+    .input(apiKeyCreateInputSchema)
+    .output(apiKeyCreateOutputSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -361,13 +340,9 @@ export const apiKeyRouter = {
     }),
 
   listMailbox: mailboxScopedProcedure
-    .route({ method: "GET", path: "/mailboxes/{mailboxId}/keys" })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-      }),
-    )
-    .output(z.array(apiKeySchema))
+    .route(routes.apiKey.listMailbox)
+    .input(apiKeyListMailboxInputSchema)
+    .output(apiKeyListMailboxOutputSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -395,8 +370,8 @@ export const apiKeyRouter = {
     }),
 
   listTeam: teamMemberProtectedProcedure
-    .route({ method: "GET", path: "/keys" })
-    .output(z.array(apiKeySchema))
+    .route(routes.apiKey.listTeam)
+    .output(apiKeyListTeamOutputSchema)
     .handler(async ({ context }) => {
       const userEmail = (context as any).session?.user.email;
       const userId = (context as any).session?.user.id;
@@ -415,9 +390,9 @@ export const apiKeyRouter = {
     }),
 
   revokeTeamKey: teamMemberProtectedProcedure
-    .route({ method: "POST", path: "/keys/{keyId}/revoke" })
-    .input(z.object({ keyId: z.coerce.number().min(1) }))
-    .output(z.object({ message: z.string() }))
+    .route(routes.apiKey.revokeTeamKey)
+    .input(apiKeyRevokeTeamKeyInputSchema)
+    .output(apiKeyRevokeTeamKeyOutputSchema)
     .handler(async ({ input, context }) => {
       const [key] = await db
         .select()
@@ -458,17 +433,9 @@ export const apiKeyRouter = {
     }),
 
   revoke: mailboxScopedProcedure
-    .route({
-      method: "DELETE",
-      path: "/mailboxes/{mailboxId}/keys/{keyId}",
-    })
-    .input(
-      z.object({
-        mailboxId: z.string().min(1),
-        keyId: z.coerce.number().min(1),
-      }),
-    )
-    .output(z.object({ message: z.string() }))
+    .route(routes.apiKey.revoke)
+    .input(apiKeyRevokeInputSchema)
+    .output(apiKeyRevokeOutputSchema)
     .handler(async ({ input, context }) => {
       const ctx = context as any;
       if (!ctx.allowedMailboxIds) {
@@ -524,17 +491,9 @@ export const apiKeyRouter = {
       return { message: "API key revoked" };
     }),
   revokePublic: publicProcedure
-    .route({
-      method: "POST",
-      path: "/revoke",
-    })
-    .input(
-      z.object({
-        key: z.string().min(1),
-        revoker: z.string().optional(),
-      }),
-    )
-    .output(z.object({ message: z.string() }))
+    .route(routes.apiKey.revokePublic)
+    .input(apiKeyRevokePublicInputSchema)
+    .output(apiKeyRevokePublicOutputSchema)
     .handler(async ({ input, context }) => {
       if (!input.key.startsWith(KEY_PREFIX)) {
         throw new ORPCError("BAD_REQUEST", {
@@ -580,9 +539,9 @@ export const apiKeyRouter = {
     }),
 
   delete: teamAdminProtectedProcedure
-    .route({ method: "DELETE", path: "/admin/keys/{keyId}" })
-    .input(z.object({ keyId: z.coerce.number().min(1) }))
-    .output(z.object({ message: z.string() }))
+    .route(routes.apiKey.delete)
+    .input(apiKeyDeleteInputSchema)
+    .output(apiKeyDeleteOutputSchema)
     .handler(async ({ input, context }) => {
       const [key] = await db
         .select()

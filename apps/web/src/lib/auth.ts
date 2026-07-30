@@ -1,8 +1,8 @@
-import { auditRouter } from "@marmalade-v2/api/routers/audit";
-import { mailboxRouter } from "@marmalade-v2/api/routers/mailbox";
-import { teamRouter } from "@marmalade-v2/api/routers/team";
-import { createAuth } from "@marmalade-v2/auth";
-import { createDb } from "@marmalade-v2/db";
+import { auditRouter } from "@marm/api/routers/audit";
+import { mailboxRouter } from "@marm/api/routers/mailbox";
+import { teamRouter } from "@marm/api/routers/team";
+import { createAuth } from "@marm/auth";
+import { createDb } from "@marm/db";
 import { call } from "@orpc/server";
 
 const db = createDb();

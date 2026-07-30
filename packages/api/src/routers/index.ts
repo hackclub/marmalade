@@ -1,12 +1,16 @@
 import { ORPCError, type RouterClient } from "@orpc/server";
 
-import { db } from "@marmalade-v2/db";
-import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
+import { db } from "@marm/db";
+import { jellyTeamContact } from "@marm/db/schema/team";
+import { env } from "@marm/env/server";
 import { and, eq } from "drizzle-orm";
-import z from "zod";
 import { publicProcedure, teamMemberProtectedProcedure } from "../index";
-import { teamMemberSchema } from "../schemas/output";
+import {
+  healthCheckOutputSchema,
+  membershipInfoOutputSchema,
+  privateDataOutputSchema,
+  routes,
+} from "@marm/contract/schemas/procedures";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
@@ -14,26 +18,14 @@ import { teamRouter } from "./team";
 
 export const appRouter = {
   healthCheck: publicProcedure
-    .route({ method: "GET", path: "/health" })
-    .output(z.literal("OK"))
+    .route(routes.healthCheck)
+    .output(healthCheckOutputSchema)
     .handler(() => {
       return "OK";
     }),
   privateData: teamMemberProtectedProcedure
-    .route({ method: "GET", path: "/me" })
-    .output(
-      z.object({
-        message: z.string(),
-        user: z
-          .object({
-            id: z.string(),
-            name: z.string(),
-            email: z.string(),
-            image: z.string().nullable().optional(),
-          })
-          .nullable(),
-      }),
-    )
+    .route(routes.privateData)
+    .output(privateDataOutputSchema)
     .handler(({ context }) => {
       return {
         message: "This is private",
@@ -41,8 +33,8 @@ export const appRouter = {
       };
     }),
   membershipInfo: teamMemberProtectedProcedure
-    .route({ method: "GET", path: "/membership" })
-    .output(teamMemberSchema)
+    .route(routes.membershipInfo)
+    .output(membershipInfoOutputSchema)
     .handler(async ({ context }) => {
       const teamMember = await db
         .select()

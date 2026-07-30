@@ -12,4 +12,4 @@ export {
   sessionSchema,
   teamMemberSchema,
   userSchema,
-} from "./output";
+} from "@marm/contract/schemas/entities";

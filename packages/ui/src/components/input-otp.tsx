@@ -1,7 +1,7 @@
 import { OTPInput, OTPInputContext } from "input-otp";
 import * as React from "react";
 
-import { cn } from "@marmalade-v2/ui/lib/utils";
+import { cn } from "@marm/ui/lib/utils";
 import { MinusIcon } from "lucide-react";
 
 function InputOTP({

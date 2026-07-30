@@ -1,8 +1,8 @@
 import {
   createApiKeyContext,
   createAuthContext,
-} from "@marmalade-v2/api/context";
-import { appRouter } from "@marmalade-v2/api/routers/index";
+} from "@marm/api/context";
+import { appRouter } from "@marm/api/routers/index";
 import { OpenAPIHandler } from "@orpc/openapi/fetch";
 import { OpenAPIReferencePlugin } from "@orpc/openapi/plugins";
 import { onError } from "@orpc/server";

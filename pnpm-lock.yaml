@@ -59,7 +59,7 @@ importers:
 
   .:
     dependencies:
-      '@marmalade-v2/env':
+      '@marm/env':
         specifier: workspace:*
         version: link:packages/env
       dotenv:
@@ -72,7 +72,7 @@ importers:
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.8.0(jiti@2.7.0))
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:packages/config
       '@types/node':
@@ -105,19 +105,19 @@ importers:
 
   apps/web:
     dependencies:
-      '@marmalade-v2/api':
+      '@marm/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@marmalade-v2/auth':
+      '@marm/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@marmalade-v2/db':
+      '@marm/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@marmalade-v2/env':
+      '@marm/env':
         specifier: workspace:*
         version: link:../../packages/env
-      '@marmalade-v2/ui':
+      '@marm/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@orpc/client':
@@ -184,7 +184,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@tanstack/react-query-devtools':
@@ -223,13 +223,13 @@ importers:
 
   packages/api:
     dependencies:
-      '@marmalade-v2/auth':
+      '@marm/auth':
         specifier: workspace:*
         version: link:../auth
-      '@marmalade-v2/db':
+      '@marm/db':
         specifier: workspace:*
         version: link:../db
-      '@marmalade-v2/env':
+      '@marm/env':
         specifier: workspace:*
         version: link:../env
       '@orpc/client':
@@ -257,7 +257,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../config
       typescript:
@@ -269,10 +269,10 @@ importers:
       '@better-auth/expo':
         specifier: 'catalog:'
         version: 1.6.11(@better-auth/core@1.6.13(@better-auth/utils@0.4.1)(@better-fetch/fetch@1.1.21)(better-call@1.3.5(zod@4.4.3))(jose@6.2.3)(kysely@0.28.17)(nanostores@1.3.0))(better-auth@1.6.13(@tanstack/react-start@1.168.26(crossws@0.4.6(srvx@0.11.22))(esbuild@0.28.1)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(rolldown@1.1.3)(vite@8.1.0(@types/node@26.1.2)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.22.4)))(drizzle-kit@0.31.10)(drizzle-orm@0.45.2(@types/pg@8.20.0)(kysely@0.28.17)(pg@8.22.0))(pg@8.22.0)(react-dom@19.2.7(react@19.2.7))(react@19.2.7))
-      '@marmalade-v2/db':
+      '@marm/db':
         specifier: workspace:*
         version: link:../db
-      '@marmalade-v2/env':
+      '@marm/env':
         specifier: workspace:*
         version: link:../env
       better-auth:
@@ -285,7 +285,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../config
       typescript:
@@ -296,7 +296,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@marmalade-v2/env':
+      '@marm/env':
         specifier: workspace:*
         version: link:../env
       dotenv:
@@ -312,7 +312,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../config
       '@types/pg':
@@ -337,7 +337,7 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':
@@ -386,7 +386,7 @@ importers:
         specifier: ^1.3.4
         version: 1.4.0
     devDependencies:
-      '@marmalade-v2/config':
+      '@marm/config':
         specifier: workspace:*
         version: link:../config
       '@types/react':

@@ -1,4 +1,4 @@
-import { Toaster } from "@marmalade-v2/ui/components/sonner";
+import { Toaster } from "@marm/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {

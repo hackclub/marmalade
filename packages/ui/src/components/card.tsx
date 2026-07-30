@@ -1,4 +1,4 @@
-import { cn } from "@marmalade-v2/ui/lib/utils";
+import { cn } from "@marm/ui/lib/utils";
 import * as React from "react";
 
 function Card({

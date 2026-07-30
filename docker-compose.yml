@@ -1,4 +1,4 @@
-name: marmalade-v2
+name: marm
 
 services:
   web:

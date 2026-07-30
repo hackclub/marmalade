@@ -1,11 +1,11 @@
 {
-  "extends": "@marmalade-v2/config/tsconfig.base.json",
+  "extends": "@marm/config/tsconfig.base.json",
   "compilerOptions": {
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": [],
     "paths": {
-      "@marmalade-v2/ui/*": ["./src/*"]
+      "@marm/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

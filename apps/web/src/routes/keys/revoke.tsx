@@ -1,6 +1,6 @@
 import { orpc } from "@/utils/orpc";
-import { Button } from "@marmalade-v2/ui/components/button";
-import { Input } from "@marmalade-v2/ui/components/input";
+import { Button } from "@marm/ui/components/button";
+import { Input } from "@marm/ui/components/input";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";

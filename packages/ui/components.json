@@ -14,11 +14,11 @@
   "menuColor": "default",
   "menuAccent": "subtle",
   "aliases": {
-    "components": "@marmalade-v2/ui/components",
-    "utils": "@marmalade-v2/ui/lib/utils",
-    "ui": "@marmalade-v2/ui/components",
-    "lib": "@marmalade-v2/ui/lib",
-    "hooks": "@marmalade-v2/ui/hooks"
+    "components": "@marm/ui/components",
+    "utils": "@marm/ui/lib/utils",
+    "ui": "@marm/ui/components",
+    "lib": "@marm/ui/lib",
+    "hooks": "@marm/ui/hooks"
   },
   "registries": {
     "@diceui": "https://diceui.com/r/{style}/{name}.json"

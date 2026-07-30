@@ -6,9 +6,9 @@ import {
   messageSchema,
   NON_SCOPABLE_FIELDS,
   teamMemberSchema,
-} from "@marmalade-v2/api/schemas";
-import { Badge } from "@marmalade-v2/ui/components/badge";
-import { Button } from "@marmalade-v2/ui/components/button";
+} from "@marm/api/schemas";
+import { Badge } from "@marm/ui/components/badge";
+import { Button } from "@marm/ui/components/button";
 import {
   Card,
   CardAction,
@@ -16,8 +16,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@marmalade-v2/ui/components/card";
-import { Checkbox } from "@marmalade-v2/ui/components/checkbox";
+} from "@marm/ui/components/card";
+import { Checkbox } from "@marm/ui/components/checkbox";
 import {
   Dialog,
   DialogClose,
@@ -27,9 +27,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@marmalade-v2/ui/components/dialog";
-import { Input } from "@marmalade-v2/ui/components/input";
-import { Label } from "@marmalade-v2/ui/components/label";
+} from "@marm/ui/components/dialog";
+import { Input } from "@marm/ui/components/input";
+import { Label } from "@marm/ui/components/label";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Check, ChevronDown, ChevronRight, Copy, Loader2 } from "lucide-react";

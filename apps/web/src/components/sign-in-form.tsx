@@ -1,11 +1,11 @@
-import { Button } from "@marmalade-v2/ui/components/button";
-import { Input } from "@marmalade-v2/ui/components/input";
+import { Button } from "@marm/ui/components/button";
+import { Input } from "@marm/ui/components/input";
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSeparator,
   InputOTPSlot,
-} from "@marmalade-v2/ui/components/input-otp";
+} from "@marm/ui/components/input-otp";
 import { useState } from "react";
 
 import { useNavigate } from "@tanstack/react-router";

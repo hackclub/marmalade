@@ -184,3 +184,4 @@ export const mailboxListItemSchema = z.object({
     })
     .nullable(),
 });
+

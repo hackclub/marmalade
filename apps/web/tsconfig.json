@@ -21,7 +21,7 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@marmalade-v2/ui/*": ["../../packages/ui/src/*"]
+      "@marm/ui/*": ["../../packages/ui/src/*"]
     }
   }
 }

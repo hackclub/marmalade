@@ -11,15 +11,19 @@
 
 > note: currently marmalade's api access is read-only, while write access (required for use cases such as fully-featured custom clients) is being worked on
 
-## screenshots
+## demonstration
 
-<img width="2087" height="1476" alt="image" src="https://github.com/user-attachments/assets/c3134389-f543-47cf-9cad-a14fb888d5ee" />
 
-<img width="2087" height="1476" alt="image" src="https://github.com/user-attachments/assets/212b2b8a-4ef8-471c-9c9f-9e3055eb552a" />
 
-<img width="640" height="655" alt="image" src="https://github.com/user-attachments/assets/0ffcd2df-c43c-41ee-ae32-8f760554739d" />
 
-<img width="2087" height="1471" alt="image" src="https://github.com/user-attachments/assets/67e2afce-6546-4f7a-b6a8-12786ce19676" />
+
+
+
+https://github.com/user-attachments/assets/e429cb9e-7683-47f1-8c1f-77882715e129
+
+
+
+
 
 ## stuff that does stuff
 

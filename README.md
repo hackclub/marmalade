@@ -22,7 +22,11 @@
 https://github.com/user-attachments/assets/e429cb9e-7683-47f1-8c1f-77882715e129
 
 
+## (interactive) api docs!
 
+on your own instance or an instance where you have access, open the [docs](https://marmalade.hackclub.dev/docs) and play around with different endpoints.
+
+<img width="2084" height="1476" alt="image" src="https://github.com/user-attachments/assets/84f334a0-53ca-41b1-86ee-35e16955be9a" />
 
 
 ## stuff that does stuff

@@ -29,6 +29,9 @@ export const apiKey = pgTable(
     active: boolean("active").notNull().default(true),
     expiresAt: timestamp("expires_at", { mode: "date" }),
     revokedAt: timestamp("revoked_at", { mode: "date" }),
+    // Actions from this key wait for an admin instead of dispatching. Lets a
+    // new key with write scopes be trialled without trusting it yet.
+    requireApproval: boolean("require_approval").notNull().default(false),
   },
   (t) => [unique().on(t.name, t.jellyTeamId)],
 );

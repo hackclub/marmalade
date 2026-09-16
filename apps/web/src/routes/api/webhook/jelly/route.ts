@@ -1,4 +1,5 @@
 import { createJellyWebhookContext } from "@marmalade-v2/api/context";
+import { recordWebhookDelivery } from "@marmalade-v2/api/lib/observability";
 import {
   webhookRouter,
   type JellyWebhookInput,
@@ -7,9 +8,20 @@ import { ORPCError, call } from "@orpc/server";
 import { createFileRoute } from "@tanstack/react-router";
 
 async function handleWebhook({ request }: { request: Request }) {
+  const started = Date.now();
+  // Jelly never retries a failed delivery and switches the webhook off after
+  // 10 consecutive failures, so every outcome is recorded — a mirror that has
+  // quietly stopped updating still serves reads and looks healthy otherwise.
+  const eventType = request.headers.get("X-Jelly-Event") ?? "unknown";
   const rawBody = await request.text();
 
   if (!rawBody) {
+    await recordWebhookDelivery({
+      event: eventType,
+      status: "rejected",
+      error: "Request body is required",
+      durationMs: Date.now() - started,
+    });
     return Response.json(
       { error: "Request body is required" },
       { status: 400 },
@@ -20,6 +32,12 @@ async function handleWebhook({ request }: { request: Request }) {
   try {
     body = JSON.parse(rawBody);
   } catch {
+    await recordWebhookDelivery({
+      event: eventType,
+      status: "rejected",
+      error: "Invalid JSON",
+      durationMs: Date.now() - started,
+    });
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
@@ -34,8 +52,23 @@ async function handleWebhook({ request }: { request: Request }) {
       },
     );
 
+    await recordWebhookDelivery({
+      event: (body as { event?: string } | null)?.event ?? eventType,
+      // A mailbox Marmalade does not manage is a correct no-op, not a failure.
+      status: result.reason ? "skipped" : "accepted",
+      error: result.reason ?? null,
+      durationMs: Date.now() - started,
+    });
+
     return Response.json(result);
   } catch (error) {
+    await recordWebhookDelivery({
+      event: (body as { event?: string } | null)?.event ?? eventType,
+      status: error instanceof ORPCError ? "rejected" : "failed",
+      error: error instanceof Error ? error.message : String(error),
+      durationMs: Date.now() - started,
+    });
+
     if (error instanceof ORPCError) {
       const statusMap: Record<string, number> = {
         BAD_REQUEST: 400,

@@ -249,6 +249,7 @@ export async function createApiKeyContext({ req }: { req: Request }) {
     .set({ lastUsedAt: new Date() })
     .where(eq(apiKey.id, keyRow.id));
 
+
   return {
     ...requestMeta(req),
     apiKey: {

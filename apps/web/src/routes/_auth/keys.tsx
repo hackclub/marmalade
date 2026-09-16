@@ -375,7 +375,8 @@ function ResourceScopeSection({
                   >
                     <Checkbox
                       checked={selectedFieldScopes.some(
-                        (s) => s.resourceType === resourceType && s.field === field,
+                        (s) =>
+                          s.resourceType === resourceType && s.field === field,
                       )}
                       onCheckedChange={() => onToggleField(resourceType, field)}
                     />

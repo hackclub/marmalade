@@ -1,5 +1,6 @@
 import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
+import { apiKey } from "@marmalade-v2/db/schema/api";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { workerHeartbeat } from "@marmalade-v2/db/schema/observability";
 import { env } from "@marmalade-v2/env/server";
@@ -13,6 +14,7 @@ export type ActionRow = typeof jellyAction.$inferSelect;
 
 export type ActionStatus =
   | "pending"
+  | "awaiting_approval"
   | "scheduled"
   | "in_flight"
   | "succeeded"
@@ -150,6 +152,20 @@ export async function enqueueAction(
 
   const scheduledFor = input.scheduledFor ?? new Date();
 
+  // A key can be put in approval mode so its writes queue for a human rather
+  // than dispatching. Cheap to support: approval is just a status the drain
+  // query does not select.
+  let status: ActionStatus =
+    scheduledFor > new Date() ? "scheduled" : "pending";
+  if (input.apiKeyId != null) {
+    const [key] = await db
+      .select({ requireApproval: apiKey.requireApproval })
+      .from(apiKey)
+      .where(eq(apiKey.id, input.apiKeyId))
+      .limit(1);
+    if (key?.requireApproval) status = "awaiting_approval";
+  }
+
   const [inserted] = await db
     .insert(jellyAction)
     .values({
@@ -161,7 +177,7 @@ export async function enqueueAction(
       targetResourceType: definition.resourceType,
       targetResourceId: input.targetResourceId,
       payload: input.payload,
-      status: scheduledFor > new Date() ? "scheduled" : "pending",
+      status,
       actorType: input.actorType,
       actorKey,
       apiKeyId: input.apiKeyId ?? null,
@@ -671,6 +687,23 @@ export async function retryAction(actionId: string): Promise<ActionRow | null> {
       and(
         eq(jellyAction.id, actionId),
         sql`${jellyAction.status} in ('failed', 'dead', 'cancelled')`,
+      ),
+    )
+    .returning();
+  return updated ?? null;
+}
+
+/** Release an action held for admin approval into the normal queue. */
+export async function approveAction(
+  actionId: string,
+): Promise<ActionRow | null> {
+  const [updated] = await db
+    .update(jellyAction)
+    .set({ status: "pending", nextAttemptAt: new Date() })
+    .where(
+      and(
+        eq(jellyAction.id, actionId),
+        eq(jellyAction.status, "awaiting_approval"),
       ),
     )
     .returning();

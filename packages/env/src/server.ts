@@ -25,6 +25,7 @@ export const env = createEnv({
      * happens through the admin UI.
      */
     BETTER_AUTH_ADMIN_USER_IDS: z.string().optional(),
+    CRON_SECRET: z.string().min(16).optional(),
     LOOPS_API_KEY: z.string().min(1),
     LOOPS_API_URL: z.string().min(1),
   },

@@ -49,6 +49,9 @@ export const marmaladeMailbox = pgTable("mailbox", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   active: boolean("active").notNull().default(true),
+  // Second, independent switch for writes. A key holding a write scope still
+  // cannot mutate a mailbox until an admin opts that mailbox in.
+  writesEnabled: boolean("writes_enabled").notNull().default(false),
 });
 
 export const marmaladeMailboxMember = pgTable("mailbox_member", {

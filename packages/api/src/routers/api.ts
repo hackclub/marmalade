@@ -19,11 +19,30 @@ import {
   teamAdminProtectedProcedure,
   teamMemberProtectedProcedure,
 } from "../index";
+import { ACTION_TYPES } from "../lib/actions/catalogue";
 import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
 const KEY_PREFIX = "mrmld_";
 const KEY_PREFIX_LENGTH = 8;
+
+/**
+ * Action scopes are granted by exact type ("conversation.archive"), by family
+ * ("conversation.*"), or as "*". Anything else is a typo, and a typo that
+ * silently becomes a scope nobody holds is a permission bug waiting to be
+ * debugged at the wrong end.
+ */
+const GRANTABLE_ACTION_FAMILIES = new Set(
+  ACTION_TYPES.map((type) => `${type.split(".")[0]}.*`),
+);
+
+function isGrantableActionScope(scope: string): boolean {
+  return (
+    scope === "*" ||
+    ACTION_TYPES.includes(scope) ||
+    GRANTABLE_ACTION_FAMILIES.has(scope)
+  );
+}
 
 async function getUniqueKeyName(
   baseName: string,
@@ -140,6 +159,7 @@ function aggregateKeys(
       revokedAt: Date | null;
       mailboxIds: string[];
       resourceScopes: string[];
+      actionScopes: string[];
       fieldScopes: Array<{ resourceType: string; field: string }>;
       createdByName: string | null;
     }
@@ -156,6 +176,11 @@ function aggregateKeys(
       if (row.scopeResourceType === "router" && row.scopeResourceId) {
         if (!existing.resourceScopes.includes(row.scopeResourceId)) {
           existing.resourceScopes.push(row.scopeResourceId);
+        }
+      }
+      if (row.scopeResourceType === "action" && row.scopeResourceId) {
+        if (!existing.actionScopes.includes(row.scopeResourceId)) {
+          existing.actionScopes.push(row.scopeResourceId);
         }
       }
       if (row.fieldScopeResourceType && row.fieldScopeField) {
@@ -190,6 +215,10 @@ function aggregateKeys(
           row.scopeResourceType === "router" && row.scopeResourceId
             ? [row.scopeResourceId]
             : [],
+        actionScopes:
+          row.scopeResourceType === "action" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
         fieldScopes:
           row.fieldScopeResourceType && row.fieldScopeField
             ? [
@@ -219,6 +248,9 @@ export const apiKeyRouter = {
         description: z.string().optional(),
         mailboxIds: z.array(z.string().min(1)).optional(),
         resourceScopes: z.array(z.string().min(1)).optional(),
+        // Write permissions. Absent means read-only: unlike field scopes,
+        // an empty action scope list never widens into "allow everything".
+        actionScopes: z.array(z.string().min(1)).optional(),
         fieldScopes: z
           .array(
             z.object({
@@ -238,6 +270,7 @@ export const apiKeyRouter = {
         name: z.string(),
         mailboxIds: z.array(z.string()),
         resourceScopes: z.array(z.string()),
+        actionScopes: z.array(z.string()),
         fieldScopes: z.array(
           z.object({
             resourceType: z.string(),
@@ -324,6 +357,21 @@ export const apiKeyRouter = {
         }
       }
 
+      if (input.actionScopes) {
+        for (const actionScope of input.actionScopes) {
+          if (!isGrantableActionScope(actionScope)) {
+            throw new ORPCError("BAD_REQUEST", {
+              message: `Unknown action scope: ${actionScope}`,
+            });
+          }
+          scopes.push({
+            apiKeyId: key.id,
+            scopeResourceType: "action",
+            scopeResourceId: actionScope,
+          });
+        }
+      }
+
       if (scopes.length > 0) {
         await db.insert(apiKeyScope).values(scopes);
       }
@@ -355,6 +403,7 @@ export const apiKeyRouter = {
         name: input.name,
         mailboxIds: targetMailboxIds,
         resourceScopes: input.resourceScopes ?? [],
+        actionScopes: input.actionScopes ?? [],
         fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };

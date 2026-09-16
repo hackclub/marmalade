@@ -1007,4 +1007,71 @@ export const mailboxRouter = {
       );
       return { message: "Mailbox activated successfully" };
     }),
+
+  /**
+   * Writes are opt-in per mailbox, independently of what any API key is
+   * scoped for. Both switches must be on before a mutation reaches Jelly.
+   */
+  setWritesEnabled: teamAdminProtectedProcedure
+    .route({
+      method: "POST",
+      path: "/mailboxes/{marmaladeMailboxId}/writes",
+    })
+    .input(
+      z.object({
+        marmaladeMailboxId: z.coerce.number().int().min(1),
+        enabled: z.boolean(),
+      }),
+    )
+    .output(z.object({ message: z.string(), writesEnabled: z.boolean() }))
+    .handler(async ({ input, context }) => {
+      const [existing] = await db
+        .select({
+          id: marmaladeMailbox.id,
+          active: marmaladeMailbox.active,
+          writesEnabled: marmaladeMailbox.writesEnabled,
+        })
+        .from(marmaladeMailbox)
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId))
+        .limit(1);
+
+      if (!existing) {
+        throw new ORPCError("NOT_FOUND", { message: "Mailbox not found" });
+      }
+
+      if (input.enabled && !existing.active) {
+        throw new ORPCError("CONFLICT", {
+          message: "Activate the mailbox before enabling writes",
+        });
+      }
+
+      await db
+        .update(marmaladeMailbox)
+        .set({ writesEnabled: input.enabled })
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "mailbox",
+          resourceId: input.marmaladeMailboxId.toString(),
+          action: input.enabled ? "enable_writes" : "disable_writes",
+          status: "success",
+          changes: {
+            writesEnabled: {
+              from: existing.writesEnabled,
+              to: input.enabled,
+            },
+          },
+        },
+        { context },
+      );
+
+      return {
+        message: input.enabled
+          ? "Writes enabled for mailbox"
+          : "Writes disabled for mailbox",
+        writesEnabled: input.enabled,
+      };
+    }),
 };

@@ -274,3 +274,116 @@ export function filterFieldsByScope<T extends Record<string, any>>(
 
   return data;
 }
+
+/**
+ * Gate a mutating action on the caller's write scopes.
+ *
+ * Fails closed. `filterFieldsByScope` treats "no field scopes configured" as
+ * "allow every field", which is a reasonable default for reads and a dangerous
+ * one for writes — a read-only key must never gain write access because nobody
+ * configured it. An empty `actionScopes` array means no writes, full stop.
+ */
+export function checkActionScope(context: AppContext, actionType: string) {
+  // A signed-in team member acts as themselves. Their reach is bounded by
+  // mailbox membership, which `mailboxScopedProcedure` has already resolved.
+  if ("session" in context && Boolean(context.session?.user)) return;
+
+  // Webhooks are inbound-only. Nothing Jelly sends us should turn into a
+  // write back to Jelly without a human or a key behind it.
+  if ("request" in context && "rawBody" in context) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "Webhook context cannot perform write actions",
+    });
+  }
+
+  if ("apiKey" in context && context.apiKey) {
+    const actionScopes = context.apiKey.actionScopes ?? [];
+    if (actionScopes.length === 0) {
+      throw new ORPCError("FORBIDDEN", {
+        message:
+          "This API key is read-only. Grant it an action scope to perform writes.",
+      });
+    }
+    if (actionScopes.includes("*")) return;
+    if (actionScopes.includes(actionType)) return;
+    const family = `${actionType.split(".")[0]}.*`;
+    if (actionScopes.includes(family)) return;
+  }
+
+  throw new ORPCError("FORBIDDEN", {
+    message: `Not authorized for action: ${actionType}`,
+  });
+}
+
+/**
+ * Writes require a second, independent opt-in: an admin must enable writes on
+ * the Marmalade mailbox itself. Holding a write scope is not enough.
+ */
+export async function requireMailboxWritesEnabled(jellyMailboxId: string) {
+  const [row] = await db
+    .select({
+      active: marmaladeMailbox.active,
+      writesEnabled: marmaladeMailbox.writesEnabled,
+    })
+    .from(marmaladeMailbox)
+    .where(
+      and(
+        eq(marmaladeMailbox.jellyMailboxId, jellyMailboxId),
+        eq(marmaladeMailbox.jellyTeamId, env.JELLY_TEAM_ID),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "This mailbox is not managed by Marmalade",
+    });
+  }
+  if (!row.active) {
+    throw new ORPCError("FORBIDDEN", {
+      message: "This Marmalade mailbox is deactivated",
+    });
+  }
+  if (!row.writesEnabled) {
+    throw new ORPCError("FORBIDDEN", {
+      message:
+        "Writes are not enabled for this mailbox. An admin must turn them on first.",
+    });
+  }
+}
+
+export type ResolvedActor = {
+  actorType: "api_key" | "user" | "system";
+  apiKeyId: number | null;
+  userId: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+};
+
+export function resolveActor(context: AppContext): ResolvedActor {
+  if ("apiKey" in context && context.apiKey) {
+    return {
+      actorType: "api_key",
+      apiKeyId: context.apiKey.id,
+      userId: null,
+      ipAddress: null,
+      userAgent: null,
+    };
+  }
+  if ("session" in context && context.session?.user) {
+    return {
+      actorType: "user",
+      apiKeyId: null,
+      userId: context.session.user.id,
+      ipAddress: context.session.session.ipAddress ?? null,
+      userAgent: context.session.session.userAgent ?? null,
+    };
+  }
+  return {
+    actorType: "system",
+    apiKeyId: null,
+    userId: null,
+    ipAddress: null,
+    userAgent: null,
+  };
+}

@@ -74,6 +74,36 @@ Use the Expo Go app to run the mobile application.
 
 Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
 
+### jelly credentials
+
+Jelly API tokens and webhook signing secrets live in the `jelly_team` table,
+encrypted with AES-256-GCM, rather than in the environment. Connecting a team is
+a row, not a redeploy, and a token can be rotated without one.
+
+`MARMALADE_ENCRYPTION_KEY` is required and protects those columns at rest:
+
+```bash
+openssl rand -base64 32
+```
+
+A missing key stops the process at boot. That is deliberate — the alternative
+is a fallback that quietly stores Jelly tokens in plaintext.
+
+An existing deployment needs no manual migration: if `JELLY_API_KEY` and
+`JELLY_WEBHOOK_SECRET` are still set, they are encrypted into the team row the
+first time Marmalade talks to Jelly, and both variables can then be removed.
+
+After that, manage credentials through the admin API:
+
+| Endpoint                          | Purpose                                                            |
+| --------------------------------- | ------------------------------------------------------------------ |
+| `GET /admin/team`                 | whether credentials are present, and the webhook URL to give Jelly |
+| `POST /admin/team/api-token`      | store a token (validated against Jelly before it is saved)         |
+| `POST /admin/team/webhook-secret` | generate a secret, returned once                                   |
+| `PUT /admin/team/webhook-secret`  | store the secret Jelly generated                                   |
+
+No endpoint returns a stored secret.
+
 ## tasks
 
 **key:** ‼️ = poc-critical
@@ -144,6 +174,8 @@ Environment variables are read from each app's `.env` file (baked into web build
   - [ ] admins should not be able to mutate owners
   - [ ] standardized key prefix
     - [ ] [revokability](https://revoke.hackclub.com))
+  - [x] jelly credentials encrypted at rest in `jelly_team`, not in env
+  - [x] rotate the jelly api token and webhook secret without a redeploy
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
   - [x] first time sync on registration and scheduled/manual org teammember resyncs

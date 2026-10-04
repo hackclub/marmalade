@@ -13,9 +13,22 @@ export const env = createEnv({
       .default("development"),
     HACKCLUB_CLIENT_ID: z.string().min(1).optional(),
     HACKCLUB_CLIENT_SECRET: z.string().min(1).optional(),
-    JELLY_API_KEY: z.string().min(1),
+    /**
+     * AES-256-GCM key protecting third-party credentials at rest.
+     * Generate with `openssl rand -base64 32`.
+     *
+     * Required: a missing key should stop the process at boot rather than let
+     * it fall back to storing Jelly tokens in plaintext.
+     */
+    MARMALADE_ENCRYPTION_KEY: z.string().min(32),
+    /**
+     * Bootstrap only. On first use the token is encrypted into
+     * `jelly_team.api_token_encrypted` and this variable can be removed.
+     */
+    JELLY_API_KEY: z.string().min(1).optional(),
     JELLY_API_URL: z.string().min(1),
     JELLY_TEAM_ID: z.string().min(1),
+    /** Bootstrap only, as above, for `jelly_team.webhook_secret_encrypted`. */
     JELLY_WEBHOOK_SECRET: z.string().min(1).optional(),
     WEBHOOK_PASSWORD: z.string().min(1).optional(),
     WEBHOOK_USERNAME: z.string().min(1).optional(),

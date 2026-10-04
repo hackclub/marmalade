@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "@marmalade-v2/env/server";
+import { getTeamWebhookSecret } from "./lib/team-credentials";
 
 export async function createAuthContext({ req }: { req: Request }) {
   const session = await auth.api.getSession({
@@ -63,7 +64,10 @@ export async function createJellyWebhookContext({
     });
   }
 
-  const secret = env.JELLY_WEBHOOK_SECRET;
+  // Read from the team row, not the environment, so rotating a webhook secret
+  // is a write rather than a redeploy. Falls back to the environment until the
+  // team has adopted its credentials.
+  const secret = await getTeamWebhookSecret(env.JELLY_TEAM_ID);
   if (!secret) {
     throw new ORPCError("INTERNAL_SERVER_ERROR", {
       message: "Jelly webhook secret is not configured",

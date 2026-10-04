@@ -3,7 +3,7 @@ import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
-import { and, eq, inArray, not } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,

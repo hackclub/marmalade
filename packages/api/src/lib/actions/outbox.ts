@@ -55,9 +55,20 @@ function canonicalise(value: unknown): unknown {
  * itself bucketed into 60-second windows. That absorbs double-taps and
  * over-eager client retries without rejecting a genuinely repeated action such
  * as two different comments, or the same comment sent an hour apart.
+ *
+ * The digest is a content fingerprint, not a credential hash: it exists to
+ * make "the same request twice" recognisable, and it is only ever compared
+ * against other derived keys. SHA-256 is the right tool and a deliberately
+ * slow KDF would be the wrong one, since this runs on every write.
+ *
+ * The actor is deliberately *not* part of the digest. Uniqueness is enforced
+ * by `unique(actor_key, idempotency_key)` and every lookup filters on the
+ * actor too, so mixing it into the hash would be redundant — and hashing
+ * anything derived from an API key here invites the reasonable question of
+ * whether a secret is being hashed with insufficient effort. Nothing secret
+ * belongs in this function.
  */
 export function deriveIdempotencyKey(input: {
-  actorKey: string;
   actionType: string;
   targetResourceId: string | null;
   payload: unknown;
@@ -67,7 +78,6 @@ export function deriveIdempotencyKey(input: {
   const digest = createHash("sha256")
     .update(
       JSON.stringify([
-        input.actorKey,
         input.actionType,
         input.targetResourceId ?? "",
         canonicalise(input.payload),
@@ -133,7 +143,6 @@ export async function enqueueAction(
   const idempotencyKey =
     input.idempotencyKey ??
     deriveIdempotencyKey({
-      actorKey,
       actionType: input.actionType,
       targetResourceId: input.targetResourceId,
       payload: input.payload,

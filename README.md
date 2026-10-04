@@ -11,6 +11,78 @@
 
 > note: currently marmalade's api access is read-only, while write access (required for use cases such as fully-featured custom clients) is being worked on
 
+## demonstration
+
+
+
+
+
+
+
+https://github.com/user-attachments/assets/e429cb9e-7683-47f1-8c1f-77882715e129
+
+
+## (interactive) api docs!
+
+on your own instance or an instance where you have access, open the [docs](https://marmalade.hackclub.dev/docs) and play around with different endpoints.
+
+<img width="2084" height="1476" alt="image" src="https://github.com/user-attachments/assets/84f334a0-53ca-41b1-86ee-35e16955be9a" />
+
+
+## stuff that does stuff
+
+- **TypeScript** - For type safety and improved developer experience
+- **TanStack Start** - SSR framework with TanStack Router
+- **TailwindCSS** - Utility-first CSS for rapid UI development
+- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
+- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
+- **Drizzle** - TypeScript-first ORM
+- **PostgreSQL** - Database engine
+- **Authentication** - Better-Auth
+- **Turborepo** - Optimized monorepo build system
+
+## development
+
+First, install the dependencies:
+
+```bash
+pnpm install
+```
+
+### db
+
+This project uses PostgreSQL with Drizzle ORM.
+
+1. Make sure you have a PostgreSQL database set up.
+2. Set `DATABASE_URL` in your environment or update your local `apps/web/.env` file with your PostgreSQL connection details.
+
+3. Apply the schema to your database:
+
+```bash
+pnpm run db:push
+```
+
+Then, run the development server:
+
+```bash
+pnpm run dev
+```
+
+Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
+Use the Expo Go app to run the mobile application.
+
+### deployment
+
+- Target: web + server
+- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
+- Build images: pnpm run docker:build
+- Start: pnpm run docker:up
+- Logs: pnpm run docker:logs
+- Stop: pnpm run docker:down
+
+Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
+
+
 ## tasks
 
 **key:** ‼️ = poc-critical
@@ -97,56 +169,3 @@
 - dx
   - [x] ~~swagger~~ scalar api docs
     - [x] documented output schemas
-
-## stuff that does stuff
-
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Start** - SSR framework with TanStack Router
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **oRPC** - End-to-end type-safe APIs with OpenAPI integration
-- **Drizzle** - TypeScript-first ORM
-- **PostgreSQL** - Database engine
-- **Authentication** - Better-Auth
-- **Turborepo** - Optimized monorepo build system
-
-## development
-
-First, install the dependencies:
-
-```bash
-pnpm install
-```
-
-### db
-
-This project uses PostgreSQL with Drizzle ORM.
-
-1. Make sure you have a PostgreSQL database set up.
-2. Set `DATABASE_URL` in your environment or update your local `apps/web/.env` file with your PostgreSQL connection details.
-
-3. Apply the schema to your database:
-
-```bash
-pnpm run db:push
-```
-
-Then, run the development server:
-
-```bash
-pnpm run dev
-```
-
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-Use the Expo Go app to run the mobile application.
-
-### deployment
-
-- Target: web + server
-- Config: `docker-compose.yml` (app Dockerfiles live in `apps/*/Dockerfile`)
-- Build images: pnpm run docker:build
-- Start: pnpm run docker:up
-- Logs: pnpm run docker:logs
-- Stop: pnpm run docker:down
-
-Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.

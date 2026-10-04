@@ -1,4 +1,4 @@
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
 
 /**
  * A Jelly team Marmalade is connected to, and the credentials it uses to talk
@@ -44,21 +44,29 @@ export const jellyTeam = pgTable("jelly_team", {
 //   (t) => [unique().on(t.email, t.jellyTeamId)],
 // );
 
-export const jellyTeamContact = pgTable("jelly_contact", {
-  id: text("id").primaryKey(),
-  name: text("name"),
-  email: text("email").notNull().unique(),
-  role: text("role").notNull().default("contact"), // e.g. admin, member, owner, contact
-  active: boolean("active").default(true).notNull(),
-  jellyTeamId: text("jelly_team_id")
-    .notNull()
-    .references(() => jellyTeam.id, { onDelete: "cascade" }),
-  existsInJelly: boolean("exists_in_jelly")
-    .notNull()
-    .$default(() => true),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date" })
-    .defaultNow()
-    .$onUpdate(() => new Date())
-    .notNull(),
-});
+export const jellyTeamContact = pgTable(
+  "jelly_contact",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    email: text("email").notNull(),
+    role: text("role").notNull().default("contact"), // e.g. admin, member, owner, contact
+    active: boolean("active").default(true).notNull(),
+    jellyTeamId: text("jelly_team_id")
+      .notNull()
+      .references(() => jellyTeam.id, { onDelete: "cascade" }),
+    existsInJelly: boolean("exists_in_jelly")
+      .notNull()
+      .$default(() => true),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  // An email is unique within a team, not globally: one person can be a
+  // contact in several Jelly teams. A global constraint makes that
+  // unrepresentable, which is why the commented-out table above already had
+  // this composite before it was replaced.
+  (t) => [unique().on(t.email, t.jellyTeamId)],
+);

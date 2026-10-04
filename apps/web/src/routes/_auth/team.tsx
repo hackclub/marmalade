@@ -45,15 +45,15 @@ export function MemberCard({
         <span className="text-gray-500">({member.jelly.email})</span>
         {!hideDefaultBadges && (
           <>
-            <Badge
-              variant={
-                !member.jelly.existsInJelly
-                  ? "destructive"
-                  : member.marmalade
-                    ? "default"
-                    : "secondary"
-              }
-            >
+            {/*
+              Struck through plus this badge means Jelly no longer lists them
+              as a team member. The row is kept rather than deleted because
+              their past assignments, messages and comments still point at it.
+            */}
+            {!member.jelly.existsInJelly && (
+              <Badge variant="destructive">👋 no longer in jelly</Badge>
+            )}
+            <Badge variant={member.marmalade ? "default" : "secondary"}>
               {member.marmalade ? "🍊 registered" : "🍓 unlinked"}
             </Badge>
             <Badge variant="outline">{member.jelly.role}</Badge>
@@ -86,7 +86,7 @@ export function MemberCard({
 function MembersRoute() {
   const { teamMember } = Route.useRouteContext();
 
-  const members = useQuery(orpc.team.list.queryOptions());
+  const members = useQuery(orpc.team.list.queryOptions({ input: {} }));
 
   const resyncMutation = useMutation(
     orpc.team.resync.mutationOptions({
@@ -107,7 +107,8 @@ function MembersRoute() {
         <CardHeader>
           <CardTitle>Your Team</CardTitle>
           <CardDescription>
-            View and manage your team as a <u>team {teamMember.role}</u>
+            View and manage your team as a <u>team {teamMember.role}</u>.
+            Correspondents are not shown here — only owners, admins and members.
           </CardDescription>
           <CardAction>
             <Button onClick={handleResyncMembers} className="mb-4">

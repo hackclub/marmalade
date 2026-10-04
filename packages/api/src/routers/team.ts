@@ -3,7 +3,7 @@ import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
@@ -17,9 +17,28 @@ import { auditRouter } from "./audit";
 
 const jelly = getJellyClient();
 
+/**
+ * Roles that make someone part of the Jelly team, as opposed to someone the
+ * team corresponds with.
+ *
+ * `jelly_contact` is dual-purpose: `team.resync` fills it from Jelly's
+ * `/api/members`, and the webhook also writes a row for every inbound sender
+ * with the default role `contact`. Almost everything that says "member"
+ * means the former.
+ */
+export const STAFF_ROLES = ["owner", "admin", "member"] as const;
+
 export const teamRouter = {
   list: apiKeyOrSessionOrWebhookProcedure
     .route({ method: "GET", path: "/members" })
+    .input(
+      z
+        .object({
+          /** Also return correspondents, who are not part of the team. */
+          includeContacts: z.coerce.boolean().optional(),
+        })
+        .optional(),
+    )
     .output(
       z.array(
         z.object({
@@ -28,8 +47,16 @@ export const teamRouter = {
         }),
       ),
     )
-    .handler(async ({ context }) => {
+    .handler(async ({ context, input }) => {
       checkRouterScope(context, "team");
+
+      // `/members` means team members. Correspondents live in the same table
+      // but are not part of the team, and returning several hundred of them
+      // from this route buries the people it is about.
+      const conditions = [eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID)];
+      if (!input?.includeContacts) {
+        conditions.push(inArray(jellyTeamContact.role, [...STAFF_ROLES]));
+      }
 
       const results = await db
         .select({
@@ -38,7 +65,7 @@ export const teamRouter = {
         })
         .from(jellyTeamContact)
         .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
-        .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
+        .where(and(...conditions));
 
       return results.map((row) => ({
         jelly: row.jelly ?? null,
@@ -188,8 +215,15 @@ export const teamRouter = {
       const newTeamMembers = teamMembers.filter(
         (member) => !existingTeamMemberIds.includes(member.id),
       );
+      // Only staff can go missing from `/api/members`, because only staff
+      // were ever in it. Sweeping every row meant each resync flagged all
+      // several hundred webhook-created correspondents as gone from Jelly,
+      // which turned `exists_in_jelly` into "is a team member" and made the
+      // struck-through styling on /team meaningless.
       const removedTeamMembers = existingTeamMembers.filter(
-        (member) => !teamMemberIds.includes(member.id),
+        (member) =>
+          !teamMemberIds.includes(member.id) &&
+          (STAFF_ROLES as readonly string[]).includes(member.role),
       );
       const updatedTeamMembers = teamMembers.filter((member) => {
         const existingMember = existingTeamMembers.find(
@@ -219,6 +253,21 @@ export const teamRouter = {
             .returning({ id: jellyTeamContact.id });
         }
       }
+      // Undo the damage the old sweep did. Correspondents were flagged as
+      // gone from Jelly on every resync because they were compared against a
+      // list they were never in; this clears that, and is a no-op once the
+      // data is clean.
+      await db
+        .update(jellyTeamContact)
+        .set({ existsInJelly: true })
+        .where(
+          and(
+            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.existsInJelly, false),
+            notInArray(jellyTeamContact.role, [...STAFF_ROLES]),
+          ),
+        );
+
       if (removedTeamMembers.length > 0) {
         await db
           .update(jellyTeamContact)

@@ -2,8 +2,8 @@ import { ORPCError, os } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
 import {
-  jellyMailbox,
-  jellyMailboxMember,
+  marmaladeMailbox,
+  marmaladeMailboxMember,
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
@@ -163,22 +163,44 @@ export const mailboxScopedProcedure = authO
       if (role === "admin" || role === "owner") {
         allowedMailboxIds = ["*"];
       } else {
+        // `mailbox_member` is the gate: it is the row "Grant api perms"
+        // writes, and the row "Rescind access" removes.
+        //
+        // This previously resolved access from `jelly_mailbox_member` — Jelly
+        // mailbox membership — and never read `mailbox_member` at all. The
+        // grant/rescind UI therefore wrote a table no authorization check
+        // consulted: the badge was accurate about the table's contents, and
+        // the table decided nothing. Rescinding access removed nothing.
+        //
+        // Jelly membership is deliberately not also required. It is only
+        // populated by a manual resync, so treating stale sync data as an
+        // authorization input would deny people an admin had explicitly
+        // granted. The consequence to know: removing someone from a mailbox
+        // in Jelly does not revoke their Marmalade access on its own —
+        // an admin has to rescind it here too.
         const rows = await db
-          .select({ jellyMailboxId: jellyMailbox.jellyMailboxId })
-          .from(jellyMailbox)
+          .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
+          .from(marmaladeMailbox)
           .innerJoin(
-            jellyMailboxMember,
-            eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
-          )
-          .innerJoin(
-            jellyTeamContact,
+            marmaladeMailboxMember,
             and(
-              eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
-              eq(jellyTeamContact.email, context.session.user.email),
-              eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+              eq(
+                marmaladeMailboxMember.marmaladeMailboxId,
+                marmaladeMailbox.id,
+              ),
+              eq(
+                marmaladeMailboxMember.marmaladeUserId,
+                context.session.user.id,
+              ),
+            ),
+          )
+          .where(
+            and(
+              eq(marmaladeMailbox.active, true),
+              eq(marmaladeMailbox.jellyTeamId, env.JELLY_TEAM_ID),
             ),
           );
-        allowedMailboxIds = rows.map((r) => r.jellyMailboxId);
+        allowedMailboxIds = [...new Set(rows.map((r) => r.jellyMailboxId))];
       }
     } else {
       allowedMailboxIds = ["*"];

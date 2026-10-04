@@ -1,4 +1,5 @@
 import { db } from "@marmalade-v2/db";
+import { apiKey, apiKeyScope } from "@marmalade-v2/db/schema/api";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import {
   jellyMailbox,
@@ -8,7 +9,7 @@ import {
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { call } from "@orpc/server";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
 import { getJellyClient } from "../lib/jelly";
 
@@ -190,8 +191,7 @@ export const mailboxRouter = {
 
       if ("apiKey" in context) {
         const hasTeamScope =
-          "apiKey" in context &&
-          context.apiKey.resourceScopes.includes("team");
+          "apiKey" in context && context.apiKey.resourceScopes.includes("team");
 
         if (hasTeamScope) {
           const results = ((await db
@@ -201,7 +201,8 @@ export const mailboxRouter = {
               jellyMailboxMemberUser: jellyMailboxMemberUser,
               marmaladeMailbox: marmaladeMailbox,
               marmaladeMailboxMemberUser: marmaladeMailboxMemberUser,
-              marmaladeMailboxMemberTeamMember: marmaladeMailboxMemberTeamMember,
+              marmaladeMailboxMemberTeamMember:
+                marmaladeMailboxMemberTeamMember,
             })
             .from(jellyMailbox)
             .innerJoin(
@@ -830,6 +831,12 @@ export const mailboxRouter = {
         });
       }
 
+      const [targetMailbox] = await db
+        .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
+        .from(marmaladeMailbox)
+        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId))
+        .limit(1);
+
       const status = await db
         .delete(marmaladeMailboxMember)
         .where(
@@ -846,12 +853,76 @@ export const mailboxRouter = {
           message: "Mailbox member not found",
         });
       }
+
+      // Rescinding has to reach the keys this person already minted for the
+      // mailbox. Otherwise it only removes them from the UI while their
+      // existing credentials keep working, which is the same gap that made
+      // the grant table decorative in the first place.
+      //
+      // Only their own keys: an admin's key scoped to the same mailbox is not
+      // this person's access to lose.
+      let scopesRemoved = 0;
+      const keysRevoked: number[] = [];
+
+      if (targetMailbox) {
+        const removed = await db
+          .delete(apiKeyScope)
+          .where(
+            and(
+              eq(apiKeyScope.scopeResourceType, "mailbox"),
+              eq(apiKeyScope.scopeResourceId, targetMailbox.jellyMailboxId),
+              inArray(
+                apiKeyScope.apiKeyId,
+                db
+                  .select({ id: apiKey.id })
+                  .from(apiKey)
+                  .where(
+                    and(
+                      eq(apiKey.createdBy, input.marmaladeMemberId),
+                      eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+                    ),
+                  ),
+              ),
+            ),
+          )
+          .returning({ apiKeyId: apiKeyScope.apiKeyId });
+        scopesRemoved = removed.length;
+
+        // A key that has lost its last mailbox scope can no longer reach
+        // anything. Leaving it active is a live credential that looks valid
+        // and authorises nothing; revoke it so it reads as revoked.
+        for (const keyId of new Set(removed.map((r) => r.apiKeyId))) {
+          const remaining = await db
+            .select({ id: apiKeyScope.id })
+            .from(apiKeyScope)
+            .where(
+              and(
+                eq(apiKeyScope.apiKeyId, keyId),
+                eq(apiKeyScope.scopeResourceType, "mailbox"),
+              ),
+            )
+            .limit(1);
+
+          if (remaining.length === 0) {
+            await db
+              .update(apiKey)
+              .set({ revokedAt: new Date(), active: false })
+              .where(and(eq(apiKey.id, keyId), isNull(apiKey.revokedAt)));
+            keysRevoked.push(keyId);
+          }
+        }
+      }
       await call(
         auditRouter.create,
         {
           resource: "mailbox_member",
           resourceId: input.marmaladeMemberId,
           action: "delete",
+          metadata: {
+            jellyMailboxId: targetMailbox?.jellyMailboxId ?? null,
+            apiKeyScopesRemoved: scopesRemoved,
+            apiKeysRevoked: keysRevoked,
+          },
         },
         {
           context,

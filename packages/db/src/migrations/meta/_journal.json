@@ -29,6 +29,13 @@
       "when": 1784171184444,
       "tag": "0003_lonely_grim_reaper",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791142147007,
+      "tag": "0004_auth_admin",
+      "breakpoints": true
     }
   ]
 }

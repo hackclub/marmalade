@@ -19,6 +19,12 @@ export const env = createEnv({
     JELLY_WEBHOOK_SECRET: z.string().min(1).optional(),
     WEBHOOK_PASSWORD: z.string().min(1).optional(),
     WEBHOOK_USERNAME: z.string().min(1).optional(),
+    /**
+     * Comma-separated Better Auth user ids that are always instance admins,
+     * whatever `user.role` says. Break-glass only — day-to-day promotion
+     * happens through the admin UI.
+     */
+    BETTER_AUTH_ADMIN_USER_IDS: z.string().optional(),
     LOOPS_API_KEY: z.string().min(1),
     LOOPS_API_URL: z.string().min(1),
   },

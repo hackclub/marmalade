@@ -13,21 +13,13 @@
 
 ## demonstration
 
-
-
-
-
-
-
 https://github.com/user-attachments/assets/e429cb9e-7683-47f1-8c1f-77882715e129
-
 
 ## (interactive) api docs!
 
 on your own instance or an instance where you have access, open the [docs](https://marmalade.hackclub.dev/docs) and play around with different endpoints.
 
 <img width="2084" height="1476" alt="image" src="https://github.com/user-attachments/assets/84f334a0-53ca-41b1-86ee-35e16955be9a" />
-
 
 ## stuff that does stuff
 
@@ -82,7 +74,6 @@ Use the Expo Go app to run the mobile application.
 
 Environment variables are read from each app's `.env` file (baked into web builds for public variables) and overridden in `docker-compose.yml` for container networking.
 
-
 ## tasks
 
 **key:** ‼️ = poc-critical
@@ -116,9 +107,11 @@ Environment variables are read from each app's `.env` file (baked into web build
   - [ ] member actions
     - [ ] request own/other member access to be granted
 - [ ] admin panel
-  - [ ] see all better auth users
-    - [ ] bans
-    - [ ] impersonation
+  - [x] see all better auth users
+    - [x] bans
+    - [x] impersonation
+  - [x] instance admins are separate from jelly team roles
+  - [x] admin actions audited (incl. who impersonated whom)
   - [ ] see all audit logs
 - [x] keys
   - [x] admin actions

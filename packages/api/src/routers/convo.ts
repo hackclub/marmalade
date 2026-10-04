@@ -16,11 +16,11 @@ import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import z from "zod";
 import {
-  apiKeyOrSessionOrWebhookProcedure,
   checkRouterScope,
   filterFieldsByScope,
   jellyWebhookProcedure,
   mailboxScopedProcedure,
+  requireMailboxAccess,
 } from "../index";
 import {
   commentSchema,
@@ -75,6 +75,36 @@ const commentSortFields = {
   createdAt: comment.createdAt,
   body: comment.body,
 } as const;
+
+/**
+ * Prove a conversation is really in the mailbox the caller named.
+ *
+ * Routes that filter on `conversationId` alone treat the id as a capability:
+ * anyone who learns one reads the thread, whatever mailbox they hold. The
+ * mailbox in the path has to be load-bearing, not decorative.
+ *
+ * Answers NOT_FOUND rather than FORBIDDEN so the response cannot be used to
+ * confirm that a conversation exists in a mailbox the caller cannot see.
+ */
+async function requireConversationInMailbox(
+  conversationId: string,
+  jellyMailboxId: string,
+) {
+  const [row] = await db
+    .select({ conversationId: conversationMailbox.conversationId })
+    .from(conversationMailbox)
+    .where(
+      and(
+        eq(conversationMailbox.conversationId, conversationId),
+        eq(conversationMailbox.jellyMailboxId, jellyMailboxId),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new ORPCError("NOT_FOUND", { message: "Conversation not found" });
+  }
+}
 
 export const conversationRouter = {
   convo: {
@@ -258,6 +288,11 @@ export const conversationRouter = {
       .output(z.array(conversationAssignmentSchema))
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "convo");
+        requireMailboxAccess(context, input.mailboxId);
+        await requireConversationInMailbox(
+          input.conversationId,
+          input.mailboxId,
+        );
 
         const rows = await db
           .select()
@@ -308,6 +343,7 @@ export const conversationRouter = {
       )
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "convo");
+        requireMailboxAccess(context, input.mailboxId);
 
         const conditions = [
           eq(conversationMailbox.jellyMailboxId, input.mailboxId),
@@ -363,7 +399,7 @@ export const conversationRouter = {
           ),
         }));
       }),
-    get: apiKeyOrSessionOrWebhookProcedure
+    get: mailboxScopedProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/conversations/{conversationId}",
@@ -382,6 +418,7 @@ export const conversationRouter = {
       )
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "convo");
+        requireMailboxAccess(context, input.mailboxId);
 
         const rows = await db
           .select()
@@ -534,7 +571,7 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-    list: apiKeyOrSessionOrWebhookProcedure
+    list: mailboxScopedProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/conversations/{conversationId}/messages",
@@ -561,6 +598,11 @@ export const conversationRouter = {
       .output(z.array(messageSchema))
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "message");
+        requireMailboxAccess(context, input.mailboxId);
+        await requireConversationInMailbox(
+          input.conversationId,
+          input.mailboxId,
+        );
 
         const conditions = [eq(message.conversationId, input.conversationId)];
 
@@ -585,7 +627,7 @@ export const conversationRouter = {
 
         return rows.map((r) => filterFieldsByScope(context, "message", r));
       }),
-    get: apiKeyOrSessionOrWebhookProcedure
+    get: mailboxScopedProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/messages/{messageId}",
@@ -599,6 +641,7 @@ export const conversationRouter = {
       .output(messageSchema)
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "message");
+        requireMailboxAccess(context, input.mailboxId);
 
         const rows = await db
           .select({
@@ -687,7 +730,7 @@ export const conversationRouter = {
 
         return { success: true };
       }),
-    list: apiKeyOrSessionOrWebhookProcedure
+    list: mailboxScopedProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/conversations/{conversationId}/comments",
@@ -705,6 +748,11 @@ export const conversationRouter = {
       .output(z.array(commentSchema))
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "comment");
+        requireMailboxAccess(context, input.mailboxId);
+        await requireConversationInMailbox(
+          input.conversationId,
+          input.mailboxId,
+        );
 
         const conditions = [eq(comment.conversationId, input.conversationId)];
 
@@ -729,7 +777,7 @@ export const conversationRouter = {
 
         return rows.map((r) => filterFieldsByScope(context, "comment", r));
       }),
-    get: apiKeyOrSessionOrWebhookProcedure
+    get: mailboxScopedProcedure
       .route({
         method: "GET",
         path: "/mailboxes/{mailboxId}/comments/{commentId}",
@@ -743,6 +791,7 @@ export const conversationRouter = {
       .output(commentSchema)
       .handler(async ({ input, context }) => {
         checkRouterScope(context, "comment");
+        requireMailboxAccess(context, input.mailboxId);
 
         const rows = await db
           .select({

@@ -43,6 +43,13 @@
       "when": 1791204944285,
       "tag": "0005_write_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791204987268,
+      "tag": "0006_admin_oversight",
+      "breakpoints": true
     }
   ]
 }

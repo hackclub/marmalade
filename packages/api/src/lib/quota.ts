@@ -2,8 +2,9 @@ import { db } from "@marmalade-v2/db";
 import {
   jellyCircuitState,
   jellyQuotaBucket,
+  quotaPolicy,
 } from "@marmalade-v2/db/schema/observability";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 
 export type QuotaWindow = "five_minute" | "day";
 export type QuotaScope = "team" | "mailbox" | "api_key" | "user";
@@ -268,4 +269,164 @@ export async function recordCircuitFailure(
         updatedAt: now,
       },
     });
+}
+
+/**
+ * Per-scope ceilings, read from `quota_policy`.
+ *
+ * A scope with no policy row is unlimited beyond the team ceiling: the team
+ * limit is the one that protects Jelly, and these exist to stop one consumer
+ * inside Marmalade from spending everyone else's share of it.
+ */
+export async function loadPolicies(
+  targets: QuotaTarget[],
+): Promise<Map<string, number>> {
+  if (targets.length === 0) return new Map();
+
+  const rows = await db
+    .select()
+    .from(quotaPolicy)
+    .where(
+      or(
+        ...targets.map((t) =>
+          and(
+            eq(quotaPolicy.scope, t.scope),
+            eq(quotaPolicy.scopeId, t.scopeId),
+          ),
+        ),
+      ),
+    );
+
+  return new Map(
+    rows.map((row) => [
+      `${row.scope}:${row.scopeId}:${row.window}`,
+      row.ceiling,
+    ]),
+  );
+}
+
+/**
+ * Full precheck for one outbound call: the team ceilings first, then any
+ * per-key or per-mailbox ceiling that applies.
+ */
+export async function checkQuotas(
+  teamId: string,
+  targets: QuotaTarget[],
+  options: QuotaCheckOptions = {},
+  now = new Date(),
+): Promise<QuotaVerdict> {
+  const team = await checkTeamQuota(teamId, options, now);
+  if (!team.allowed) return team;
+
+  if (targets.length === 0) return { allowed: true };
+
+  const policies = await loadPolicies(targets);
+  if (policies.size === 0) return { allowed: true };
+
+  for (const target of targets) {
+    for (const window of ["five_minute", "day"] as QuotaWindow[]) {
+      const ceiling = policies.get(
+        `${target.scope}:${target.scopeId}:${window}`,
+      );
+      if (ceiling === undefined) continue;
+
+      const used = await readQuota(target.scope, target.scopeId, window, now);
+      if (used >= ceiling) {
+        return {
+          allowed: false,
+          reason: `${target.scope} ${target.scopeId} reached its ${window.replace("_", "-")} ceiling (${used}/${ceiling})`,
+          retryAt: windowEndFor(window, now),
+        };
+      }
+    }
+  }
+
+  return { allowed: true };
+}
+
+export async function setQuotaPolicy(input: {
+  scope: QuotaScope;
+  scopeId: string;
+  window: QuotaWindow;
+  ceiling: number;
+  note?: string | null;
+}): Promise<void> {
+  await db
+    .insert(quotaPolicy)
+    .values({
+      scope: input.scope,
+      scopeId: input.scopeId,
+      window: input.window,
+      ceiling: input.ceiling,
+      note: input.note ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [quotaPolicy.scope, quotaPolicy.scopeId, quotaPolicy.window],
+      set: { ceiling: input.ceiling, note: input.note ?? null },
+    });
+}
+
+export async function clearQuotaPolicy(input: {
+  scope: QuotaScope;
+  scopeId: string;
+  window: QuotaWindow;
+}): Promise<void> {
+  await db
+    .delete(quotaPolicy)
+    .where(
+      and(
+        eq(quotaPolicy.scope, input.scope),
+        eq(quotaPolicy.scopeId, input.scopeId),
+        eq(quotaPolicy.window, input.window),
+      ),
+    );
+}
+
+export async function listQuotaPolicies() {
+  return db
+    .select()
+    .from(quotaPolicy)
+    .orderBy(quotaPolicy.scope, quotaPolicy.scopeId);
+}
+
+/** Current usage against every ceiling that applies, for the admin gauges. */
+export async function quotaSnapshot(teamId: string, now = new Date()) {
+  const [dayUsed, burstUsed] = await Promise.all([
+    readQuota("team", teamId, "day", now),
+    readQuota("team", teamId, "five_minute", now),
+  ]);
+
+  const [circuit] = await db
+    .select()
+    .from(jellyCircuitState)
+    .where(
+      and(
+        eq(jellyCircuitState.scope, "team"),
+        eq(jellyCircuitState.scopeId, teamId),
+      ),
+    )
+    .limit(1);
+
+  return {
+    day: {
+      used: dayUsed,
+      ceiling: TEAM_DAILY_CEILING,
+      workerCeiling: Math.floor(TEAM_DAILY_CEILING * WORKER_DAILY_SHARE),
+      jellyLimit: JELLY_DAILY_LIMIT,
+      resetsAt: windowEndFor("day", now),
+    },
+    fiveMinute: {
+      used: burstUsed,
+      ceiling: TEAM_FIVE_MINUTE_CEILING,
+      jellyLimit: JELLY_FIVE_MINUTE_LIMIT,
+      resetsAt: windowEndFor("five_minute", now),
+    },
+    circuit: {
+      consecutiveFailures: circuit?.consecutiveFailures ?? 0,
+      pausedUntil: circuit?.pausedUntil ?? null,
+      pausedReason: circuit?.pausedReason ?? null,
+      lastSuccessAt: circuit?.lastSuccessAt ?? null,
+      lastFailureAt: circuit?.lastFailureAt ?? null,
+    },
+  };
 }

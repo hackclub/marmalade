@@ -8,6 +8,7 @@ import z from "zod";
 import { publicProcedure, teamMemberProtectedProcedure } from "../index";
 import { teamMemberSchema } from "../schemas/output";
 import { actionRouter } from "./action";
+import { adminRouter } from "./admin";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
@@ -69,6 +70,7 @@ export const appRouter = {
   apiKey: apiKeyRouter,
   convo: conversationRouter,
   action: actionRouter,
+  admin: adminRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

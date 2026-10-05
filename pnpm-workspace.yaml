@@ -6,6 +6,13 @@ allowBuilds:
   msw: true
   msgpackr-extract: true
   sharp: true
+# Vercel enforces a supply-chain policy that rejects a lockfile containing
+# very recently published packages. Declaring it here too means local
+# resolution produces a lockfile the deploy will accept, instead of the build
+# failing on entries that only looked fine on this machine.
+# Unit is minutes.
+minimumReleaseAge: 1440
+
 # Transitive pins for published advisories. Everything here is reachable only
 # through build or dev tooling; the one advisory that affected shipped code was
 # @orpc/server, fixed by the catalog bump above rather than by an override.
@@ -41,5 +48,3 @@ catalog:
   "@better-auth/expo": 1.6.11
   drizzle-orm: ^0.45.1
   "@types/pg": ^8.16.0
-minimumReleaseAgeExclude:
-  - hono@4.13.13

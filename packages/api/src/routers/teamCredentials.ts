@@ -30,7 +30,6 @@ export const teamCredentialsRouter = {
     .output(
       z.object({
         id: z.string(),
-        slug: z.string(),
         name: z.string().nullable(),
         apiBaseUrl: z.string(),
         active: z.boolean(),
@@ -60,7 +59,6 @@ export const teamCredentialsRouter = {
 
       return {
         id: row.id,
-        slug: row.slug,
         name: row.name,
         apiBaseUrl: row.apiBaseUrl,
         active: row.active,

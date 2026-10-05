@@ -9,7 +9,6 @@ export const WEBHOOK_SECRET_PURPOSE = "jelly_webhook_secret";
 
 export type TeamCredentials = {
   teamId: string;
-  slug: string;
   name: string | null;
   apiBaseUrl: string;
   apiToken: string;
@@ -53,7 +52,6 @@ async function adoptEnvCredentials(teamId: string): Promise<boolean> {
     .insert(jellyTeam)
     .values({
       id: teamId,
-      slug: teamId,
       apiBaseUrl: env.JELLY_API_URL,
       ...values,
     })
@@ -94,7 +92,6 @@ export async function getTeamCredentials(
 
   const value: TeamCredentials = {
     teamId: row.id,
-    slug: row.slug,
     name: row.name,
     apiBaseUrl: row.apiBaseUrl,
     apiToken: open(row.apiTokenEncrypted, row.id, API_TOKEN_PURPOSE),

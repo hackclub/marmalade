@@ -11,12 +11,6 @@ import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
  */
 export const jellyTeam = pgTable("jelly_team", {
   id: text("id").notNull().primaryKey(),
-  /**
-   * URL-safe handle. Backfilled from `id` for the existing team; it exists now
-   * so that per-team webhook endpoints have something stable and readable to
-   * key on later.
-   */
-  slug: text("slug").notNull().unique(),
   /** Display name, as reported by Jelly. Unknown until the first sync. */
   name: text("name"),
   apiBaseUrl: text("api_base_url")

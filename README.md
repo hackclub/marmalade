@@ -54,6 +54,19 @@ This project uses PostgreSQL with Drizzle ORM.
 pnpm run db:push
 ```
 
+`db:push` is how schema reaches a database here, including production — there
+is no `drizzle.__drizzle_migrations` table. The files under
+`packages/db/src/migrations` are generated for reference and for anyone who
+prefers `db:migrate`; they are **not** the deploy path.
+
+Two consequences worth knowing before adding schema:
+
+- A `NOT NULL` column with no default makes `db:push` stop and ask for one,
+  which fails a non-interactive deploy. Give it a default or make it nullable.
+- Data changes written into a migration file never run. Put them in
+  application code that is safe to run repeatedly — `team.resync` repairing
+  `exists_in_jelly` is the pattern to copy.
+
 Then, run the development server:
 
 ```bash

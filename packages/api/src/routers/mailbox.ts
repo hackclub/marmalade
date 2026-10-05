@@ -578,11 +578,9 @@ export const mailboxRouter = {
         .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
         .limit(1);
       if (existingTeam.length === 0) {
-        // `slug` is NOT NULL and has no sensible default; the team id is a
-        // stable, URL-safe starting value an operator can rename later.
         await db
           .insert(jellyTeam)
-          .values({ id: env.JELLY_TEAM_ID, slug: env.JELLY_TEAM_ID })
+          .values({ id: env.JELLY_TEAM_ID })
           .onConflictDoNothing();
       }
       let mailboxes;

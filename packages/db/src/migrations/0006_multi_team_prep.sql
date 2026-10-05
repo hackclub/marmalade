@@ -1,0 +1,43 @@
+-- NOTE: `db:push` is the deploy path here, so it applies the constraints below
+-- and skips everything else in this file. Confirm there is nothing to clean up
+-- first:
+--
+--   SELECT jelly_mailbox_id, jelly_team_id, count(*)
+--   FROM mailbox GROUP BY 1,2 HAVING count(*) > 1;
+--
+-- An empty result means the ALTER succeeds. If it ever returns rows, run the
+-- dedupe below by hand before pushing. Production had zero duplicates when
+-- this was written, and `mailbox.create` now refuses to make more.
+--
+-- Survivor is the active row where there is one, lowest id otherwise, so
+-- deduping cannot silently deactivate a mailbox that was working.
+--
+-- UPDATE "mailbox_member" mm
+-- SET "marmalade_mailbox_id" = k.keep_id
+-- FROM (
+--   SELECT m.id AS dup_id,
+--          first_value(m.id) OVER (
+--            PARTITION BY m."jelly_mailbox_id", m."jelly_team_id"
+--            ORDER BY m."active" DESC, m.id ASC
+--          ) AS keep_id
+--   FROM "mailbox" m
+-- ) k
+-- WHERE mm."marmalade_mailbox_id" = k.dup_id AND k.dup_id <> k.keep_id;
+--
+-- DELETE FROM "mailbox_member" a USING "mailbox_member" b
+-- WHERE a.id > b.id
+--   AND a."marmalade_user_id" = b."marmalade_user_id"
+--   AND a."marmalade_mailbox_id" = b."marmalade_mailbox_id";
+--
+-- DELETE FROM "mailbox" m USING (
+--   SELECT id, first_value(id) OVER (
+--            PARTITION BY "jelly_mailbox_id", "jelly_team_id"
+--            ORDER BY "active" DESC, id ASC
+--          ) AS keep_id
+--   FROM "mailbox"
+-- ) k
+-- WHERE m.id = k.id AND k.id <> k.keep_id;
+
+ALTER TABLE "jelly_contact" DROP CONSTRAINT "jelly_contact_email_unique";--> statement-breakpoint
+ALTER TABLE "mailbox" ADD CONSTRAINT "mailbox_jelly_mailbox_id_jelly_team_id_unique" UNIQUE("jelly_mailbox_id","jelly_team_id");--> statement-breakpoint
+ALTER TABLE "jelly_contact" ADD CONSTRAINT "jelly_contact_email_jelly_team_id_unique" UNIQUE("email","jelly_team_id");

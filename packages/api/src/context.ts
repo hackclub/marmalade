@@ -46,7 +46,9 @@ export async function createJellyWebhookContext({
   req: Request;
   rawBody: string;
 }) {
-  const authHeader = req.headers.get("Authorization");
+  // Basic auth on the webhook is optional in Jelly and currently unused; the
+  // HMAC signature below is what actually authenticates the delivery.
+  // const authHeader = req.headers.get("Authorization");
   // if (!authHeader?.startsWith("Basic ")) {
   //   throw new ORPCError("UNAUTHORIZED", {
   //     message: "Invalid webhook credentials",

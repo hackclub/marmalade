@@ -39,6 +39,7 @@ on your own instance or an instance where you have access, open the [docs](https
 - **PostgreSQL** - Database engine
 - **Authentication** - Better-Auth
 - **Turborepo** - Optimized monorepo build system
+- **Expo** - Native app in `apps/native`, sharing the oRPC router types and auth
 
 ## development
 
@@ -68,7 +69,23 @@ pnpm run dev
 ```
 
 Open [http://localhost:3001](http://localhost:3001) in your browser to see the fullstack application.
-Use the Expo Go app to run the mobile application.
+
+### mobile
+
+The native app lives in `apps/native` (Expo + expo-router + uniwind).
+
+```bash
+cp apps/native/.env.example apps/native/.env
+pnpm run dev:native
+```
+
+Set `EXPO_PUBLIC_SERVER_URL` to the web app's address. On a physical device that
+must be a LAN address or a tunnel — `localhost` resolves to the phone.
+
+It runs in Expo Go: the stack uses uniwind (Tailwind classes compiled for React
+Native) rather than Unistyles, so contributors do not need a custom dev client,
+and the class vocabulary matches `packages/ui` on the web side. The deep-link
+scheme is `marmalade-v2`, which is already trusted by `packages/auth`.
 
 ### deployment
 
@@ -128,6 +145,12 @@ Environment variables are read from each app's `.env` file (baked into web build
     - [x] view all their apikeys
     - [x] ‼️ create api keys
     - [x] rescind api keys
+- [ ] mobile app
+  - [x] expo + expo-router app wired to the same oRPC router and Better Auth
+  - [x] hack club OIDC + email OTP sign-in
+  - [x] mailbox list and action outbox
+  - [ ] conversation list and thread view
+  - [ ] push notifications from the jelly webhook
 - [x] convos
 - [x] conversation assignment
 - [x] messages

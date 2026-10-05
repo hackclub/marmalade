@@ -27,6 +27,22 @@ export default tseslint.config(
     ],
   },
   {
+    // Expo requires CommonJS for its Metro and Babel config, which the
+    // TypeScript-oriented defaults above reject on sight.
+    files: ["apps/native/*.config.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        module: "writable",
+        require: "readonly",
+        __dirname: "readonly",
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
+  },
+  {
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "warn",

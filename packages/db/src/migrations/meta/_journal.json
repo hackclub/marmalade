@@ -36,6 +36,13 @@
       "when": 1791142147007,
       "tag": "0004_auth_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791204882008,
+      "tag": "0005_team_credentials",
+      "breakpoints": true
     }
   ]
 }

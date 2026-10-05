@@ -9,7 +9,14 @@
 - finely-grained & least-privelidged api access
 - fully audit-trailed
 
-> note: currently marmalade's api access is read-only, while write access (required for use cases such as fully-featured custom clients) is being worked on
+> note: write access runs through a durable action queue (`jelly_action`). every
+> mutation is persisted before dispatch, retried on transient failure, and
+> audited. jelly's api cannot send customer-facing email — api tokens may create
+> drafts and internal comments only — so marmalade's "send" is "compose a draft a
+> teammate finishes in jelly".
+
+see [`docs/plans`](./docs/plans) for the design behind the write path, the admin
+oversight work, and the mobile app.
 
 ## demonstration
 
@@ -144,11 +151,20 @@ Environment variables are read from each app's `.env` file (baked into web build
   - [ ] admins should not be able to mutate owners
   - [ ] standardized key prefix
     - [ ] [revokability](https://revoke.hackclub.com))
+- [ ] write actions
+  - [x] durable action outbox with idempotency, retry and backoff
+  - [x] inline dispatch with queue fallback (202 + poll)
+  - [x] action scopes on api keys (fail closed) + per-mailbox write opt-in
+  - [x] feature parity with jelly's documented write surface
+  - [x] scheduled actions + cancel before dispatch
+  - [x] `dryRun` on every write
+  - [ ] per-key and per-mailbox write ceilings
+  - [ ] admin queue browser and dead-letter requeue
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
   - [x] first time sync on registration and scheduled/manual org teammember resyncs
-  - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
-    - [ ] for now, simply track every jelly request in db and monitor success/fail
+  - [x] track jelly requests made and add builtin quotas to avoid ratelimits
+    - [x] for now, simply track every jelly request in db and monitor success/fail
   - [ ] completely jelly-backwards-compatible api? (api v2)
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel

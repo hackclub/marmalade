@@ -11,6 +11,7 @@
         "BETTER_AUTH_SECRET",
         "BETTER_AUTH_URL",
         "CORS_ORIGIN",
+        "CRON_SECRET",
         "DATABASE_URL",
         "HACKCLUB_CLIENT_ID",
         "HACKCLUB_CLIENT_SECRET",

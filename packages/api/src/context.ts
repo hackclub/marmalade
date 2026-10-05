@@ -11,6 +11,23 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { env } from "@marmalade-v2/env/server";
 
+/**
+ * Per-request values lifted off the incoming headers.
+ *
+ * Only the header Marmalade actually reads is carried, and as a plain string.
+ * Putting a `Headers` object on the context pulls the ambient DOM/undici
+ * `Headers` type into this package's emitted declarations, which breaks the
+ * composite build for every consumer of `@marmalade-v2/api`.
+ *
+ * Optional on purpose: server-side `call()` sites build a context by hand and
+ * have no request to read a header from.
+ */
+type RequestMeta = { idempotencyKey?: string | null };
+
+function requestMeta(req: Request): RequestMeta {
+  return { idempotencyKey: req.headers.get("Idempotency-Key") };
+}
+
 export async function createAuthContext({ req }: { req: Request }) {
   const session = await auth.api.getSession({
     headers: req.headers,
@@ -18,6 +35,7 @@ export async function createAuthContext({ req }: { req: Request }) {
   return {
     auth: null,
     session,
+    ...requestMeta(req),
   };
 }
 
@@ -187,6 +205,7 @@ export async function createApiKeyContext({ req }: { req: Request }) {
 
   const mailboxIds: string[] = [];
   const resourceScopes: string[] = [];
+  const actionScopes: string[] = [];
   const fieldScopes: Array<{ resourceType: string; field: string }> = [];
 
   for (const row of rows) {
@@ -202,6 +221,12 @@ export async function createApiKeyContext({ req }: { req: Request }) {
       !resourceScopes.includes(row.scopeResourceId)
     ) {
       resourceScopes.push(row.scopeResourceId);
+    }
+    if (
+      row.scopeResourceType === "action" &&
+      !actionScopes.includes(row.scopeResourceId)
+    ) {
+      actionScopes.push(row.scopeResourceId);
     }
     if (row.fieldScopeResourceType && row.fieldScopeField) {
       if (
@@ -225,12 +250,14 @@ export async function createApiKeyContext({ req }: { req: Request }) {
     .where(eq(apiKey.id, keyRow.id));
 
   return {
+    ...requestMeta(req),
     apiKey: {
       id: keyRow.id,
       keyPrefix: keyRow.keyPrefix,
       name: keyRow.name,
       mailboxIds,
       resourceScopes,
+      actionScopes,
       fieldScopes,
       jellyTeamId: keyRow.jellyTeamId,
     },

@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import z from "zod";
 import { publicProcedure, teamMemberProtectedProcedure } from "../index";
 import { teamMemberSchema } from "../schemas/output";
+import { actionRouter } from "./action";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
@@ -67,6 +68,7 @@ export const appRouter = {
   team: teamRouter,
   apiKey: apiKeyRouter,
   convo: conversationRouter,
+  action: actionRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

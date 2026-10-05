@@ -189,8 +189,17 @@ No endpoint returns a stored secret.
     - [ ] [revokability](https://revoke.hackclub.com))
   - [x] jelly credentials encrypted at rest in `jelly_team`, not in env
   - [x] rotate the jelly api token and webhook secret without a redeploy
+  - [x] enforce mailbox scoping on conversation/message/comment reads
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
+  - [ ] multiple jelly teams (see `docs/plans/04-multi-team.md`)
+    - [x] credentials per team, encrypted
+    - [x] `mailbox` and `jelly_contact` uniqueness fit for more than one team
+    - [ ] `jelly_team_id` on the content tables
+    - [ ] team resolved from the request instead of `JELLY_TEAM_ID`
+    - [ ] per-team webhook endpoints
+    - [ ] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
+    - [ ] row-level security
   - [x] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
     - [ ] for now, simply track every jelly request in db and monitor success/fail

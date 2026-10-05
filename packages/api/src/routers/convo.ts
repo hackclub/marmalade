@@ -181,6 +181,30 @@ export const conversationRouter = {
           });
         }
 
+        // `jelly_conversation` uses Jelly's own id as its primary key and the
+        // insert above is `onConflictDoNothing`, so reuse of an existing row is
+        // indistinguishable from a fresh insert. If Jelly ids are ever not
+        // unique across teams, that would silently attach one team's
+        // conversation to another team's row and report success. Refuse
+        // loudly instead; this is a no-op while Marmalade serves one team.
+        const existingTeams = await db
+          .selectDistinct({ jellyTeamId: conversationMailbox.jellyTeamId })
+          .from(conversationMailbox)
+          .where(eq(conversationMailbox.conversationId, conversationId));
+
+        const foreign = existingTeams.find(
+          (row) => row.jellyTeamId !== env.JELLY_TEAM_ID,
+        );
+        if (foreign) {
+          throw new ORPCError("CONFLICT", {
+            message:
+              `Conversation ${conversationId} already belongs to team ` +
+              `${foreign.jellyTeamId}. Refusing to attach it to ` +
+              `${env.JELLY_TEAM_ID}: Jelly conversation ids are assumed unique ` +
+              "across teams and this one is not.",
+          });
+        }
+
         const mailboxRows = await db
           .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
           .from(marmaladeMailbox)

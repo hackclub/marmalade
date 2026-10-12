@@ -22,7 +22,7 @@ catalog:
   "@orpc/server": ^1.14.8
   "@orpc/client": ^1.13.14
   "@orpc/openapi": ^1.13.14
-  "@orpc/zod": ^1.13.14
+  "@orpc/zod": ^1.14.10
   "@orpc/tanstack-query": ^1.13.14
   better-auth: 1.6.22
   "@tanstack/react-form": ^1.28.0

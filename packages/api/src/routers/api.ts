@@ -508,6 +508,67 @@ export const apiKeyRouter = {
       return { message: "API key revoked" };
     }),
 
+  /**
+   * Cut off a key that was granted access to this team but issued by another.
+   *
+   * Revoking is the owning team's call — it would disable the key everywhere,
+   * including in the team that issued it. Dropping the grant is the right
+   * primitive for the team on the receiving end: it ends the access it
+   * controls and leaves the rest of the key alone.
+   */
+  revokeTeamAccess: teamAdminProtectedProcedure
+    .route({ method: "DELETE", path: "/keys/{keyId}/team-access" })
+    .input(z.object({ keyId: z.coerce.number().min(1) }))
+    .output(z.object({ message: z.string() }))
+    .handler(async ({ input, context }) => {
+      const teamId = teamIdOf(context);
+
+      const [key] = await db
+        .select({ jellyTeamId: apiKey.jellyTeamId })
+        .from(apiKey)
+        .where(eq(apiKey.id, input.keyId))
+        .limit(1);
+      if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
+      }
+      if (key.jellyTeamId === teamId) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            "This key belongs to this team. Revoke it instead of dropping " +
+            "its grant.",
+        });
+      }
+
+      const removed = await db
+        .delete(apiKeyScope)
+        .where(
+          and(
+            eq(apiKeyScope.apiKeyId, input.keyId),
+            eq(apiKeyScope.scopeResourceType, "team"),
+            eq(apiKeyScope.scopeResourceId, teamId),
+          ),
+        )
+        .returning({ id: apiKeyScope.id });
+
+      if (removed.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "This key has no access to this team",
+        });
+      }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "revoke_team_access",
+          resourceId: input.keyId.toString(),
+        },
+        { context },
+      );
+
+      return { message: "Team access removed" };
+    }),
+
   revoke: mailboxScopedProcedure
     .route({
       method: "DELETE",
@@ -542,6 +603,10 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
+            // Without this a mailbox admin could revoke a key issued to
+            // another team, because a mailbox id is unique within a team
+            // rather than across them.
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
             eq(apiKeyScope.scopeResourceType, "mailbox"),
             eq(apiKeyScope.scopeResourceId, input.mailboxId),
           ),

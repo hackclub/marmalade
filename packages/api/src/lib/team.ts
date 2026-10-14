@@ -281,6 +281,35 @@ export async function resolveTeamFromRequest(
 }
 
 /**
+ * Refuse to reuse a row that belongs to another team.
+ *
+ * Jelly's own ids are used as primary keys and the webhook inserts with
+ * `onConflictDoNothing`, so reuse of an existing row is indistinguishable
+ * from a fresh insert. If Jelly ids turn out not to be unique across teams,
+ * that silently attaches one team's mail to another team's row and reports
+ * success. Now that the team is on the row, say so loudly instead.
+ *
+ * A no-op while Jelly ids really are globally unique, which is the expected
+ * case — this exists to make the assumption fail visibly rather than
+ * silently if it is ever wrong.
+ */
+export function assertRowBelongsToTeam(
+  kind: string,
+  id: string,
+  rowTeamId: string | null | undefined,
+  teamId: string,
+): void {
+  if (rowTeamId && rowTeamId !== teamId) {
+    throw new ORPCError("CONFLICT", {
+      message:
+        `${kind} ${id} already belongs to team ${rowTeamId}. Refusing to ` +
+        `attach it to ${teamId}: Jelly ids are assumed unique across teams ` +
+        "and this one is not.",
+    });
+  }
+}
+
+/**
  * Fill `jelly_team_id` on the content tables that gained one.
  *
  * Idempotent and cheap once it has run: each statement is a no-op when there
@@ -291,10 +320,23 @@ export async function resolveTeamFromRequest(
  * the conversation itself has to be filled first.
  */
 export async function backfillTeamIds(teamId: string): Promise<void> {
-  await db
-    .update(conversation)
-    .set({ jellyTeamId: teamId })
-    .where(isNull(conversation.jellyTeamId));
+  // Rows that predate the column carry no evidence of whose they are. With
+  // one connected team the answer is obvious; with several it is a guess,
+  // and guessing would let whichever team resynced next claim every
+  // unlabelled conversation in the database.
+  //
+  // So the blanket fills run only while there is exactly one team. The
+  // derived fills below are always safe, because they copy the team from a
+  // parent row that already has one.
+  const teams = await db.select({ id: jellyTeam.id }).from(jellyTeam);
+  const soleTeam = teams.length === 1 && teams[0]?.id === teamId;
+
+  if (soleTeam) {
+    await db
+      .update(conversation)
+      .set({ jellyTeamId: teamId })
+      .where(isNull(conversation.jellyTeamId));
+  }
 
   await db.execute(sql`
     update "jelly_message" m
@@ -305,10 +347,12 @@ export async function backfillTeamIds(teamId: string): Promise<void> {
        and c."jelly_team_id" is not null
   `);
 
-  await db
-    .update(comment)
-    .set({ jellyTeamId: teamId })
-    .where(isNull(comment.jellyTeamId));
+  if (soleTeam) {
+    await db
+      .update(comment)
+      .set({ jellyTeamId: teamId })
+      .where(isNull(comment.jellyTeamId));
+  }
 
   await db.execute(sql`
     update "jelly_conversation_assignment" a
@@ -354,11 +398,13 @@ export async function backfillTeamIds(teamId: string): Promise<void> {
        and mm."jelly_team_id" is null
   `);
 
-  // Labels carry no conversation, so the only sound source is the team being
-  // synced. Safe while a label row cannot yet belong to two teams; the
-  // composite unique added alongside this column keeps it that way.
-  await db.execute(sql`
-    update "jelly_label" set "jelly_team_id" = ${teamId}
-     where "jelly_team_id" is null
-  `);
+  // Labels hang off no parent row, so the only possible source is the team
+  // being synced — which makes this a guess too, and it runs under the same
+  // condition as the others.
+  if (soleTeam) {
+    await db.execute(sql`
+      update "jelly_label" set "jelly_team_id" = ${teamId}
+       where "jelly_team_id" is null
+    `);
+  }
 }

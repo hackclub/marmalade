@@ -22,6 +22,7 @@ import {
   requireMailboxAccess,
   teamIdOf,
 } from "../index";
+import { assertRowBelongsToTeam } from "../lib/team";
 import {
   commentSchema,
   conversationAssignmentSchema,
@@ -541,7 +542,16 @@ export const conversationRouter = {
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
-          .where(eq(jellyTeamContact.email, input.senderEmail))
+          // Since the composite unique landed, an email identifies a contact
+          // only together with a team: the same person can correspond with
+          // two teams. Without the team here, one team's sender row would be
+          // reused as the author of another team's message.
+          .where(
+            and(
+              eq(jellyTeamContact.email, input.senderEmail),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          )
           .limit(1);
 
         if (existingContactRows.length > 0) {
@@ -559,6 +569,18 @@ export const conversationRouter = {
           });
           senderId = newContactId;
         }
+        const [existingMessage] = await db
+          .select({ jellyTeamId: message.jellyTeamId })
+          .from(message)
+          .where(eq(message.id, input.jellyMessageId))
+          .limit(1);
+        assertRowBelongsToTeam(
+          "Message",
+          input.jellyMessageId,
+          existingMessage?.jellyTeamId,
+          teamId,
+        );
+
         await db
           .insert(message)
           .values({
@@ -732,7 +754,12 @@ export const conversationRouter = {
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
-          .where(eq(jellyTeamContact.id, input.authorId ?? ""))
+          .where(
+            and(
+              eq(jellyTeamContact.id, input.authorId ?? ""),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          )
           .limit(1);
 
         if (!existingContactRows || existingContactRows.length === 0) {
@@ -740,6 +767,18 @@ export const conversationRouter = {
             message: "Comment author is not a known contact",
           });
         }
+
+        const [existingComment] = await db
+          .select({ jellyTeamId: comment.jellyTeamId })
+          .from(comment)
+          .where(eq(comment.id, input.jellyCommentId))
+          .limit(1);
+        assertRowBelongsToTeam(
+          "Comment",
+          input.jellyCommentId,
+          existingComment?.jellyTeamId,
+          teamId,
+        );
 
         await db
           .insert(comment)

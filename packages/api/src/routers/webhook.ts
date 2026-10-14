@@ -4,6 +4,7 @@ import { ORPCError, call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
 import { jellyWebhookProcedure, teamIdOf } from "../index";
+import { assertRowBelongsToTeam } from "../lib/team";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
@@ -253,6 +254,22 @@ export const webhookRouter = {
             .limit(1);
 
           if (existingByEmail.length === 0) {
+            // `jelly_contact.id` is Jelly's own id used as a primary key, so
+            // a row for this id may already exist under another team. The
+            // `onConflictDoNothing` below would hide that and leave the
+            // assignee attached to the other team's contact.
+            const [existingById] = await db
+              .select({ jellyTeamId: jellyTeamContact.jellyTeamId })
+              .from(jellyTeamContact)
+              .where(eq(jellyTeamContact.id, assignee.id))
+              .limit(1);
+            assertRowBelongsToTeam(
+              "Contact",
+              assignee.id,
+              existingById?.jellyTeamId,
+              teamIdOf(context),
+            );
+
             await db
               .insert(jellyTeamContact)
               .values({

@@ -119,7 +119,12 @@ export const mailboxRouter = {
             isArchived: jellyMailbox.isArchived,
           })
           .from(jellyMailbox)
-          .where(eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId))
+          .where(
+            and(
+              eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+            ),
+          )
           .limit(1);
       } catch (error) {
         console.warn("Jelly mailbox table unavailable during webhook", error);
@@ -157,7 +162,12 @@ export const mailboxRouter = {
           active: marmaladeMailbox.active,
         })
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId))
+        .where(
+          and(
+            eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        )
         .limit(1);
 
       if (marmaladeMailboxRows.length === 0) {
@@ -208,16 +218,31 @@ export const mailboxRouter = {
             .from(jellyMailbox)
             .innerJoin(
               marmaladeMailbox,
-              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              and(
+                eq(
+                  jellyMailbox.jellyMailboxId,
+                  marmaladeMailbox.jellyMailboxId,
+                ),
+                eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+              ),
             )
             .where(
-              inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+              and(
+                eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+                inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+              ),
             )
             .leftJoin(
               jellyMailboxMembersAll,
-              eq(
-                jellyMailbox.jellyMailboxId,
-                jellyMailboxMembersAll.jellyMailboxId,
+              and(
+                eq(
+                  jellyMailbox.jellyMailboxId,
+                  jellyMailboxMembersAll.jellyMailboxId,
+                ),
+                eq(
+                  jellyMailbox.jellyTeamId,
+                  jellyMailboxMembersAll.jellyTeamId,
+                ),
               ),
             )
             .leftJoin(
@@ -346,10 +371,16 @@ export const mailboxRouter = {
           .from(jellyMailbox)
           .innerJoin(
             marmaladeMailbox,
-            eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+            and(
+              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+            ),
           )
           .where(
-            inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+            and(
+              eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+              inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+            ),
           );
 
         return mailboxes.map((row) => ({
@@ -387,7 +418,10 @@ export const mailboxRouter = {
         .from(jellyMailbox)
         .innerJoin(
           jellyMailboxMember,
-          eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+          and(
+            eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, jellyMailboxMember.jellyTeamId),
+          ),
         )
         .innerJoin(
           jellyTeamContact,
@@ -399,9 +433,12 @@ export const mailboxRouter = {
         )
         .leftJoin(
           jellyMailboxMembersAll,
-          eq(
-            jellyMailbox.jellyMailboxId,
-            jellyMailboxMembersAll.jellyMailboxId,
+          and(
+            eq(
+              jellyMailbox.jellyMailboxId,
+              jellyMailboxMembersAll.jellyMailboxId,
+            ),
+            eq(jellyMailbox.jellyTeamId, jellyMailboxMembersAll.jellyTeamId),
           ),
         )
         .leftJoin(
@@ -419,7 +456,10 @@ export const mailboxRouter = {
         )
         .leftJoin(
           marmaladeMailbox,
-          eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+          and(
+            eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+          ),
         )
         .leftJoin(
           marmaladeMailboxMembersAll,
@@ -766,9 +806,12 @@ export const mailboxRouter = {
             .select({ id: jellyTeamContact.id })
             .from(jellyTeamContact)
             .where(
-              inArray(
-                jellyTeamContact.id,
-                newMembers.map((m) => m.id),
+              and(
+                eq(jellyTeamContact.jellyTeamId, teamId),
+                inArray(
+                  jellyTeamContact.id,
+                  newMembers.map((m) => m.id),
+                ),
               ),
             )
         ).map((c) => c.id);
@@ -820,7 +863,15 @@ export const mailboxRouter = {
       const mailbox = await db
         .select()
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            // `marmalade_mailbox_id` is a surrogate key, so it names a
+            // mailbox without saying whose. Without the team, an admin of one
+            // team could act on another team's mailbox by passing its id.
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (!mailbox || mailbox.length === 0 || !mailbox[0]) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
@@ -890,8 +941,16 @@ export const mailboxRouter = {
       const [targetMailbox] = await db
         .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId))
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        )
         .limit(1);
+      if (!targetMailbox) {
+        throw new ORPCError("NOT_FOUND", { message: "Mailbox not found" });
+      }
 
       const status = await db
         .delete(marmaladeMailboxMember)
@@ -1005,7 +1064,12 @@ export const mailboxRouter = {
       const result = await db
         .update(marmaladeMailbox)
         .set({ active: false })
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (result.rowCount === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
@@ -1043,7 +1107,12 @@ export const mailboxRouter = {
       const result = await db
         .update(marmaladeMailbox)
         .set({ active: true })
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (result.rowCount === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",

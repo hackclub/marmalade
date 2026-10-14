@@ -156,7 +156,10 @@ export const instanceRouter = {
       // First sync for this team only. Teams already connected are untouched,
       // so onboarding costs one team's worth of Jelly requests rather than
       // every team's.
-      const syncContext = { ...context, team: { ...toTeam(input.id, slug) } };
+      const syncContext = {
+        ...context,
+        team: toTeam(input.id, slug, apiBaseUrl, input.dailyCeiling),
+      };
       try {
         await call(teamRouter.resync, {}, { context: syncContext });
         await call(mailboxRouter.resync, {}, { context: syncContext });
@@ -253,13 +256,11 @@ export const instanceRouter = {
 };
 
 /** The minimum a resync needs to act on a team that was just created. */
-function toTeam(id: string, slug: string) {
-  return {
-    id,
-    slug,
-    name: null,
-    apiBaseUrl: env.JELLY_API_URL,
-    dailyCeiling: 80_000,
-    active: true,
-  };
+function toTeam(
+  id: string,
+  slug: string,
+  apiBaseUrl: string,
+  dailyCeiling = 80_000,
+) {
+  return { id, slug, name: null, apiBaseUrl, dailyCeiling, active: true };
 }

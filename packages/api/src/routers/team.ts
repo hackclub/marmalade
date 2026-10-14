@@ -320,7 +320,12 @@ export const teamRouter = {
               active: member.active,
               existsInJelly: true,
             })
-            .where(eq(jellyTeamContact.id, member.id))
+            .where(
+              and(
+                eq(jellyTeamContact.id, member.id),
+                eq(jellyTeamContact.jellyTeamId, teamId),
+              ),
+            )
             .returning({ id: jellyTeamContact.id });
         }
       }
@@ -344,9 +349,12 @@ export const teamRouter = {
           .update(jellyTeamContact)
           .set({ existsInJelly: false })
           .where(
-            inArray(
-              jellyTeamContact.id,
-              removedTeamMembers.map((team) => team.id),
+            and(
+              eq(jellyTeamContact.jellyTeamId, teamId),
+              inArray(
+                jellyTeamContact.id,
+                removedTeamMembers.map((team) => team.id),
+              ),
             ),
           );
       }

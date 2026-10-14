@@ -85,6 +85,14 @@ export const instanceRouter = {
         slug: z.string().min(1).optional(),
         name: z.string().min(1).optional(),
         token: z.string().min(8),
+        /**
+         * The signing secret Jelly already issued for this team's webhook.
+         *
+         * Jelly generates a secret when a webhook is created, so the usual
+         * direction is Jelly to Marmalade. Omit it and Marmalade generates
+         * one instead, to paste into Jelly.
+         */
+        webhookSecret: z.string().min(8).optional(),
         apiBaseUrl: z.url().optional(),
         dailyCeiling: z.number().int().positive().optional(),
       }),
@@ -93,10 +101,13 @@ export const instanceRouter = {
       z.object({
         team: teamSummarySchema,
         /**
-         * Shown once. Marmalade generates it rather than waiting for Jelly's,
-         * so the operator can finish the Jelly side in the same sitting.
+         * Shown once: the secret that was supplied, or the one Marmalade
+         * generated so the operator can finish the Jelly side in the same
+         * sitting.
          */
         webhookSecret: z.string(),
+        /** False when the secret came from Jelly rather than from here. */
+        webhookSecretGenerated: z.boolean(),
         memberCount: z.number(),
       }),
     )
@@ -150,7 +161,8 @@ export const instanceRouter = {
 
       await setTeamApiToken(input.id, input.token);
 
-      const webhookSecret = randomBytes(32).toString("hex");
+      const webhookSecret =
+        input.webhookSecret ?? randomBytes(32).toString("hex");
       await setTeamWebhookSecret(input.id, webhookSecret);
 
       // First sync for this team only. Teams already connected are untouched,
@@ -208,6 +220,7 @@ export const instanceRouter = {
           webhookUrl: webhookUrlFor(row!.slug ?? row!.id),
         },
         webhookSecret,
+        webhookSecretGenerated: !input.webhookSecret,
         memberCount,
       };
     }),

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 
 import { orpc } from "@/utils/orpc";
-import { ACTIVE_TEAM_COOKIE } from "@marmalade-v2/api/lib/team";
+import { ACTIVE_TEAM_COOKIE } from "@marmalade-v2/api/lib/team-cookie";
 
 /**
  * Which Jelly team the session is looking at.

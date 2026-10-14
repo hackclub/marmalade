@@ -11,6 +11,7 @@ import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
+import { teamCredentialsRouter } from "./teamCredentials";
 
 export const appRouter = {
   healthCheck: publicProcedure
@@ -65,6 +66,7 @@ export const appRouter = {
 
   mailbox: mailboxRouter,
   team: teamRouter,
+  teamCredentials: teamCredentialsRouter,
   apiKey: apiKeyRouter,
   convo: conversationRouter,
 };

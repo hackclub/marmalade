@@ -1,4 +1,5 @@
 import { env } from "@marmalade-v2/env/server";
+import { getTeamCredentials } from "./team-credentials";
 
 export interface JellyMember {
   id: string;
@@ -149,18 +150,31 @@ class JellyApiClient {
   }
 }
 
-let jellyClient: JellyApiClient | null = null;
+export type { JellyApiClient };
 
-export function getJellyClient(): JellyApiClient {
-  if (!jellyClient) {
-    if (!env.JELLY_API_URL || !env.JELLY_API_KEY) {
-      throw new Error("JELLY_API_URL and JELLY_API_KEY must be set");
-    }
-    jellyClient = new JellyApiClient(env.JELLY_API_URL, env.JELLY_API_KEY);
+/**
+ * Build a client for one Jelly team from the credentials stored on its row.
+ *
+ * Async and per-team on purpose. The previous module-level singleton baked one
+ * team's environment-supplied token into the module at import time, which made
+ * rotating a token a redeploy and connecting a second team impossible.
+ *
+ * `getTeamCredentials` caches the decrypted token keyed on the row's
+ * `credentialsUpdatedAt`, so the common path is a single indexed row read.
+ */
+export async function getJellyClient(
+  teamId: string = env.JELLY_TEAM_ID,
+): Promise<JellyApiClient> {
+  const credentials = await getTeamCredentials(teamId);
+
+  if (!credentials.active) {
+    throw new Error(`Jelly team ${teamId} is not active`);
   }
-  return jellyClient;
+
+  return new JellyApiClient(credentials.apiBaseUrl, credentials.apiToken);
 }
 
+/** Escape hatch for credentials that are not (yet) stored on a team row. */
 export function createJellyClient(
   apiUrl: string,
   apiKey: string,

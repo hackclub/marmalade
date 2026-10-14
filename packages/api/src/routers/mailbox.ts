@@ -28,7 +28,6 @@ import {
 import { mailboxListItemSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
-const jelly = getJellyClient();
 const jellyMailboxMembersAll = aliasedTable(
   jellyMailboxMember,
   "jelly_mailbox_members_all",
@@ -579,10 +578,14 @@ export const mailboxRouter = {
         .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
         .limit(1);
       if (existingTeam.length === 0) {
-        await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
+        await db
+          .insert(jellyTeam)
+          .values({ id: env.JELLY_TEAM_ID })
+          .onConflictDoNothing();
       }
       let mailboxes;
       try {
+        const jelly = await getJellyClient();
         mailboxes = await jelly.listMailboxes();
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -670,6 +673,7 @@ export const mailboxRouter = {
     .handler(async ({ input, context }) => {
       let mailboxMembers;
       try {
+        const jelly = await getJellyClient();
         mailboxMembers = await jelly.listMailboxMembers(input.mailboxId);
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {

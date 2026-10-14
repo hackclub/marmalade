@@ -15,8 +15,6 @@ import { getJellyClient } from "../lib/jelly";
 import { teamMemberSchema, userSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
-const jelly = getJellyClient();
-
 /**
  * Roles that make someone part of the Jelly team, as opposed to someone the
  * team corresponds with.
@@ -189,10 +187,14 @@ export const teamRouter = {
         .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
         .limit(1);
       if (existingTeam.length === 0) {
-        await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
+        await db
+          .insert(jellyTeam)
+          .values({ id: env.JELLY_TEAM_ID })
+          .onConflictDoNothing();
       }
       let teamMembers;
       try {
+        const jelly = await getJellyClient();
         teamMembers = await jelly.listMembers();
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {

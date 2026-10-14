@@ -126,6 +126,11 @@ export const apiKeySchema = z.object({
   revokedAt: z.date().nullable(),
   mailboxIds: z.array(z.string()),
   resourceScopes: z.array(z.string()).optional(),
+  /**
+   * Every team the key may act in. The first is the team it was issued for
+   * and its default; the rest were granted explicitly.
+   */
+  teamIds: z.array(z.string()).optional(),
   fieldScopes: z
     .array(
       z.object({

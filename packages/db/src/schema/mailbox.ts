@@ -1,5 +1,6 @@
 import {
   boolean,
+  index,
   integer,
   pgTable,
   serial,
@@ -58,14 +59,31 @@ export const marmaladeMailbox = pgTable(
   (t) => [unique().on(t.jellyMailboxId, t.jellyTeamId)],
 );
 
-export const marmaladeMailboxMember = pgTable("mailbox_member", {
-  id: serial("id").primaryKey(),
-  marmaladeUserId: text("marmalade_user_id")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  marmaladeMailboxId: integer("marmalade_mailbox_id")
-    .notNull()
-    .references(() => marmaladeMailbox.id, { onDelete: "cascade" }),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+export const marmaladeMailboxMember = pgTable(
+  "mailbox_member",
+  {
+    id: serial("id").primaryKey(),
+    marmaladeUserId: text("marmalade_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    marmaladeMailboxId: integer("marmalade_mailbox_id")
+      .notNull()
+      .references(() => marmaladeMailbox.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    /**
+     * Denormalised from the mailbox. This table is the sole authorization gate
+     * for a non-admin, so being able to filter it by team without a join is
+     * worth the column. Nullable for `db:push`; `backfillTeamIds()` fills it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  // One grant per person per mailbox. Without this the rescind path has to
+  // delete an unknown number of rows and the badge counts duplicates.
+  (t) => [
+    unique().on(t.marmaladeUserId, t.marmaladeMailboxId),
+    index("idx_mailbox_member_jelly_team_id").on(t.jellyTeamId),
+  ],
+);

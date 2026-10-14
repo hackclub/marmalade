@@ -23,6 +23,9 @@ export const auth = createAuth({
                 path: ["/team"],
                 context: {
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {
@@ -41,6 +44,9 @@ export const auth = createAuth({
                 path: ["/mailboxes"],
                 context: {
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {
@@ -68,6 +74,9 @@ export const auth = createAuth({
                 path: ["/audit"],
                 context: {
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {

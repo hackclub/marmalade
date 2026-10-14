@@ -1,17 +1,21 @@
 import { db } from "@marmalade-v2/db";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { call, ORPCError } from "@orpc/server";
 import { and, eq, inArray, notInArray } from "drizzle-orm";
 import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
   checkRouterScope,
+  isInstanceAdmin,
   jellyWebhookProcedure,
+  protectedProcedure,
   publicProcedure,
+  teamIdOf,
+  teamIdOrDefault,
 } from "..";
 import { getJellyClient } from "../lib/jelly";
+import { backfillTeamIds, ensureTeamSlug } from "../lib/team";
 import { teamMemberSchema, userSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
@@ -27,6 +31,99 @@ import { auditRouter } from "./audit";
 export const STAFF_ROLES = ["owner", "admin", "member"] as const;
 
 export const teamRouter = {
+  /**
+   * The teams the signed-in user may switch between.
+   *
+   * Membership is a `jelly_contact` row with a staff role in that team, so a
+   * correspondent who happens to share an email address with a user does not
+   * become able to select the team.
+   *
+   * An instance operator sees every connected team instead. They hold no
+   * Jelly role in a team they have just onboarded, so membership would hide
+   * the one team they most need to look at — and context resolution already
+   * lets them select any team, so listing fewer would only make the switcher
+   * disagree with what the server will accept.
+   */
+  listMine: protectedProcedure
+    .route({ method: "GET", path: "/teams" })
+    .output(
+      z.object({
+        teams: z.array(
+          z.object({
+            id: z.string(),
+            slug: z.string(),
+            name: z.string().nullable(),
+            role: z.string(),
+          }),
+        ),
+        /**
+         * The team this request actually resolved to.
+         *
+         * Returned rather than guessed by the client: with no selection
+         * stored, the server falls back to the configured team, which need
+         * not be the first of the caller's. A switcher that guessed would
+         * name one team while the page rendered another.
+         */
+        activeSlug: z.string().nullable(),
+        /** Whether the caller may onboard and configure teams. */
+        isInstanceOperator: z.boolean(),
+      }),
+    )
+    .handler(async ({ context }) => {
+      const operator = isInstanceAdmin(context.session.user);
+
+      const rows = operator
+        ? await db
+            .select({
+              id: jellyTeam.id,
+              slug: jellyTeam.slug,
+              name: jellyTeam.name,
+              role: jellyTeamContact.role,
+            })
+            .from(jellyTeam)
+            // Their own Jelly role where they have one, null where they do
+            // not. Being an operator is not a role in any team.
+            .leftJoin(
+              jellyTeamContact,
+              and(
+                eq(jellyTeamContact.jellyTeamId, jellyTeam.id),
+                eq(jellyTeamContact.email, context.session.user.email),
+                inArray(jellyTeamContact.role, [...STAFF_ROLES]),
+              ),
+            )
+            .where(eq(jellyTeam.active, true))
+        : await db
+            .select({
+              id: jellyTeam.id,
+              slug: jellyTeam.slug,
+              name: jellyTeam.name,
+              role: jellyTeamContact.role,
+            })
+            .from(jellyTeamContact)
+            .innerJoin(
+              jellyTeam,
+              eq(jellyTeam.id, jellyTeamContact.jellyTeamId),
+            )
+            .where(
+              and(
+                eq(jellyTeamContact.email, context.session.user.email),
+                eq(jellyTeam.active, true),
+                inArray(jellyTeamContact.role, [...STAFF_ROLES]),
+              ),
+            );
+
+      return {
+        teams: rows.map((row) => ({
+          id: row.id,
+          slug: row.slug ?? row.id,
+          name: row.name,
+          role: row.role ?? "instance",
+        })),
+        activeSlug: context.team?.slug ?? null,
+        isInstanceOperator: operator,
+      };
+    }),
+
   list: apiKeyOrSessionOrWebhookProcedure
     .route({ method: "GET", path: "/members" })
     .input(
@@ -51,7 +148,7 @@ export const teamRouter = {
       // `/members` means team members. Correspondents live in the same table
       // but are not part of the team, and returning several hundred of them
       // from this route buries the people it is about.
-      const conditions = [eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID)];
+      const conditions = [eq(jellyTeamContact.jellyTeamId, teamIdOf(context))];
       if (!input?.includeContacts) {
         conditions.push(inArray(jellyTeamContact.role, [...STAFF_ROLES]));
       }
@@ -91,7 +188,7 @@ export const teamRouter = {
         .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
         .where(
           and(
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.id, input.id),
           ),
         )
@@ -129,7 +226,7 @@ export const teamRouter = {
         .from(jellyTeamContact)
         .where(
           and(
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.id, input.id),
           ),
         )
@@ -153,7 +250,7 @@ export const teamRouter = {
         email: input.email ?? null,
         role: "contact",
         active: true,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         existsInJelly: true,
       });
 
@@ -166,7 +263,7 @@ export const teamRouter = {
         .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
         .where(
           and(
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.id, input.id),
           ),
         )
@@ -181,20 +278,27 @@ export const teamRouter = {
     .route({ method: "POST", path: "/resync" })
     .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {
+      const teamId = await teamIdOrDefault(context);
+
       const existingTeam = await db
         .select()
         .from(jellyTeam)
-        .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
+        .where(eq(jellyTeam.id, teamId))
         .limit(1);
       if (existingTeam.length === 0) {
-        await db
-          .insert(jellyTeam)
-          .values({ id: env.JELLY_TEAM_ID })
-          .onConflictDoNothing();
+        await db.insert(jellyTeam).values({ id: teamId }).onConflictDoNothing();
       }
+
+      // Self-repair, for the same reason `exists_in_jelly` is repaired below:
+      // `db:push` is the deploy path, so a data step written into a migration
+      // file would never run. Both calls are no-ops once they have taken
+      // effect.
+      await ensureTeamSlug(teamId);
+      await backfillTeamIds(teamId);
+
       let teamMembers;
       try {
-        const jelly = await getJellyClient();
+        const jelly = await getJellyClient(teamId);
         teamMembers = await jelly.listMembers();
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -210,7 +314,7 @@ export const teamRouter = {
       const existingTeamMembers = await db
         .select()
         .from(jellyTeamContact)
-        .where(eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID));
+        .where(eq(jellyTeamContact.jellyTeamId, teamId));
       const existingTeamMemberIds = existingTeamMembers.map(
         (teamMember) => teamMember.id,
       );
@@ -251,7 +355,12 @@ export const teamRouter = {
               active: member.active,
               existsInJelly: true,
             })
-            .where(eq(jellyTeamContact.id, member.id))
+            .where(
+              and(
+                eq(jellyTeamContact.id, member.id),
+                eq(jellyTeamContact.jellyTeamId, teamId),
+              ),
+            )
             .returning({ id: jellyTeamContact.id });
         }
       }
@@ -264,7 +373,7 @@ export const teamRouter = {
         .set({ existsInJelly: true })
         .where(
           and(
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamId),
             eq(jellyTeamContact.existsInJelly, false),
             notInArray(jellyTeamContact.role, [...STAFF_ROLES]),
           ),
@@ -275,9 +384,12 @@ export const teamRouter = {
           .update(jellyTeamContact)
           .set({ existsInJelly: false })
           .where(
-            inArray(
-              jellyTeamContact.id,
-              removedTeamMembers.map((team) => team.id),
+            and(
+              eq(jellyTeamContact.jellyTeamId, teamId),
+              inArray(
+                jellyTeamContact.id,
+                removedTeamMembers.map((team) => team.id),
+              ),
             ),
           );
       }
@@ -291,7 +403,7 @@ export const teamRouter = {
               email: member.email,
               role: member.role,
               active: member.active,
-              jellyTeamId: env.JELLY_TEAM_ID,
+              jellyTeamId: teamId,
               existsInJelly: true,
             })),
           )

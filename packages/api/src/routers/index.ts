@@ -2,13 +2,17 @@ import { ORPCError, type RouterClient } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
-import { publicProcedure, teamMemberProtectedProcedure } from "../index";
+import {
+  publicProcedure,
+  teamIdOf,
+  teamMemberProtectedProcedure,
+} from "../index";
 import { teamMemberSchema } from "../schemas/output";
 import { apiKeyRouter } from "./api";
 import { conversationRouter } from "./convo";
+import { instanceRouter } from "./instance";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
 import { teamCredentialsRouter } from "./teamCredentials";
@@ -51,7 +55,7 @@ export const appRouter = {
         .where(
           and(
             eq(jellyTeamContact.email, context.session?.user.email ?? ""),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.existsInJelly, true),
           ),
         );
@@ -66,6 +70,7 @@ export const appRouter = {
 
   mailbox: mailboxRouter,
   team: teamRouter,
+  instance: instanceRouter,
   teamCredentials: teamCredentialsRouter,
   apiKey: apiKeyRouter,
   convo: conversationRouter,

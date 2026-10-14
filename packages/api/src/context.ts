@@ -11,6 +11,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
+import { isInstanceAdmin } from "./lib/instance-admin";
 import {
   ACTIVE_TEAM_HEADER,
   resolveTeamById,
@@ -35,19 +36,10 @@ export async function createAuthContext({ req }: { req: Request }) {
   // useful "no team resolved" from whatever handler ran next.
   let team: ResolvedTeam | null = null;
   try {
-    const user = session?.user as { role?: string | null } | undefined;
-    const breakGlass = (env.BETTER_AUTH_ADMIN_USER_IDS ?? "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-    const isInstanceAdmin =
-      user?.role === "admin" ||
-      (session?.user.id ? breakGlass.includes(session.user.id) : false);
-
     team = await resolveTeamFromRequest(
       req,
       session?.user.email,
-      isInstanceAdmin,
+      isInstanceAdmin(session?.user),
     );
   } catch (error) {
     if (error instanceof ORPCError && error.code !== "BAD_REQUEST") throw error;

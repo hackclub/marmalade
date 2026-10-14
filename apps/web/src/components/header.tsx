@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
+import { orpc } from "@/utils/orpc";
 import TeamSwitcher from "./team-switcher";
 import UserMenu from "./user-menu";
 
@@ -16,6 +18,10 @@ const externalLinks = [
 ] as const;
 
 export default function Header() {
+  // Instance operation is not a Jelly role, so the link is hidden from
+  // everyone else rather than shown and then refused.
+  const mine = useQuery(orpc.team.listMine.queryOptions());
+
   return (
     <div className="z-10">
       <div className="flex flex-row items-center justify-between px-2 py-1">
@@ -32,6 +38,11 @@ export default function Header() {
           <Link key="/docs" to="/docs">
             Docs
           </Link>
+          {mine.data?.isInstanceOperator && (
+            <Link key="/admin/teams" to="/admin/teams">
+              Teams
+            </Link>
+          )}
           {externalLinks.map(({ href, label }) => (
             <a key={href} href={href} target="_blank" rel="noopener noreferrer">
               {label}

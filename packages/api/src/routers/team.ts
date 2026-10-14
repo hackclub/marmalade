@@ -7,6 +7,7 @@ import z from "zod";
 import {
   apiKeyOrSessionOrWebhookProcedure,
   checkRouterScope,
+  isInstanceAdmin,
   jellyWebhookProcedure,
   protectedProcedure,
   publicProcedure,
@@ -36,6 +37,12 @@ export const teamRouter = {
    * Membership is a `jelly_contact` row with a staff role in that team, so a
    * correspondent who happens to share an email address with a user does not
    * become able to select the team.
+   *
+   * An instance operator sees every connected team instead. They hold no
+   * Jelly role in a team they have just onboarded, so membership would hide
+   * the one team they most need to look at — and context resolution already
+   * lets them select any team, so listing fewer would only make the switcher
+   * disagree with what the server will accept.
    */
   listMine: protectedProcedure
     .route({ method: "GET", path: "/teams" })
@@ -58,34 +65,62 @@ export const teamRouter = {
          * name one team while the page rendered another.
          */
         activeSlug: z.string().nullable(),
+        /** Whether the caller may onboard and configure teams. */
+        isInstanceOperator: z.boolean(),
       }),
     )
     .handler(async ({ context }) => {
-      const rows = await db
-        .select({
-          id: jellyTeam.id,
-          slug: jellyTeam.slug,
-          name: jellyTeam.name,
-          role: jellyTeamContact.role,
-        })
-        .from(jellyTeamContact)
-        .innerJoin(jellyTeam, eq(jellyTeam.id, jellyTeamContact.jellyTeamId))
-        .where(
-          and(
-            eq(jellyTeamContact.email, context.session.user.email),
-            eq(jellyTeam.active, true),
-            inArray(jellyTeamContact.role, [...STAFF_ROLES]),
-          ),
-        );
+      const operator = isInstanceAdmin(context.session.user);
+
+      const rows = operator
+        ? await db
+            .select({
+              id: jellyTeam.id,
+              slug: jellyTeam.slug,
+              name: jellyTeam.name,
+              role: jellyTeamContact.role,
+            })
+            .from(jellyTeam)
+            // Their own Jelly role where they have one, null where they do
+            // not. Being an operator is not a role in any team.
+            .leftJoin(
+              jellyTeamContact,
+              and(
+                eq(jellyTeamContact.jellyTeamId, jellyTeam.id),
+                eq(jellyTeamContact.email, context.session.user.email),
+                inArray(jellyTeamContact.role, [...STAFF_ROLES]),
+              ),
+            )
+            .where(eq(jellyTeam.active, true))
+        : await db
+            .select({
+              id: jellyTeam.id,
+              slug: jellyTeam.slug,
+              name: jellyTeam.name,
+              role: jellyTeamContact.role,
+            })
+            .from(jellyTeamContact)
+            .innerJoin(
+              jellyTeam,
+              eq(jellyTeam.id, jellyTeamContact.jellyTeamId),
+            )
+            .where(
+              and(
+                eq(jellyTeamContact.email, context.session.user.email),
+                eq(jellyTeam.active, true),
+                inArray(jellyTeamContact.role, [...STAFF_ROLES]),
+              ),
+            );
 
       return {
         teams: rows.map((row) => ({
           id: row.id,
           slug: row.slug ?? row.id,
           name: row.name,
-          role: row.role,
+          role: row.role ?? "instance",
         })),
         activeSlug: context.team?.slug ?? null,
+        isInstanceOperator: operator,
       };
     }),
 

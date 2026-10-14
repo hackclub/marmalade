@@ -6,7 +6,6 @@ import {
   marmaladeMailboxMember,
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { and, eq, inArray } from "drizzle-orm";
 import type {
   ApiKeyContext,
@@ -14,8 +13,11 @@ import type {
   AuthContext,
   WebhookContext,
 } from "./context";
+import { isInstanceAdmin } from "./lib/instance-admin";
 import { resolveDefaultTeam, type ResolvedTeam } from "./lib/team";
 import { NON_SCOPABLE_FIELDS } from "./schemas/output";
+
+export { isInstanceAdmin };
 
 /**
  * The team this request acts on.
@@ -145,13 +147,7 @@ export const authOrWebhookProtectedProcedure =
  */
 export const instanceAdminProcedure = protectedProcedure.use(
   async ({ context, next }) => {
-    const user = context.session.user as { id: string; role?: string | null };
-    const breakGlass = (env.BETTER_AUTH_ADMIN_USER_IDS ?? "")
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean);
-
-    if (user.role !== "admin" && !breakGlass.includes(user.id)) {
+    if (!isInstanceAdmin(context.session.user)) {
       throw new ORPCError("FORBIDDEN", {
         message: "Instance operator access is required",
       });

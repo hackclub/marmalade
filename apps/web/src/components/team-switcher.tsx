@@ -26,7 +26,10 @@ export default function TeamSwitcher() {
   const mine = useQuery(orpc.team.listMine.queryOptions());
 
   const teams = mine.data?.teams ?? [];
-  if (teams.length < 2) return null;
+  // An operator sees the selector even with one team connected, because
+  // onboarding a second is a thing they do from here.
+  const minimum = mine.data?.isInstanceOperator ? 1 : 2;
+  if (teams.length < minimum) return null;
 
   const select = (slug: string) => {
     // Path-wide and a year out, so the choice survives navigation and

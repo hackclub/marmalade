@@ -12,23 +12,21 @@ import { ACTIVE_TEAM_COOKIE } from "@marmalade-v2/api/lib/team";
  * would be forgotten on every reload and the page would silently render
  * another team's data.
  *
+ * The displayed team comes from the server too. With nothing selected the
+ * server falls back to the configured team, which need not be the first of
+ * this user's, so a client-side guess would name one team while the page
+ * rendered another.
+ *
  * Hidden when there is only one team to choose from, which is every
  * single-team deployment.
  */
 export default function TeamSwitcher() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const teams = useQuery(orpc.team.listMine.queryOptions());
+  const mine = useQuery(orpc.team.listMine.queryOptions());
 
-  if (!teams.data || teams.data.length < 2) return null;
-
-  const current =
-    typeof document !== "undefined"
-      ? (document.cookie
-          .split(";")
-          .map((part) => part.trim().split("="))
-          .find(([name]) => name === ACTIVE_TEAM_COOKIE)?.[1] ?? "")
-      : "";
+  const teams = mine.data?.teams ?? [];
+  if (teams.length < 2) return null;
 
   const select = (slug: string) => {
     // Path-wide and a year out, so the choice survives navigation and
@@ -45,10 +43,10 @@ export default function TeamSwitcher() {
     <select
       aria-label="Active team"
       className="rounded-md border px-2 py-1 text-sm"
-      value={decodeURIComponent(current) || teams.data[0]!.slug}
+      value={mine.data?.activeSlug ?? teams[0]!.slug}
       onChange={(event) => select(event.target.value)}
     >
-      {teams.data.map((team) => (
+      {teams.map((team) => (
         <option key={team.id} value={team.slug}>
           {team.name ?? team.slug}
         </option>

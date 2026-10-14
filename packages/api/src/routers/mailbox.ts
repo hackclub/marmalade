@@ -847,6 +847,10 @@ export const mailboxRouter = {
           marmaladeUserId: input.marmaladeMemberId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          // Set on the write, not left for the backfill. A grant made
+          // between deploy and the next resync would otherwise sit with a
+          // null team.
+          jellyTeamId: teamIdOf(context),
         })
         .returning({ id: marmaladeMailboxMember.id });
       await call(

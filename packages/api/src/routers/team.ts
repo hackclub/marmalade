@@ -40,14 +40,25 @@ export const teamRouter = {
   listMine: protectedProcedure
     .route({ method: "GET", path: "/teams" })
     .output(
-      z.array(
-        z.object({
-          id: z.string(),
-          slug: z.string(),
-          name: z.string().nullable(),
-          role: z.string(),
-        }),
-      ),
+      z.object({
+        teams: z.array(
+          z.object({
+            id: z.string(),
+            slug: z.string(),
+            name: z.string().nullable(),
+            role: z.string(),
+          }),
+        ),
+        /**
+         * The team this request actually resolved to.
+         *
+         * Returned rather than guessed by the client: with no selection
+         * stored, the server falls back to the configured team, which need
+         * not be the first of the caller's. A switcher that guessed would
+         * name one team while the page rendered another.
+         */
+        activeSlug: z.string().nullable(),
+      }),
     )
     .handler(async ({ context }) => {
       const rows = await db
@@ -67,12 +78,15 @@ export const teamRouter = {
           ),
         );
 
-      return rows.map((row) => ({
-        id: row.id,
-        slug: row.slug ?? row.id,
-        name: row.name,
-        role: row.role,
-      }));
+      return {
+        teams: rows.map((row) => ({
+          id: row.id,
+          slug: row.slug ?? row.id,
+          name: row.name,
+          role: row.role,
+        })),
+        activeSlug: context.team?.slug ?? null,
+      };
     }),
 
   list: apiKeyOrSessionOrWebhookProcedure

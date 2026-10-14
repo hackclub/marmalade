@@ -25,13 +25,18 @@ export async function createAuthContext({ req }: { req: Request }) {
   });
 
   // Unauthenticated and team-less routes exist — the health check and the
-  // OpenAPI document among them — so a request that names no resolvable team
-  // is not an error here. It becomes one in `teamIdOf` the moment a handler
-  // actually needs a team, which is the only place that can tell.
+  // OpenAPI document among them — so having no resolvable team is not an
+  // error here. It becomes one in `teamIdOf`, the moment a handler actually
+  // needs a team, which is the only place that can tell.
+  //
+  // A request that *named* a team and was refused is different: swallowing
+  // that would turn "you are not a member of this team" into the far less
+  // useful "no team resolved" from whatever handler ran next.
   let team: ResolvedTeam | null = null;
   try {
-    team = await resolveTeamFromRequest(req);
-  } catch {
+    team = await resolveTeamFromRequest(req, session?.user.email);
+  } catch (error) {
+    if (error instanceof ORPCError && error.code !== "BAD_REQUEST") throw error;
     team = null;
   }
 

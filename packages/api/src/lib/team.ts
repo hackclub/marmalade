@@ -1,9 +1,9 @@
 import { db } from "@marmalade-v2/db";
 import { comment, conversation } from "@marmalade-v2/db/schema/convo";
-import { jellyTeam } from "@marmalade-v2/db/schema/team";
+import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
-import { eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 /**
  * The one team a request acts on, resolved once at the context boundary.
@@ -27,6 +27,13 @@ export type ResolvedTeam = {
 export type TeamContext = { team: ResolvedTeam };
 
 const SLUG_MAX_LENGTH = 48;
+
+/**
+ * Roles that make someone part of a Jelly team rather than someone it
+ * corresponds with. Mirrors `STAFF_ROLES` in the team router, kept here so
+ * context resolution does not import a router.
+ */
+const STAFF_ROLES = ["owner", "admin", "member"] as const;
 
 /** URL-safe handle derived from a display name or a team id. */
 export function slugify(value: string): string {
@@ -196,17 +203,74 @@ function teamFromCookie(req: Request): string | null {
   return null;
 }
 
+/**
+ * The teams a signed-in user may act in: a staff contact row in an active
+ * team. A correspondent who happens to share an email address with a user is
+ * not a member.
+ */
+export async function teamsForEmail(email: string): Promise<ResolvedTeam[]> {
+  const rows = await db
+    .select({ team: jellyTeam })
+    .from(jellyTeamContact)
+    .innerJoin(jellyTeam, eq(jellyTeam.id, jellyTeamContact.jellyTeamId))
+    .where(
+      and(
+        eq(jellyTeamContact.email, email),
+        eq(jellyTeam.active, true),
+        inArray(jellyTeamContact.role, [...STAFF_ROLES]),
+      ),
+    );
+  return rows.map((row) => toResolvedTeam(row.team));
+}
+
+/**
+ * Which team this request acts in.
+ *
+ * The requested team is checked against the caller's membership here, at the
+ * boundary, rather than left to whatever the handler happens to look up. The
+ * slug arrives in a cookie the client sets, so without this check any
+ * signed-in user could name any team. Downstream role checks would still
+ * refuse them, but only the ones that check — a handler on
+ * `publicProcedure` reading `teamIdOf` would happily act under the named
+ * team.
+ */
 export async function resolveTeamFromRequest(
   req: Request,
+  email?: string | null,
 ): Promise<ResolvedTeam> {
   const requested =
     req.headers.get(ACTIVE_TEAM_HEADER)?.trim() || teamFromCookie(req)?.trim();
-  if (!requested) return resolveDefaultTeam();
+
+  if (!requested) {
+    // No selection. For a member of exactly one team that team is the only
+    // sensible answer, and it beats the configured default, which may be a
+    // team they do not belong to.
+    if (email) {
+      const mine = await teamsForEmail(email);
+      if (mine.length === 1 && mine[0]) return mine[0];
+    }
+    return resolveDefaultTeam();
+  }
 
   const team = await resolveTeamBySlug(requested);
   if (!team) {
     throw new ORPCError("NOT_FOUND", { message: `Unknown team ${requested}` });
   }
+  if (!team.active) {
+    throw new ORPCError("FORBIDDEN", {
+      message: `Jelly team ${team.id} is not active`,
+    });
+  }
+
+  if (email) {
+    const mine = await teamsForEmail(email);
+    if (!mine.some((candidate) => candidate.id === team.id)) {
+      throw new ORPCError("FORBIDDEN", {
+        message: `You are not a member of team ${team.slug}`,
+      });
+    }
+  }
+
   return team;
 }
 

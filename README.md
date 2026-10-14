@@ -117,6 +117,65 @@ After that, manage credentials through the admin API:
 
 No endpoint returns a stored secret.
 
+## jelly rate limits
+
+Jelly publishes two limits, and they do not scale the same way. The
+difference matters as soon as a deployment serves more than one team.
+
+| Limit                   | Scope             | What that means here                                                                      |
+| ----------------------- | ----------------- | ----------------------------------------------------------------------------------------- |
+| **100,000 per day**     | per **team**      | each connected team brings its own budget                                                 |
+| **5,000 per 5 minutes** | per **source IP** | shared across every team on the deployment, because they all egress from the same address |
+
+The daily ceiling lives on `jelly_team.daily_ceiling`, defaulting to 80,000 so
+there is headroom for work Marmalade does not drive. Adding a team adds its
+own 100,000; one team exhausting its budget does not pause another.
+
+The five-minute limit is the one to watch. It is **not** per team, so ten
+teams at 4,000 requests per 5 minutes each would stay under their own
+ceilings and collectively hit a 429 that no per-team gauge predicted. A
+deployment therefore needs an instance-wide five-minute bucket checked on
+every outbound call, and a 429 on that limit has to pause every team rather
+than the one that happened to trip it. That bucket is not implemented yet.
+
+Worth measuring rather than assuming: on a host with rotating egress
+addresses the per-IP limit is pessimistic rather than wrong, so ceilings
+tuned around it should be checked against real numbers.
+
+Marmalade is a read-through mirror, which is what keeps it well under both:
+reads are served from Postgres and only sync and write actions reach Jelly.
+
+## choosing a team
+
+A request acts in exactly one Jelly team, resolved at the context boundary.
+
+| Caller  | How the team is chosen                                                               |
+| ------- | ------------------------------------------------------------------------------------ |
+| API key | the team on the key row; override with `X-Marmalade-Team` if the key is granted more |
+| Webhook | the endpoint, `/api/webhook/jelly/{slug}`                                            |
+| Session | the navbar team switcher, which sets `X-Marmalade-Team` and a matching cookie        |
+
+**Nothing about an existing integration changes.** A key names its team, so a
+request that sends no header behaves exactly as it did before multi-team.
+
+A key can be granted further teams at creation with `teamIds`, and then names
+one per request:
+
+```bash
+curl https://<host>/api/rpc/mailboxes \
+  -H "Authorization: Bearer mrmld_..." \
+  -H "X-Marmalade-Team: haven"
+```
+
+A team the key was not granted is refused with 403 rather than silently
+falling back to its own. A key cannot be granted reach its creator does not
+have: a session can only grant teams it is a staff contact in, and a key
+minting another key can only pass on teams it already holds.
+
+Mailbox scopes are resolved against the active team, because a mailbox id is
+unique within a team and not across teams. Two teams with a mailbox of the
+same name do not share a scope.
+
 ## tasks
 
 **key:** ‼️ = poc-critical
@@ -195,10 +254,14 @@ No endpoint returns a stored secret.
   - [ ] multiple jelly teams
     - [x] credentials per team, encrypted
     - [x] `mailbox` and `jelly_contact` uniqueness fit for more than one team
-    - [ ] `jelly_team_id` on the content tables
-    - [ ] team resolved from the request instead of `JELLY_TEAM_ID`
-    - [ ] per-team webhook endpoints
+    - [x] `jelly_team_id` on the content tables
+    - [x] team resolved from the request instead of `JELLY_TEAM_ID`
+    - [x] per-team webhook endpoints, `/api/webhook/jelly/{slug}`
+    - [x] instance operators, separate from jelly team admins, who onboard teams
+    - [x] team switcher for session users who belong to more than one team
+    - [x] api keys can be granted more than one team and pick one per request
     - [ ] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
+    - [ ] per-team worker fairness in the action drain
     - [ ] row-level security
   - [x] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits

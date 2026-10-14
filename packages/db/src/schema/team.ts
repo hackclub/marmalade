@@ -1,4 +1,11 @@
-import { boolean, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core";
 
 /**
  * A Jelly team Marmalade is connected to, and the credentials it uses to talk
@@ -11,6 +18,17 @@ import { boolean, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core";
  */
 export const jellyTeam = pgTable("jelly_team", {
   id: text("id").notNull().primaryKey(),
+  /**
+   * URL handle, used by the per-team webhook endpoint and the web app's team
+   * switcher.
+   *
+   * Nullable because `db:push` is the deploy path: a `NOT NULL` column with no
+   * default stops the push and takes the deploy with it. `ensureTeamSlug()`
+   * backfills it from the team id on first use, so the column is effectively
+   * required from application code's point of view without being declared so
+   * to the database.
+   */
+  slug: text("slug").unique(),
   /** Display name, as reported by Jelly. Unknown until the first sync. */
   name: text("name"),
   apiBaseUrl: text("api_base_url")
@@ -18,8 +36,24 @@ export const jellyTeam = pgTable("jelly_team", {
     .default("https://app.letsjelly.com"),
   apiTokenEncrypted: text("api_token_encrypted"),
   webhookSecretEncrypted: text("webhook_secret_encrypted"),
+  /**
+   * Jelly's published per-team ceiling is 100,000 requests a day. The default
+   * leaves 20% of headroom for work Marmalade does not drive.
+   *
+   * Per team rather than per deployment because the limit itself is per team:
+   * a second team brings its own budget rather than eating the first's.
+   */
+  dailyCeiling: integer("daily_ceiling").notNull().default(80_000),
   /** Cleared teams are skipped by sync and refuse new work. */
   active: boolean("active").notNull().default(true),
+  /** Set when onboarding stores a validated token for the team. */
+  onboardedAt: timestamp("onboarded_at", { mode: "date" }),
+  /**
+   * Set by the first webhook delivery that verifies against this team's
+   * secret. Until it is set, the mirror is one-way and a misconfigured Jelly
+   * integration looks exactly like a quiet inbox.
+   */
+  firstWebhookAt: timestamp("first_webhook_at", { mode: "date" }),
   credentialsUpdatedAt: timestamp("credentials_updated_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" })

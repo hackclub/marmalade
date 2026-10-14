@@ -6,7 +6,7 @@ import { ORPCError } from "@orpc/server";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import z from "zod";
-import { teamAdminProtectedProcedure } from "../index";
+import { teamAdminProtectedProcedure, teamIdOf, teamOf } from "../index";
 import { credentialHint, seal } from "../lib/crypto";
 import { createJellyClient } from "../lib/jelly";
 import {
@@ -44,11 +44,11 @@ export const teamCredentialsRouter = {
         webhookUrl: z.string(),
       }),
     )
-    .handler(async () => {
+    .handler(async ({ context }) => {
       const [row] = await db
         .select()
         .from(jellyTeam)
-        .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
+        .where(eq(jellyTeam.id, teamIdOf(context)))
         .limit(1);
 
       if (!row) {
@@ -65,7 +65,9 @@ export const teamCredentialsRouter = {
         hasApiToken: Boolean(row.apiTokenEncrypted),
         hasWebhookSecret: Boolean(row.webhookSecretEncrypted),
         credentialsUpdatedAt: row.credentialsUpdatedAt,
-        webhookUrl: `${env.BETTER_AUTH_URL}/api/webhook/jelly`,
+        // The per-team endpoint, because a shared one cannot route a payload
+        // that carries no team identifier.
+        webhookUrl: `${env.BETTER_AUTH_URL}/api/webhook/jelly/${teamOf(context).slug}`,
       };
     }),
 
@@ -108,17 +110,17 @@ export const teamCredentialsRouter = {
         await db
           .update(jellyTeam)
           .set({ apiBaseUrl })
-          .where(eq(jellyTeam.id, env.JELLY_TEAM_ID));
+          .where(eq(jellyTeam.id, teamIdOf(context)));
       }
 
-      const { hint } = await setTeamApiToken(env.JELLY_TEAM_ID, input.token);
+      const { hint } = await setTeamApiToken(teamIdOf(context), input.token);
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "set_api_token",
         resource: "jelly_team",
-        resourceId: env.JELLY_TEAM_ID,
+        resourceId: teamIdOf(context),
         status: "success",
         ipAddress: context.session.session.ipAddress ?? null,
         userAgent: context.session.session.userAgent ?? null,
@@ -149,14 +151,14 @@ export const teamCredentialsRouter = {
     )
     .handler(async ({ context }) => {
       const secret = randomBytes(32).toString("hex");
-      await setTeamWebhookSecret(env.JELLY_TEAM_ID, secret);
+      await setTeamWebhookSecret(teamIdOf(context), secret);
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "rotate_webhook_secret",
         resource: "jelly_team",
-        resourceId: env.JELLY_TEAM_ID,
+        resourceId: teamIdOf(context),
         status: "success",
         ipAddress: context.session.session.ipAddress ?? null,
         userAgent: context.session.session.userAgent ?? null,
@@ -167,7 +169,9 @@ export const teamCredentialsRouter = {
         message:
           "Paste this into Jelly under Settings -> Integrations. It cannot be shown again.",
         secret,
-        webhookUrl: `${env.BETTER_AUTH_URL}/api/webhook/jelly`,
+        // The per-team endpoint, because a shared one cannot route a payload
+        // that carries no team identifier.
+        webhookUrl: `${env.BETTER_AUTH_URL}/api/webhook/jelly/${teamOf(context).slug}`,
       };
     }),
 
@@ -183,16 +187,16 @@ export const teamCredentialsRouter = {
     .output(z.object({ message: z.string(), hint: z.string() }))
     .handler(async ({ input, context }) => {
       const { hint } = await setTeamWebhookSecret(
-        env.JELLY_TEAM_ID,
+        teamIdOf(context),
         input.secret,
       );
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "set_webhook_secret",
         resource: "jelly_team",
-        resourceId: env.JELLY_TEAM_ID,
+        resourceId: teamIdOf(context),
         status: "success",
         ipAddress: context.session.session.ipAddress ?? null,
         userAgent: context.session.session.userAgent ?? null,
@@ -226,7 +230,7 @@ export const teamCredentialsRouter = {
       if (input.apiToken) {
         patch.apiTokenEncrypted = seal(
           input.apiToken,
-          env.JELLY_TEAM_ID,
+          teamIdOf(context),
           API_TOKEN_PURPOSE,
         );
         resealed.push("apiToken");
@@ -234,7 +238,7 @@ export const teamCredentialsRouter = {
       if (input.webhookSecret) {
         patch.webhookSecretEncrypted = seal(
           input.webhookSecret,
-          env.JELLY_TEAM_ID,
+          teamIdOf(context),
           WEBHOOK_SECRET_PURPOSE,
         );
         resealed.push("webhookSecret");
@@ -249,15 +253,15 @@ export const teamCredentialsRouter = {
       await db
         .update(jellyTeam)
         .set(patch)
-        .where(eq(jellyTeam.id, env.JELLY_TEAM_ID));
-      invalidateTeamCredentials(env.JELLY_TEAM_ID);
+        .where(eq(jellyTeam.id, teamIdOf(context)));
+      invalidateTeamCredentials(teamIdOf(context));
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "reseal_credentials",
         resource: "jelly_team",
-        resourceId: env.JELLY_TEAM_ID,
+        resourceId: teamIdOf(context),
         status: "success",
         metadata: { resealed },
       });

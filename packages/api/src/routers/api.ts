@@ -6,7 +6,6 @@ import {
 } from "@marmalade-v2/db/schema/api";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
@@ -17,8 +16,10 @@ import {
   mailboxScopedProcedure,
   publicProcedure,
   teamAdminProtectedProcedure,
+  teamIdOf,
   teamMemberProtectedProcedure,
 } from "../index";
+import { teamsForEmail } from "../lib/team";
 import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
@@ -140,6 +141,7 @@ function aggregateKeys(
       revokedAt: Date | null;
       mailboxIds: string[];
       resourceScopes: string[];
+      teamIds: string[];
       fieldScopes: Array<{ resourceType: string; field: string }>;
       createdByName: string | null;
     }
@@ -156,6 +158,11 @@ function aggregateKeys(
       if (row.scopeResourceType === "router" && row.scopeResourceId) {
         if (!existing.resourceScopes.includes(row.scopeResourceId)) {
           existing.resourceScopes.push(row.scopeResourceId);
+        }
+      }
+      if (row.scopeResourceType === "team" && row.scopeResourceId) {
+        if (!existing.teamIds.includes(row.scopeResourceId)) {
+          existing.teamIds.push(row.scopeResourceId);
         }
       }
       if (row.fieldScopeResourceType && row.fieldScopeField) {
@@ -190,6 +197,10 @@ function aggregateKeys(
           row.scopeResourceType === "router" && row.scopeResourceId
             ? [row.scopeResourceId]
             : [],
+        teamIds:
+          row.scopeResourceType === "team" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
         fieldScopes:
           row.fieldScopeResourceType && row.fieldScopeField
             ? [
@@ -219,6 +230,12 @@ export const apiKeyRouter = {
         description: z.string().optional(),
         mailboxIds: z.array(z.string().min(1)).optional(),
         resourceScopes: z.array(z.string().min(1)).optional(),
+        /**
+         * Further teams this key may act in, named with the active-team
+         * header at request time. The team the key is created under is
+         * always included and is the default.
+         */
+        teamIds: z.array(z.string().min(1)).optional(),
         fieldScopes: z
           .array(
             z.object({
@@ -238,6 +255,7 @@ export const apiKeyRouter = {
         name: z.string(),
         mailboxIds: z.array(z.string()),
         resourceScopes: z.array(z.string()),
+        teamIds: z.array(z.string()),
         fieldScopes: z.array(
           z.object({
             resourceType: z.string(),
@@ -276,8 +294,32 @@ export const apiKeyRouter = {
           : "apiKey" in ctx
             ? `api-key:${ctx.apiKey.id}`
             : "webhook";
-      const teamId =
-        "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
+      const teamId = teamIdOf(ctx);
+
+      // A key cannot be granted reach the person creating it does not have.
+      // For a session that is the teams they are a staff contact in; for a
+      // key minting another key it is the teams that key already holds.
+      const grantedTeamIds = (input.teamIds ?? []).filter(
+        (candidate) => candidate !== teamId,
+      );
+      if (grantedTeamIds.length > 0) {
+        const grantable = new Set(
+          "session" in ctx && ctx.session?.user?.email
+            ? (await teamsForEmail(ctx.session.user.email)).map(
+                (team) => team.id,
+              )
+            : "apiKey" in ctx
+              ? ctx.apiKey.teamIds
+              : [],
+        );
+        for (const candidate of grantedTeamIds) {
+          if (!grantable.has(candidate)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: `Not authorized for team ${candidate}`,
+            });
+          }
+        }
+      }
 
       const uniqueName = await getUniqueKeyName(input.name, teamId);
 
@@ -324,6 +366,14 @@ export const apiKeyRouter = {
         }
       }
 
+      for (const extraTeamId of grantedTeamIds) {
+        scopes.push({
+          apiKeyId: key.id,
+          scopeResourceType: "team",
+          scopeResourceId: extraTeamId,
+        });
+      }
+
       if (scopes.length > 0) {
         await db.insert(apiKeyScope).values(scopes);
       }
@@ -355,6 +405,7 @@ export const apiKeyRouter = {
         name: input.name,
         mailboxIds: targetMailboxIds,
         resourceScopes: input.resourceScopes ?? [],
+        teamIds: [teamId, ...grantedTeamIds],
         fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };
@@ -406,12 +457,12 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(jellyTeamContact.email, userEmail),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
           ),
         );
       const role = result[0]?.role ?? null;
       const isAdmin = role === "admin" || role === "owner";
-      return listKeysForTeam(env.JELLY_TEAM_ID, isAdmin ? undefined : userId);
+      return listKeysForTeam(teamIdOf(context), isAdmin ? undefined : userId);
     }),
 
   revokeTeamKey: teamMemberProtectedProcedure
@@ -425,7 +476,7 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
-            eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
           ),
         );
 
@@ -455,6 +506,67 @@ export const apiKeyRouter = {
       );
 
       return { message: "API key revoked" };
+    }),
+
+  /**
+   * Cut off a key that was granted access to this team but issued by another.
+   *
+   * Revoking is the owning team's call — it would disable the key everywhere,
+   * including in the team that issued it. Dropping the grant is the right
+   * primitive for the team on the receiving end: it ends the access it
+   * controls and leaves the rest of the key alone.
+   */
+  revokeTeamAccess: teamAdminProtectedProcedure
+    .route({ method: "DELETE", path: "/keys/{keyId}/team-access" })
+    .input(z.object({ keyId: z.coerce.number().min(1) }))
+    .output(z.object({ message: z.string() }))
+    .handler(async ({ input, context }) => {
+      const teamId = teamIdOf(context);
+
+      const [key] = await db
+        .select({ jellyTeamId: apiKey.jellyTeamId })
+        .from(apiKey)
+        .where(eq(apiKey.id, input.keyId))
+        .limit(1);
+      if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
+      }
+      if (key.jellyTeamId === teamId) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            "This key belongs to this team. Revoke it instead of dropping " +
+            "its grant.",
+        });
+      }
+
+      const removed = await db
+        .delete(apiKeyScope)
+        .where(
+          and(
+            eq(apiKeyScope.apiKeyId, input.keyId),
+            eq(apiKeyScope.scopeResourceType, "team"),
+            eq(apiKeyScope.scopeResourceId, teamId),
+          ),
+        )
+        .returning({ id: apiKeyScope.id });
+
+      if (removed.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "This key has no access to this team",
+        });
+      }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "revoke_team_access",
+          resourceId: input.keyId.toString(),
+        },
+        { context },
+      );
+
+      return { message: "Team access removed" };
     }),
 
   revoke: mailboxScopedProcedure
@@ -491,6 +603,10 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
+            // Without this a mailbox admin could revoke a key issued to
+            // another team, because a mailbox id is unique within a team
+            // rather than across them.
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
             eq(apiKeyScope.scopeResourceType, "mailbox"),
             eq(apiKeyScope.scopeResourceId, input.mailboxId),
           ),

@@ -6,6 +6,14 @@ import {
 import { ORPCError, call } from "@orpc/server";
 import { createFileRoute } from "@tanstack/react-router";
 
+/**
+ * Legacy single-team webhook endpoint.
+ *
+ * Kept working so an integration already configured in Jelly does not break
+ * on deploy. It can only mean `JELLY_TEAM_ID`: with no slug there is nothing
+ * in the request to tell teams apart. New teams are pointed at
+ * `/api/webhook/jelly/{slug}` instead.
+ */
 async function handleWebhook({ request }: { request: Request }) {
   const rawBody = await request.text();
 

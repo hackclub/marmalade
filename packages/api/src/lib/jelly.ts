@@ -1,4 +1,3 @@
-import { env } from "@marmalade-v2/env/server";
 import { getTeamCredentials } from "./team-credentials";
 
 export interface JellyMember {
@@ -162,9 +161,7 @@ export type { JellyApiClient };
  * `getTeamCredentials` caches the decrypted token keyed on the row's
  * `credentialsUpdatedAt`, so the common path is a single indexed row read.
  */
-export async function getJellyClient(
-  teamId: string = env.JELLY_TEAM_ID,
-): Promise<JellyApiClient> {
+export async function getJellyClient(teamId: string): Promise<JellyApiClient> {
   const credentials = await getTeamCredentials(teamId);
 
   if (!credentials.active) {

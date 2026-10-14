@@ -19,8 +19,8 @@ import {
   checkRouterScope,
   filterFieldsByScope,
   mailboxScopedProcedure,
-  publicProcedure,
   requireMailboxAccess,
+  sessionOrInternalProcedure,
   teamAdminProtectedProcedure,
   teamIdOf,
   teamIdOrDefault,
@@ -640,7 +640,7 @@ export const mailboxRouter = {
       );
       return { message: "Mailbox created successfully" };
     }),
-  resync: publicProcedure
+  resync: sessionOrInternalProcedure
     .route({ method: "POST", path: "/mailboxes/resync" })
     .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {

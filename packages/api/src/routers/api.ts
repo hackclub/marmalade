@@ -9,7 +9,7 @@ import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { ORPCError } from "@orpc/client";
 import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import z from "zod";
 import { hashSecret } from "../context";
 import {
@@ -665,6 +665,22 @@ export const apiKeyRouter = {
         .where(eq(apiKey.keyPrefix, keyPrefix));
 
       if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
+      }
+
+      // This route is deliberately unauthenticated: presenting the key is
+      // the proof. So the whole key has to be checked. Matching the prefix
+      // alone meant the eight characters Marmalade prints next to every key
+      // in the UI were enough to revoke it, which turns a non-secret
+      // identifier into a remote off switch for anyone who has seen it.
+      const providedHash = Buffer.from(hashSecret(rawKey), "utf-8");
+      const storedHash = Buffer.from(key.secretHash, "utf-8");
+      if (
+        providedHash.length !== storedHash.length ||
+        !timingSafeEqual(providedHash, storedHash)
+      ) {
+        // Same answer as an unknown prefix: a wrong secret must not confirm
+        // that the prefix was right.
         throw new ORPCError("NOT_FOUND", { message: "API key not found" });
       }
 

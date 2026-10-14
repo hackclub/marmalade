@@ -7,7 +7,7 @@ import z from "zod";
 
 import { eq } from "drizzle-orm";
 import {
-  publicProcedure,
+  sessionOrInternalProcedure,
   teamAdminProtectedProcedure,
   teamIdOf,
 } from "../index";
@@ -19,7 +19,7 @@ export const auditRouter = {
       .from(auditLog)
       .where(eq(auditLog.jellyTeamId, teamIdOf(context)));
   }),
-  create: publicProcedure
+  create: sessionOrInternalProcedure
     .input(
       z.object({
         resource: z.string().min(1),

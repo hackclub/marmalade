@@ -2,7 +2,7 @@ import { createAuthContext } from "@marmalade-v2/api/context";
 import {
   ACTIVE_TEAM_COOKIE,
   ACTIVE_TEAM_HEADER,
-} from "@marmalade-v2/api/lib/team";
+} from "@marmalade-v2/api/lib/team-cookie";
 import { appRouter } from "@marmalade-v2/api/routers/index";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";

@@ -4,6 +4,7 @@ import { jellyTeam, jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { ACTIVE_TEAM_COOKIE, ACTIVE_TEAM_HEADER } from "./team-cookie";
 
 /**
  * The one team a request acts on, resolved once at the context boundary.
@@ -25,6 +26,11 @@ export type ResolvedTeam = {
 };
 
 export type TeamContext = { team: ResolvedTeam };
+
+// Re-exported so server code has one import for all of this. The browser
+// must import them from `./team-cookie` directly: this module reaches the
+// database and the server environment.
+export { ACTIVE_TEAM_COOKIE, ACTIVE_TEAM_HEADER };
 
 const SLUG_MAX_LENGTH = 48;
 
@@ -174,22 +180,6 @@ export async function resolveDefaultTeam(): Promise<ResolvedTeam> {
           `${ACTIVE_TEAM_HEADER} header.`,
   });
 }
-
-/**
- * Header a session-authenticated client uses to say which team it is looking
- * at. API keys do not need it — the key row already names its team — so the
- * public API is unchanged by multi-team.
- */
-export const ACTIVE_TEAM_HEADER = "x-marmalade-team";
-
-/**
- * Cookie carrying the same value.
- *
- * The header covers client-side RPC calls, but a server-rendered navigation
- * is a plain document request with no chance to set one, so the switcher
- * would silently stop working on reload. A cookie travels on both.
- */
-export const ACTIVE_TEAM_COOKIE = "marmalade_team";
 
 function teamFromCookie(req: Request): string | null {
   const header = req.headers.get("cookie");

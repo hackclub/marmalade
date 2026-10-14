@@ -13,6 +13,7 @@ import { randomBytes } from "node:crypto";
 import z from "zod";
 import { hashSecret } from "../context";
 import {
+  isInstanceAdmin,
   mailboxScopedProcedure,
   publicProcedure,
   teamAdminProtectedProcedure,
@@ -434,8 +435,17 @@ export const apiKeyRouter = {
         });
       }
 
-      const teamId = "apiKey" in ctx ? ctx.apiKey.jellyTeamId : "";
-      const isAdmin = ctx.role === "admin" || ctx.role === "owner";
+      // Was `"apiKey" in ctx ? ctx.apiKey.jellyTeamId : ""`, so a session
+      // caller filtered the list on an empty team id and this route returned
+      // nothing at all to the web app.
+      const teamId = teamIdOf(ctx);
+      const isAdmin =
+        ctx.role === "admin" ||
+        ctx.role === "owner" ||
+        // An operator administers teams they hold no Jelly role in, so
+        // "admin of this team" has to include them or they see only the
+        // keys they happen to have created themselves.
+        ctx.role === "instance";
       const createdBy =
         "session" in ctx && ctx.session?.user?.id
           ? isAdmin
@@ -461,7 +471,10 @@ export const apiKeyRouter = {
           ),
         );
       const role = result[0]?.role ?? null;
-      const isAdmin = role === "admin" || role === "owner";
+      const isAdmin =
+        role === "admin" ||
+        role === "owner" ||
+        isInstanceAdmin(context.session?.user);
       return listKeysForTeam(teamIdOf(context), isAdmin ? undefined : userId);
     }),
 

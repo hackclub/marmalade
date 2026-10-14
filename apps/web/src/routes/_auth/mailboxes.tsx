@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MemberCard } from "./team";
 
+import { canAdministerTeam } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/_auth/mailboxes")({
@@ -120,7 +121,7 @@ function MailboxCard({
 
       <div className="flex flex-row items-center justify-end gap-2">
         {!mailbox.marmaladeMailbox ? (
-          teamMember.role == "owner" || teamMember.role == "admin" ? (
+          canAdministerTeam(teamMember.role) ? (
             <Button onClick={handleCreateMailbox} variant="outline">
               🍊 Link
             </Button>
@@ -139,7 +140,7 @@ function MailboxCard({
           </Button>
         )}
 
-        {teamMember.role == "owner" || teamMember.role == "admin" ? (
+        {canAdministerTeam(teamMember.role) ? (
           <>
             {mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? (
               <Button onClick={handleDeactivateMailbox} variant="outline">
@@ -192,7 +193,7 @@ function MailboxCard({
                 }
                 extraActions={
                   member.marmalade ? (
-                    teamMember.role == "owner" || teamMember.role == "admin" ? (
+                    canAdministerTeam(teamMember.role) ? (
                       mailbox.marmaladeMailbox.members.find(
                         (m: any) => m.jelly.id == member.jelly.id,
                       ) ? (

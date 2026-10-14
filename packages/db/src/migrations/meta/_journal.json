@@ -43,6 +43,13 @@
       "when": 1791204882008,
       "tag": "0005_team_credentials",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791204908044,
+      "tag": "0006_multi_team_prep",
+      "breakpoints": true
     }
   ]
 }

@@ -539,12 +539,41 @@ export const mailboxRouter = {
       const mailbox = await db
         .select()
         .from(jellyMailbox)
-        .where(eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId));
-      if (!mailbox) {
+        .where(
+          and(
+            eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, env.JELLY_TEAM_ID),
+          ),
+        );
+      // `db.select()` resolves to an array, so the previous `!mailbox` check
+      // was always false and a Marmalade mailbox could be created for a Jelly
+      // mailbox that does not exist.
+      if (mailbox.length === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
         });
       }
+
+      // Nothing stopped this handler creating a second row for the same Jelly
+      // mailbox, which is how the duplicates this branch adds a constraint for
+      // came about. Answer clearly rather than letting the constraint surface
+      // as a raw database error.
+      const existing = await db
+        .select({ id: marmaladeMailbox.id })
+        .from(marmaladeMailbox)
+        .where(
+          and(
+            eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, env.JELLY_TEAM_ID),
+          ),
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        throw new ORPCError("CONFLICT", {
+          message: "This mailbox is already managed by Marmalade",
+        });
+      }
+
       const newMailbox = await db
         .insert(marmaladeMailbox)
         .values({
@@ -554,6 +583,7 @@ export const mailboxRouter = {
           jellyTeamId: env.JELLY_TEAM_ID,
           active: true,
         })
+        .onConflictDoNothing()
         .returning({ id: marmaladeMailbox.id });
       await call(
         auditRouter.create,

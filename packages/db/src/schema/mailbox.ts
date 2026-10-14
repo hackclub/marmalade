@@ -40,16 +40,23 @@ export const jellyMailboxMember = pgTable("jelly_mailbox_member", {
     .references(() => jellyTeam.id, { onDelete: "cascade" }),
 });
 
-export const marmaladeMailbox = pgTable("mailbox", {
-  id: serial("id").primaryKey(),
-  jellyMailboxId: text("jelly_mailbox_id").notNull(),
-  jellyTeamId: text("jelly_team_id")
-    .notNull()
-    .references(() => jellyTeam.id, { onDelete: "cascade" }),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-  active: boolean("active").notNull().default(true),
-});
+export const marmaladeMailbox = pgTable(
+  "mailbox",
+  {
+    id: serial("id").primaryKey(),
+    jellyMailboxId: text("jelly_mailbox_id").notNull(),
+    jellyTeamId: text("jelly_team_id")
+      .notNull()
+      .references(() => jellyTeam.id, { onDelete: "cascade" }),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    active: boolean("active").notNull().default(true),
+  },
+  // Without this, two rows could describe the same Jelly mailbox and every
+  // lookup that does `.limit(1)` would pick one arbitrarily — including the
+  // one that decides whether the mailbox is active.
+  (t) => [unique().on(t.jellyMailboxId, t.jellyTeamId)],
+);
 
 export const marmaladeMailboxMember = pgTable("mailbox_member", {
   id: serial("id").primaryKey(),

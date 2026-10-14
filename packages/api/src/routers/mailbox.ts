@@ -26,6 +26,7 @@ import {
   teamIdOrDefault,
   teamMemberProtectedProcedure,
 } from "../index";
+import { canAdministerTeam } from "../lib/roles";
 import { backfillTeamIds, ensureTeamSlug } from "../lib/team";
 import { mailboxListItemSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
@@ -405,6 +406,57 @@ export const mailboxRouter = {
           message: "User is not authenticated",
         });
       }
+
+      // Everyone else's list is built from the mailboxes they are a Jelly
+      // member of, which is right for a member and wrong for an admin: it
+      // hides every mailbox nobody has joined, including all of them in a
+      // team that has just been connected. The admin cannot then register
+      // one, because the control to do that lives on the row that is not
+      // shown. Admins get the team's mailboxes instead, registered or not.
+      if (canAdministerTeam(context.role)) {
+        const rows = await db
+          .select({
+            jelly_mailbox: jellyMailbox,
+            mailbox: marmaladeMailbox,
+            jellyMemberCount: sql<number>`coalesce((
+              select count(*)::int from ${jellyMailboxMember}
+              where ${jellyMailboxMember.jellyMailboxId} = ${jellyMailbox.jellyMailboxId}
+                and ${jellyMailboxMember.jellyTeamId} = ${jellyMailbox.jellyTeamId}
+            ), 0)`,
+            marmaladeMemberCount: sql<number>`coalesce((
+              select count(*)::int from ${marmaladeMailboxMember}
+              where ${marmaladeMailboxMember.marmaladeMailboxId} = ${marmaladeMailbox.id}
+            ), 0)`,
+          })
+          .from(jellyMailbox)
+          // Left, not inner: an unregistered mailbox is exactly the one an
+          // admin needs to see.
+          .leftJoin(
+            marmaladeMailbox,
+            and(
+              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+            ),
+          )
+          .where(eq(jellyMailbox.jellyTeamId, teamIdOf(context)));
+
+        return rows.map((row) => ({
+          jellyMailbox: {
+            ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
+            memberCount: row.jellyMemberCount,
+            members: [],
+          },
+          marmaladeMailbox: row.mailbox
+            ? {
+                ...filterFieldsByScope(context, "mailbox", row.mailbox),
+                memberCount: row.marmaladeMemberCount,
+                members: [],
+              }
+            : null,
+          marmaladeMailboxMembership: null,
+        }));
+      }
+
       const results = ((await db
         .select({
           jellyMailbox: jellyMailbox,

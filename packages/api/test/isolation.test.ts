@@ -136,12 +136,10 @@ describe("mailbox handlers keyed by the surrogate id", () => {
 
 describe("an instance operator is not limited by Jelly membership", () => {
   it("reads a team they hold no role in", async () => {
-    const context = {
-      ...(await sessionContext(
-        { id: "user-operator", email: "operator@example.com", name: "Op" },
-        BETA,
-      )),
-    } as { session: { user: Record<string, unknown> } };
+    const context = (await sessionContext(
+      { id: "user-operator", email: "operator@example.com", name: "Op" },
+      BETA,
+    )) as unknown as { session: { user: Record<string, unknown> } };
     context.session.user.role = "admin";
 
     const rows = await call(

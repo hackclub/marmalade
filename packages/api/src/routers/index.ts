@@ -12,6 +12,7 @@ import {
 } from "../index";
 import { teamMemberSchema } from "../schemas/output";
 import { apiKeyRouter } from "./api";
+import { auditRouter } from "./audit";
 import { conversationRouter } from "./convo";
 import { instanceRouter } from "./instance";
 import { mailboxRouter } from "./mailbox";
@@ -86,6 +87,10 @@ export const appRouter = {
       });
     }),
 
+  // Only `list`. `audit.create` is written to by handlers through `call()`
+  // and has no business being reachable from outside: mounting it would put
+  // a writer for the record of everything else on the public router.
+  audit: { list: auditRouter.list },
   mailbox: mailboxRouter,
   team: teamRouter,
   instance: instanceRouter,

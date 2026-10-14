@@ -1,4 +1,4 @@
-import { canAdministerTeam } from "@/lib/roles";
+import { canAdministerTeam, roleLabel } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 import {
   apiKeySchema,
@@ -714,7 +714,7 @@ function KeysRoute() {
         <CardHeader className="items-center justify-between">
           <CardTitle>Your API Keys</CardTitle>
           <CardDescription>
-            View and manage your keys as a <u>team {teamMember.role}</u>
+            View and manage your keys as <u>{roleLabel(teamMember.role)}</u>
           </CardDescription>
           <CardAction>
             <CreateKeyDialog

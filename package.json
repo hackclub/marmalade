@@ -10,6 +10,7 @@
     "dev": "turbo dev",
     "build": "turbo build",
     "check-types": "turbo check-types",
+    "test": "turbo test",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
@@ -44,7 +45,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "turbo": "^2.10.7",
     "typescript": "catalog:",
-    "typescript-eslint": "^8.65.0"
+    "typescript-eslint": "^8.65.0",
+    "vitest": "^5.0.4"
   },
   "packageManager": "pnpm@11.3.0"
 }

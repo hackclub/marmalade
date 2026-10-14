@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # `--frozen-lockfile` on purpose: a lockfile that does not match
+      # package.json fails here rather than during a deploy, which is how the
+      # dependency drift that broke a Vercel build got found last time.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Types
+        run: pnpm check-types
+
+      # The tests spin up PGlite, which is Postgres compiled to WebAssembly,
+      # so no service container and no database credentials are needed.
+      - name: Tests
+        run: pnpm test
+
+      # A green type check is not a working page: the bundle that broke
+      # production type-checked and built cleanly, and only failed when a
+      # browser evaluated it.
+      - name: Build
+        run: pnpm build
+        env:
+          SKIP_ENV_VALIDATION: "1"
+
+      # Nothing that reaches the browser may reference `process`, which only
+      # exists on the server. This is the check that would have caught it.
+      - name: No server globals in the client bundle
+        run: |
+          if grep -rl "process\.env" apps/web/.output/public; then
+            echo "::error::A client chunk references process.env — a server-only module reached the browser bundle."
+            exit 1
+          fi
+          echo "No client chunk references process.env."

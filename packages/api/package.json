@@ -12,7 +12,10 @@
       "default": "./src/schemas/index.ts"
     }
   },
-  "scripts": {},
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
   "dependencies": {
     "@marmalade-v2/auth": "workspace:*",
     "@marmalade-v2/db": "workspace:*",
@@ -27,7 +30,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
     "@marmalade-v2/config": "workspace:*",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "^5.0.4"
   }
 }

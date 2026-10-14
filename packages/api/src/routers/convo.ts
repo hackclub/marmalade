@@ -89,6 +89,7 @@ const commentSortFields = {
 async function requireConversationInMailbox(
   conversationId: string,
   jellyMailboxId: string,
+  jellyTeamId: string,
 ) {
   const [row] = await db
     .select({ conversationId: conversationMailbox.conversationId })
@@ -97,6 +98,10 @@ async function requireConversationInMailbox(
       and(
         eq(conversationMailbox.conversationId, conversationId),
         eq(conversationMailbox.jellyMailboxId, jellyMailboxId),
+        // A mailbox id is unique within a team, not across teams. Without
+        // this, two teams with a mailbox of the same name would resolve each
+        // other's conversations.
+        eq(conversationMailbox.jellyTeamId, jellyTeamId),
       ),
     )
     .limit(1);
@@ -318,6 +323,7 @@ export const conversationRouter = {
         await requireConversationInMailbox(
           input.conversationId,
           input.mailboxId,
+          teamIdOf(context),
         );
 
         const rows = await db
@@ -373,6 +379,7 @@ export const conversationRouter = {
 
         const conditions = [
           eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+          eq(conversationMailbox.jellyTeamId, teamIdOf(context)),
         ];
 
         if (input.status) {
@@ -457,6 +464,7 @@ export const conversationRouter = {
             and(
               eq(conversation.id, input.conversationId),
               eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+              eq(conversationMailbox.jellyTeamId, teamIdOf(context)),
             ),
           )
           .limit(1);
@@ -632,6 +640,7 @@ export const conversationRouter = {
         await requireConversationInMailbox(
           input.conversationId,
           input.mailboxId,
+          teamIdOf(context),
         );
 
         const conditions = [eq(message.conversationId, input.conversationId)];
@@ -688,6 +697,7 @@ export const conversationRouter = {
             and(
               eq(message.id, input.messageId),
               eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+              eq(conversationMailbox.jellyTeamId, teamIdOf(context)),
             ),
           )
           .limit(1);
@@ -785,6 +795,7 @@ export const conversationRouter = {
         await requireConversationInMailbox(
           input.conversationId,
           input.mailboxId,
+          teamIdOf(context),
         );
 
         const conditions = [eq(comment.conversationId, input.conversationId)];
@@ -841,6 +852,7 @@ export const conversationRouter = {
             and(
               eq(comment.id, input.commentId),
               eq(conversationMailbox.jellyMailboxId, input.mailboxId),
+              eq(conversationMailbox.jellyTeamId, teamIdOf(context)),
             ),
           )
           .limit(1);

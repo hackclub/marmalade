@@ -19,6 +19,7 @@ import {
   teamIdOf,
   teamMemberProtectedProcedure,
 } from "../index";
+import { teamsForEmail } from "../lib/team";
 import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
@@ -140,6 +141,7 @@ function aggregateKeys(
       revokedAt: Date | null;
       mailboxIds: string[];
       resourceScopes: string[];
+      teamIds: string[];
       fieldScopes: Array<{ resourceType: string; field: string }>;
       createdByName: string | null;
     }
@@ -156,6 +158,11 @@ function aggregateKeys(
       if (row.scopeResourceType === "router" && row.scopeResourceId) {
         if (!existing.resourceScopes.includes(row.scopeResourceId)) {
           existing.resourceScopes.push(row.scopeResourceId);
+        }
+      }
+      if (row.scopeResourceType === "team" && row.scopeResourceId) {
+        if (!existing.teamIds.includes(row.scopeResourceId)) {
+          existing.teamIds.push(row.scopeResourceId);
         }
       }
       if (row.fieldScopeResourceType && row.fieldScopeField) {
@@ -190,6 +197,10 @@ function aggregateKeys(
           row.scopeResourceType === "router" && row.scopeResourceId
             ? [row.scopeResourceId]
             : [],
+        teamIds:
+          row.scopeResourceType === "team" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
         fieldScopes:
           row.fieldScopeResourceType && row.fieldScopeField
             ? [
@@ -219,6 +230,12 @@ export const apiKeyRouter = {
         description: z.string().optional(),
         mailboxIds: z.array(z.string().min(1)).optional(),
         resourceScopes: z.array(z.string().min(1)).optional(),
+        /**
+         * Further teams this key may act in, named with the active-team
+         * header at request time. The team the key is created under is
+         * always included and is the default.
+         */
+        teamIds: z.array(z.string().min(1)).optional(),
         fieldScopes: z
           .array(
             z.object({
@@ -238,6 +255,7 @@ export const apiKeyRouter = {
         name: z.string(),
         mailboxIds: z.array(z.string()),
         resourceScopes: z.array(z.string()),
+        teamIds: z.array(z.string()),
         fieldScopes: z.array(
           z.object({
             resourceType: z.string(),
@@ -277,6 +295,31 @@ export const apiKeyRouter = {
             ? `api-key:${ctx.apiKey.id}`
             : "webhook";
       const teamId = teamIdOf(ctx);
+
+      // A key cannot be granted reach the person creating it does not have.
+      // For a session that is the teams they are a staff contact in; for a
+      // key minting another key it is the teams that key already holds.
+      const grantedTeamIds = (input.teamIds ?? []).filter(
+        (candidate) => candidate !== teamId,
+      );
+      if (grantedTeamIds.length > 0) {
+        const grantable = new Set(
+          "session" in ctx && ctx.session?.user?.email
+            ? (await teamsForEmail(ctx.session.user.email)).map(
+                (team) => team.id,
+              )
+            : "apiKey" in ctx
+              ? ctx.apiKey.teamIds
+              : [],
+        );
+        for (const candidate of grantedTeamIds) {
+          if (!grantable.has(candidate)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: `Not authorized for team ${candidate}`,
+            });
+          }
+        }
+      }
 
       const uniqueName = await getUniqueKeyName(input.name, teamId);
 
@@ -323,6 +366,14 @@ export const apiKeyRouter = {
         }
       }
 
+      for (const extraTeamId of grantedTeamIds) {
+        scopes.push({
+          apiKeyId: key.id,
+          scopeResourceType: "team",
+          scopeResourceId: extraTeamId,
+        });
+      }
+
       if (scopes.length > 0) {
         await db.insert(apiKeyScope).values(scopes);
       }
@@ -354,6 +405,7 @@ export const apiKeyRouter = {
         name: input.name,
         mailboxIds: targetMailboxIds,
         resourceScopes: input.resourceScopes ?? [],
+        teamIds: [teamId, ...grantedTeamIds],
         fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };

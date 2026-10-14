@@ -12,6 +12,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import {
+  ACTIVE_TEAM_HEADER,
   resolveTeamById,
   resolveTeamBySlug,
   resolveTeamFromRequest,
@@ -34,7 +35,20 @@ export async function createAuthContext({ req }: { req: Request }) {
   // useful "no team resolved" from whatever handler ran next.
   let team: ResolvedTeam | null = null;
   try {
-    team = await resolveTeamFromRequest(req, session?.user.email);
+    const user = session?.user as { role?: string | null } | undefined;
+    const breakGlass = (env.BETTER_AUTH_ADMIN_USER_IDS ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const isInstanceAdmin =
+      user?.role === "admin" ||
+      (session?.user.id ? breakGlass.includes(session.user.id) : false);
+
+    team = await resolveTeamFromRequest(
+      req,
+      session?.user.email,
+      isInstanceAdmin,
+    );
   } catch (error) {
     if (error instanceof ORPCError && error.code !== "BAD_REQUEST") throw error;
     team = null;
@@ -72,7 +86,14 @@ type MarmaladeApiKeyContext = {
     mailboxIds: string[];
     resourceScopes: string[];
     fieldScopes: Array<{ resourceType: string; field: string }>;
+    /** The team the key was issued for, and its default. */
     jellyTeamId: string;
+    /**
+     * Every team the key may act in: the one it was issued for, plus any
+     * granted explicitly with a `team` scope. A request picks among these
+     * with the active-team header; anything else is refused.
+     */
+    teamIds: string[];
   };
 };
 
@@ -300,6 +321,9 @@ export async function createApiKeyContext({
 
   const mailboxIds: string[] = [];
   const resourceScopes: string[] = [];
+  // The issuing team is always allowed, so a single-team key needs no scope
+  // row and nothing about an existing key changes.
+  const teamIds: string[] = [keyRow.jellyTeamId];
   const fieldScopes: Array<{ resourceType: string; field: string }> = [];
 
   for (const row of rows) {
@@ -315,6 +339,12 @@ export async function createApiKeyContext({
       !resourceScopes.includes(row.scopeResourceId)
     ) {
       resourceScopes.push(row.scopeResourceId);
+    }
+    if (
+      row.scopeResourceType === "team" &&
+      !teamIds.includes(row.scopeResourceId)
+    ) {
+      teamIds.push(row.scopeResourceId);
     }
     if (row.fieldScopeResourceType && row.fieldScopeField) {
       if (
@@ -337,10 +367,31 @@ export async function createApiKeyContext({
     .set({ lastUsedAt: new Date() })
     .where(eq(apiKey.id, keyRow.id));
 
-  // The key row already names its team, which is why the public API needs no
-  // team segment and no new header: existing integrations keep working
-  // unchanged under multi-team.
-  const team = await resolveTeamById(keyRow.jellyTeamId);
+  // The key row names a team, so a request that says nothing keeps behaving
+  // exactly as it did before multi-team: no new header, no new path segment,
+  // every existing integration unchanged.
+  //
+  // A key granted `team` scopes may name one of them instead, which is how a
+  // single integration serves several teams without holding several keys.
+  const requested = req.headers.get(ACTIVE_TEAM_HEADER)?.trim();
+  let team: ResolvedTeam | null;
+
+  if (requested) {
+    team = await resolveTeamBySlug(requested);
+    if (!team) {
+      throw new ORPCError("NOT_FOUND", {
+        message: `Unknown team ${requested}`,
+      });
+    }
+    if (!teamIds.includes(team.id)) {
+      throw new ORPCError("FORBIDDEN", {
+        message: `This API key is not authorized for team ${team.slug}`,
+      });
+    }
+  } else {
+    team = await resolveTeamById(keyRow.jellyTeamId);
+  }
+
   if (!team) {
     throw new ORPCError("UNAUTHORIZED", {
       message: "API key belongs to a team that is no longer connected",
@@ -362,6 +413,7 @@ export async function createApiKeyContext({
       resourceScopes,
       fieldScopes,
       jellyTeamId: keyRow.jellyTeamId,
+      teamIds,
     },
   };
 }

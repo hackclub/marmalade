@@ -237,6 +237,12 @@ export async function teamsForEmail(email: string): Promise<ResolvedTeam[]> {
 export async function resolveTeamFromRequest(
   req: Request,
   email?: string | null,
+  /**
+   * Instance operators may select any connected team. They onboard teams
+   * they are not members of, and would otherwise be unable to open the one
+   * they just created to check it worked.
+   */
+  isInstanceAdmin = false,
 ): Promise<ResolvedTeam> {
   const requested =
     req.headers.get(ACTIVE_TEAM_HEADER)?.trim() || teamFromCookie(req)?.trim();
@@ -262,7 +268,7 @@ export async function resolveTeamFromRequest(
     });
   }
 
-  if (email) {
+  if (email && !isInstanceAdmin) {
     const mine = await teamsForEmail(email);
     if (!mine.some((candidate) => candidate.id === team.id)) {
       throw new ORPCError("FORBIDDEN", {

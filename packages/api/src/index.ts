@@ -7,7 +7,7 @@ import {
 } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type {
   ApiKeyContext,
   AppContext,
@@ -235,7 +235,32 @@ export const mailboxScopedProcedure = authO
     const team = await teamForContext(context);
 
     if ("apiKey" in context) {
-      allowedMailboxIds = context.apiKey.mailboxIds;
+      // A mailbox id is unique within a team, not across teams, so a key's
+      // mailbox scopes cannot be taken at face value once the key can act in
+      // more than one team: two teams with a mailbox of the same name would
+      // otherwise share the scope. Intersect with the mailboxes Marmalade
+      // actually manages for the active team.
+      if (context.apiKey.mailboxIds.includes("*")) {
+        allowedMailboxIds = ["*"];
+      } else if (context.apiKey.teamIds.length < 2) {
+        allowedMailboxIds = context.apiKey.mailboxIds;
+      } else if (context.apiKey.mailboxIds.length === 0) {
+        allowedMailboxIds = [];
+      } else {
+        const rows = await db
+          .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
+          .from(marmaladeMailbox)
+          .where(
+            and(
+              eq(marmaladeMailbox.jellyTeamId, teamIdOf({ team })),
+              inArray(
+                marmaladeMailbox.jellyMailboxId,
+                context.apiKey.mailboxIds,
+              ),
+            ),
+          );
+        allowedMailboxIds = rows.map((row) => row.jellyMailboxId);
+      }
     } else if ("session" in context && !!context.session) {
       const teamMember = await db
         .select({ role: jellyTeamContact.role })

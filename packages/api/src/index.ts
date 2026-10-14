@@ -160,6 +160,15 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;
     const team = await teamForContext(context);
+
+    // An instance operator holds no Jelly role in a team they onboarded, and
+    // already holds that team's credentials. Refusing them here would mean
+    // the person responsible for a team is the one person who cannot
+    // administer it.
+    if (isInstanceAdmin(context.session.user)) {
+      return next({ context: { ...context, team, role: "instance" } });
+    }
+
     let role;
     try {
       const teamMember = await db
@@ -193,6 +202,11 @@ export const teamMemberProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;
     const team = await teamForContext(context);
+
+    if (isInstanceAdmin(context.session.user)) {
+      return next({ context: { ...context, team, role: "instance" } });
+    }
+
     let role;
     try {
       const teamMember = await db
@@ -257,6 +271,15 @@ export const mailboxScopedProcedure = authO
           );
         allowedMailboxIds = rows.map((row) => row.jellyMailboxId);
       }
+    } else if (
+      "session" in context &&
+      !!context.session &&
+      isInstanceAdmin(context.session.user)
+    ) {
+      // Same reasoning as the role gates: an operator administers teams they
+      // hold no Jelly role in, so mailbox membership cannot be the limit.
+      allowedMailboxIds = ["*"];
+      role = "instance";
     } else if ("session" in context && !!context.session) {
       const teamMember = await db
         .select({ role: jellyTeamContact.role })

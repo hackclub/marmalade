@@ -10,7 +10,7 @@ import {
   isInstanceAdmin,
   jellyWebhookProcedure,
   protectedProcedure,
-  publicProcedure,
+  sessionOrInternalProcedure,
   teamIdOf,
   teamIdOrDefault,
 } from "..";
@@ -274,7 +274,7 @@ export const teamRouter = {
         marmalade: result[0]?.marmalade ?? null,
       };
     }),
-  resync: publicProcedure
+  resync: sessionOrInternalProcedure
     .route({ method: "POST", path: "/resync" })
     .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {

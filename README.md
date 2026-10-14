@@ -246,6 +246,7 @@ same name do not share a scope.
   - [ ] admins should not be able to mutate owners
   - [ ] standardized key prefix
     - [ ] [revokability](https://revoke.hackclub.com))
+      - [x] `POST /revoke` checks the whole key, not just its printed prefix
   - [x] jelly credentials encrypted at rest in `jelly_team`, not in env
   - [x] rotate the jelly api token and webhook secret without a redeploy
   - [x] enforce mailbox scoping on conversation/message/comment reads

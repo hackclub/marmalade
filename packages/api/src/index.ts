@@ -135,6 +135,52 @@ export const apiKeyOrSessionOrWebhookProcedure = authOrApiKeyOrWebhookO.use(
 );
 
 export const protectedProcedure = publicProcedure.use(requireAuth);
+
+/**
+ * Marks a context built by Marmalade itself rather than by a request.
+ *
+ * The Better Auth signup hook invokes routers through `call()`, with no
+ * request and so no session. Those handlers used `publicProcedure`, which
+ * does not mean "internal" — it means no caller is checked at all, and every
+ * oRPC procedure is reachable over HTTP whether or not it declares a route.
+ *
+ * A context creator never produces this flag, so it cannot be set from
+ * outside.
+ */
+export const INTERNAL_CONTEXT = { internal: true } as const;
+
+/**
+ * Some authenticated caller, or Marmalade calling itself.
+ *
+ * For handlers that do real work but have no single kind of caller: the
+ * resyncs, which spend Jelly's rate-limited quota, and audit writes, which
+ * are worthless if anyone can forge them. Both are reached by sessions, by
+ * API keys, by the webhook, and by the signup hook.
+ *
+ * The point is only that *somebody* is identified. Anonymous is what these
+ * were, and anonymous is what they must not be.
+ */
+export const sessionOrInternalProcedure = publicProcedure.use(
+  async ({ context, next }) => {
+    const candidate = context as {
+      internal?: boolean;
+      session?: { user?: unknown } | null;
+      apiKey?: unknown;
+      rawBody?: unknown;
+    };
+
+    const identified =
+      candidate.internal === true ||
+      Boolean(candidate.session?.user) ||
+      Boolean(candidate.apiKey) ||
+      candidate.rawBody !== undefined;
+
+    if (!identified) {
+      throw new ORPCError("UNAUTHORIZED");
+    }
+    return next({ context });
+  },
+);
 export const authOrWebhookProtectedProcedure =
   authOrWebhookProcedure.use(requireAuthOrWebhook);
 /**

@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
+import { canAdministerTeam } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_auth/team")({
@@ -66,7 +67,7 @@ export function MemberCard({
           <Button disabled variant="outline">
             🍊 Invite
           </Button>
-        ) : teamMemberRole == "owner" || teamMemberRole == "admin" ? (
+        ) : canAdministerTeam(teamMemberRole) ? (
           <>
             <Button disabled variant="outline">
               💤 Deactivate

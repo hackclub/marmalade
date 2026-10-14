@@ -5,6 +5,7 @@ import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
 import {
+  isInstanceAdmin,
   publicProcedure,
   teamIdOf,
   teamMemberProtectedProcedure,
@@ -60,12 +61,29 @@ export const appRouter = {
           ),
         );
 
-      if (!teamMember || teamMember.length === 0 || !teamMember[0]) {
-        throw new ORPCError("UNAUTHORIZED", {
-          message: "User is not a member of the team",
-        });
+      if (teamMember[0]) return teamMember[0];
+
+      // The `_auth` layout calls this on every navigation and redirects to
+      // the login page when it fails, so an operator who selected a team
+      // they hold no Jelly role in was bounced out of the whole app rather
+      // than shown the team they had just connected.
+      if (isInstanceAdmin(context.session?.user)) {
+        return {
+          id: context.session!.user.id,
+          name: context.session!.user.name,
+          email: context.session!.user.email,
+          role: "instance",
+          active: true,
+          jellyTeamId: teamIdOf(context),
+          existsInJelly: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
       }
-      return teamMember[0];
+
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "User is not a member of the team",
+      });
     }),
 
   mailbox: mailboxRouter,

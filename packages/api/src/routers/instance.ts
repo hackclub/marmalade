@@ -69,6 +69,58 @@ export const instanceRouter = {
     }),
 
   /**
+   * Try a token against Jelly without storing anything.
+   *
+   * Onboarding already validates, but it validates at the moment it writes,
+   * so a typo is discovered as a failed submission with a stored slug and a
+   * half-made decision behind it. Checking first makes the reachable thing
+   * visible — which team answers, how many members and mailboxes it has —
+   * before any of it is committed.
+   */
+  testConnection: instanceAdminProcedure
+    .route({ method: "POST", path: "/instance/test-connection" })
+    .input(
+      z.object({
+        token: z.string().min(8),
+        apiBaseUrl: z.url().optional(),
+      }),
+    )
+    .output(
+      z.object({
+        ok: z.boolean(),
+        memberCount: z.number(),
+        mailboxCount: z.number(),
+        mailboxes: z.array(z.string()),
+        tokenHint: z.string(),
+      }),
+    )
+    .handler(async ({ input }) => {
+      const apiBaseUrl = input.apiBaseUrl ?? env.JELLY_API_URL;
+      const probe = createJellyClient(apiBaseUrl, input.token);
+
+      let members: Awaited<ReturnType<typeof probe.listMembers>>;
+      let mailboxes: Awaited<ReturnType<typeof probe.listMailboxes>>;
+      try {
+        members = await probe.listMembers();
+        mailboxes = await probe.listMailboxes();
+      } catch (error) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: `Jelly rejected this token: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+
+      return {
+        ok: true,
+        memberCount: members.length,
+        mailboxCount: mailboxes.length,
+        mailboxes: mailboxes.map((mailbox) => mailbox.name),
+        tokenHint: credentialHint(input.token),
+      };
+    }),
+
+  /**
    * Connect a Jelly team. A form, not a deploy — which is the whole point of
    * moving credentials onto the row.
    *

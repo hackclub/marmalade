@@ -49,6 +49,20 @@ const EMPTY_FORM: OnboardForm = {
 function TeamsRoute() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<OnboardForm>(EMPTY_FORM);
+  /**
+   * The test result, and the exact inputs it was produced from.
+   *
+   * Keyed to the inputs rather than a boolean so that editing the token or
+   * the base URL after a passing test invalidates it. A stale pass is worse
+   * than no test: it says "checked" about something that was not.
+   */
+  const [tested, setTested] = useState<{
+    token: string;
+    apiBaseUrl: string;
+    memberCount: number;
+    mailboxCount: number;
+    mailboxes: string[];
+  } | null>(null);
   const [issued, setIssued] = useState<{
     slug: string;
     webhookUrl: string;
@@ -61,6 +75,27 @@ function TeamsRoute() {
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["instance"] });
 
+  const test = useMutation(
+    orpc.instance.testConnection.mutationOptions({
+      onSuccess: (result, variables) => {
+        setTested({
+          token: variables.token,
+          apiBaseUrl: variables.apiBaseUrl ?? "",
+          memberCount: result.memberCount,
+          mailboxCount: result.mailboxCount,
+          mailboxes: result.mailboxes,
+        });
+        toast.success(
+          `Jelly answered: ${result.memberCount} members, ${result.mailboxCount} mailboxes`,
+        );
+      },
+      onError: (error) => {
+        setTested(null);
+        toast.error(error.message);
+      },
+    }),
+  );
+
   const onboard = useMutation(
     orpc.instance.onboardTeam.mutationOptions({
       onSuccess: (result) => {
@@ -71,6 +106,7 @@ function TeamsRoute() {
           generated: result.webhookSecretGenerated,
         });
         setForm(EMPTY_FORM);
+        setTested(null);
         toast.success(
           `${result.team.name ?? result.team.slug} connected — ${
             result.memberCount
@@ -115,9 +151,17 @@ function TeamsRoute() {
 
   const field = (key: keyof OnboardForm) => ({
     value: form[key],
-    onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-      setForm((previous) => ({ ...previous, [key]: event.target.value })),
+    onChange: (event: React.ChangeEvent<HTMLInputElement>) => {
+      // Any edit to what was tested retires the result.
+      if (key === "token" || key === "apiBaseUrl") setTested(null);
+      setForm((previous) => ({ ...previous, [key]: event.target.value }));
+    },
   });
+
+  const testMatchesForm =
+    tested !== null &&
+    tested.token === form.token.trim() &&
+    tested.apiBaseUrl === form.apiBaseUrl.trim();
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 py-10">
@@ -270,21 +314,65 @@ function TeamsRoute() {
             </p>
           </div>
 
-          <Button
-            disabled={!form.id || !form.token || onboard.isPending}
-            onClick={() =>
-              onboard.mutate({
-                id: form.id.trim(),
-                slug: form.slug.trim() || undefined,
-                name: form.name.trim() || undefined,
-                token: form.token.trim(),
-                webhookSecret: form.webhookSecret.trim() || undefined,
-                apiBaseUrl: form.apiBaseUrl.trim() || undefined,
-              })
-            }
-          >
-            {onboard.isPending ? "Checking the token…" : "Connect team"}
-          </Button>
+          {testMatchesForm && (
+            <div className="rounded-md border border-emerald-300 p-3 text-sm">
+              <p className="font-medium">Jelly answered</p>
+              <p className="text-muted-foreground">
+                {tested.memberCount} members, {tested.mailboxCount} mailboxes
+                {tested.mailboxes.length > 0 &&
+                  `: ${tested.mailboxes.slice(0, 8).join(", ")}`}
+                {tested.mailboxes.length > 8 && ", …"}
+              </p>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Check this is the team you meant before connecting it.
+              </p>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={!form.token || test.isPending}
+              onClick={() =>
+                test.mutate({
+                  token: form.token.trim(),
+                  apiBaseUrl: form.apiBaseUrl.trim() || undefined,
+                })
+              }
+            >
+              {test.isPending ? "Asking Jelly…" : "Test connection"}
+            </Button>
+
+            {/*
+              Required, not advisory. Connecting a team writes credentials,
+              a slug and a webhook secret, and starts a sync — all against
+              whichever team the token actually belongs to, which is the one
+              thing the form cannot tell you.
+            */}
+            <Button
+              disabled={!form.id || !testMatchesForm || onboard.isPending}
+              onClick={() =>
+                onboard.mutate({
+                  id: form.id.trim(),
+                  slug: form.slug.trim() || undefined,
+                  name: form.name.trim() || undefined,
+                  token: form.token.trim(),
+                  webhookSecret: form.webhookSecret.trim() || undefined,
+                  apiBaseUrl: form.apiBaseUrl.trim() || undefined,
+                })
+              }
+            >
+              {onboard.isPending ? "Connecting…" : "Connect team"}
+            </Button>
+
+            {!testMatchesForm && (
+              <span className="text-muted-foreground text-xs">
+                {tested
+                  ? "The token changed — test it again."
+                  : "Test the connection first."}
+              </span>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

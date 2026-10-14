@@ -14,7 +14,64 @@ import type {
   AuthContext,
   WebhookContext,
 } from "./context";
+import { resolveDefaultTeam, type ResolvedTeam } from "./lib/team";
 import { NON_SCOPABLE_FIELDS } from "./schemas/output";
+
+/**
+ * The team this request acts on.
+ *
+ * Throws rather than falling back to a configured default. A fallback here
+ * would be invisible at the call site and would turn every handler that
+ * forgot to resolve a team into a silent cross-tenant read.
+ */
+export function teamOf(context: { team?: ResolvedTeam | null }): ResolvedTeam {
+  if (!context.team) {
+    throw new ORPCError("BAD_REQUEST", {
+      message: "No Jelly team resolved for this request",
+    });
+  }
+  return context.team;
+}
+
+export function teamIdOf(context: { team?: ResolvedTeam | null }): string {
+  return teamOf(context).id;
+}
+
+/**
+ * The team for a handler that internal code reaches through `call()` with a
+ * synthetic context — the Better Auth signup hook does this for `team.resync`
+ * and `mailbox.resync`.
+ *
+ * Those call sites have no request and so no team, and the configured
+ * `JELLY_TEAM_ID` is the only honest answer. Reserved for exactly that case:
+ * a request-backed handler uses `teamIdOf`, which has no fallback.
+ */
+export async function teamOfOrDefault(context: {
+  team?: ResolvedTeam | null;
+}): Promise<ResolvedTeam> {
+  return context.team ?? resolveDefaultTeam();
+}
+
+export async function teamIdOrDefault(context: {
+  team?: ResolvedTeam | null;
+}): Promise<string> {
+  return (await teamOfOrDefault(context)).id;
+}
+
+/**
+ * The same resolution, typed nullable for a middleware that puts the team
+ * back into the context.
+ *
+ * oRPC intersects the context types of every procedure in a router. A
+ * middleware that injects a non-nullable `team` therefore makes the whole
+ * router demand one, including the health check and the OpenAPI document,
+ * which have no team and are not supposed to need one.
+ */
+async function teamForContext(context: {
+  team?: ResolvedTeam | null;
+}): Promise<ResolvedTeam | null> {
+  return teamOfOrDefault(context);
+}
 
 export const authO = os.$context<AuthContext>();
 export const webhookO = os.$context<WebhookContext>();
@@ -78,9 +135,35 @@ export const apiKeyOrSessionOrWebhookProcedure = authOrApiKeyOrWebhookO.use(
 export const protectedProcedure = publicProcedure.use(requireAuth);
 export const authOrWebhookProtectedProcedure =
   authOrWebhookProcedure.use(requireAuthOrWebhook);
+/**
+ * A Marmalade instance operator, as distinct from a Jelly team admin.
+ *
+ * Deliberately not derived from a Jelly role: onboarding a team, holding its
+ * credentials and seeing across teams are facts about Marmalade, and no Jelly
+ * team should be able to grant them to itself. Backed by Better Auth's admin
+ * plugin so operators are not another bespoke table.
+ */
+export const instanceAdminProcedure = protectedProcedure.use(
+  async ({ context, next }) => {
+    const user = context.session.user as { id: string; role?: string | null };
+    const breakGlass = (env.BETTER_AUTH_ADMIN_USER_IDS ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    if (user.role !== "admin" && !breakGlass.includes(user.id)) {
+      throw new ORPCError("FORBIDDEN", {
+        message: "Instance operator access is required",
+      });
+    }
+    return next({ context });
+  },
+);
+
 export const teamAdminProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;
+    const team = await teamForContext(context);
     let role;
     try {
       const teamMember = await db
@@ -89,7 +172,7 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
         .where(
           and(
             eq(jellyTeamContact.email, userEmail),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf({ team })),
           ),
         );
       if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
@@ -102,6 +185,7 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
       return next({
         context: {
           session: context.session,
+          team,
         },
       });
     } catch {
@@ -112,6 +196,7 @@ export const teamAdminProtectedProcedure = protectedProcedure.use(
 export const teamMemberProtectedProcedure = protectedProcedure.use(
   async ({ context, next }) => {
     const userEmail = context.session.user.email;
+    const team = await teamForContext(context);
     let role;
     try {
       const teamMember = await db
@@ -120,7 +205,7 @@ export const teamMemberProtectedProcedure = protectedProcedure.use(
         .where(
           and(
             eq(jellyTeamContact.email, userEmail),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf({ team })),
           ),
         );
       if (!teamMember || teamMember.length === 0 || !teamMember[0]?.role) {
@@ -133,6 +218,7 @@ export const teamMemberProtectedProcedure = protectedProcedure.use(
       return next({
         context: {
           session: context.session,
+          team,
         },
       });
     } catch {
@@ -146,6 +232,7 @@ export const mailboxScopedProcedure = authO
   .use(async ({ context, next }) => {
     let allowedMailboxIds: string[];
     let role: string | null = null;
+    const team = await teamForContext(context);
 
     if ("apiKey" in context) {
       allowedMailboxIds = context.apiKey.mailboxIds;
@@ -156,7 +243,7 @@ export const mailboxScopedProcedure = authO
         .where(
           and(
             eq(jellyTeamContact.email, context.session.user.email),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf({ team })),
           ),
         );
       role = teamMember[0]?.role ?? null;
@@ -197,7 +284,7 @@ export const mailboxScopedProcedure = authO
           .where(
             and(
               eq(marmaladeMailbox.active, true),
-              eq(marmaladeMailbox.jellyTeamId, env.JELLY_TEAM_ID),
+              eq(marmaladeMailbox.jellyTeamId, teamIdOf({ team })),
             ),
           );
         allowedMailboxIds = [...new Set(rows.map((r) => r.jellyMailboxId))];
@@ -206,7 +293,7 @@ export const mailboxScopedProcedure = authO
       allowedMailboxIds = ["*"];
     }
 
-    return next({ context: { ...context, allowedMailboxIds, role } });
+    return next({ context: { ...context, team, allowedMailboxIds, role } });
   });
 
 export function requireMailboxAccess(

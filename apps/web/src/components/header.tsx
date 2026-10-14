@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 
+import TeamSwitcher from "./team-switcher";
 import UserMenu from "./user-menu";
 
 const internalLinks = [
@@ -38,6 +39,7 @@ export default function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <TeamSwitcher />
           <UserMenu />
         </div>
       </div>

@@ -50,6 +50,13 @@
       "when": 1791204908044,
       "tag": "0006_multi_team_prep",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792013097386,
+      "tag": "0007_multi_team",
+      "breakpoints": true
     }
   ]
 }

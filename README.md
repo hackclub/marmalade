@@ -192,13 +192,16 @@ No endpoint returns a stored secret.
   - [x] enforce mailbox scoping on conversation/message/comment reads
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
-  - [ ] multiple jelly teams (see `docs/plans/04-multi-team.md`)
+  - [ ] multiple jelly teams
     - [x] credentials per team, encrypted
     - [x] `mailbox` and `jelly_contact` uniqueness fit for more than one team
-    - [ ] `jelly_team_id` on the content tables
-    - [ ] team resolved from the request instead of `JELLY_TEAM_ID`
-    - [ ] per-team webhook endpoints
+    - [x] `jelly_team_id` on the content tables
+    - [x] team resolved from the request instead of `JELLY_TEAM_ID`
+    - [x] per-team webhook endpoints, `/api/webhook/jelly/{slug}`
+    - [x] instance operators, separate from jelly team admins, who onboard teams
+    - [x] team switcher for session users who belong to more than one team
     - [ ] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
+    - [ ] per-team worker fairness in the action drain
     - [ ] row-level security
   - [x] first time sync on registration and scheduled/manual org teammember resyncs
   - [ ] track jelly requests made and add builtin quotas to avoid ratelimits

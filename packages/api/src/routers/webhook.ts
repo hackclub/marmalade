@@ -1,10 +1,9 @@
 import { db } from "@marmalade-v2/db";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError, call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
-import { jellyWebhookProcedure } from "../index";
+import { jellyWebhookProcedure, teamIdOf } from "../index";
 import { conversationRouter } from "./convo";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
@@ -248,7 +247,7 @@ export const webhookRouter = {
             .where(
               and(
                 eq(jellyTeamContact.email, assignee.email),
-                eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+                eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
               ),
             )
             .limit(1);
@@ -262,7 +261,7 @@ export const webhookRouter = {
                 email: assignee.email,
                 role: "contact",
                 active: true,
-                jellyTeamId: env.JELLY_TEAM_ID,
+                jellyTeamId: teamIdOf(context),
                 existsInJelly: true,
               })
               .onConflictDoNothing();

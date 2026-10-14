@@ -6,7 +6,6 @@ import {
 } from "@marmalade-v2/db/schema/api";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
@@ -17,6 +16,7 @@ import {
   mailboxScopedProcedure,
   publicProcedure,
   teamAdminProtectedProcedure,
+  teamIdOf,
   teamMemberProtectedProcedure,
 } from "../index";
 import { apiKeySchema } from "../schemas/output";
@@ -276,8 +276,7 @@ export const apiKeyRouter = {
           : "apiKey" in ctx
             ? `api-key:${ctx.apiKey.id}`
             : "webhook";
-      const teamId =
-        "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
+      const teamId = teamIdOf(ctx);
 
       const uniqueName = await getUniqueKeyName(input.name, teamId);
 
@@ -406,12 +405,12 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(jellyTeamContact.email, userEmail),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
           ),
         );
       const role = result[0]?.role ?? null;
       const isAdmin = role === "admin" || role === "owner";
-      return listKeysForTeam(env.JELLY_TEAM_ID, isAdmin ? undefined : userId);
+      return listKeysForTeam(teamIdOf(context), isAdmin ? undefined : userId);
     }),
 
   revokeTeamKey: teamMemberProtectedProcedure
@@ -425,7 +424,7 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
-            eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
           ),
         );
 

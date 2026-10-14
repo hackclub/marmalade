@@ -10,7 +10,6 @@ import {
 } from "@marmalade-v2/db/schema/convo";
 import { marmaladeMailbox } from "@marmalade-v2/db/schema/mailbox";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
 import { and, asc, eq, gte, ilike, lte, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -21,6 +20,7 @@ import {
   jellyWebhookProcedure,
   mailboxScopedProcedure,
   requireMailboxAccess,
+  teamIdOf,
 } from "../index";
 import {
   commentSchema,
@@ -122,7 +122,9 @@ export const conversationRouter = {
         }),
       )
       .output(z.object({ id: z.string() }))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        const teamId = teamIdOf(context);
+
         const existingConversationRows = await db
           .select({ id: conversation.id })
           .from(conversation)
@@ -142,6 +144,7 @@ export const conversationRouter = {
               url: input.url ?? null,
               markdownUrl: input.markdownUrl ?? null,
               draftReplyUrl: input.draftReplyUrl ?? null,
+              jellyTeamId: teamId,
             })
             .onConflictDoNothing()
             .returning({ id: conversation.id });
@@ -192,15 +195,13 @@ export const conversationRouter = {
           .from(conversationMailbox)
           .where(eq(conversationMailbox.conversationId, conversationId));
 
-        const foreign = existingTeams.find(
-          (row) => row.jellyTeamId !== env.JELLY_TEAM_ID,
-        );
+        const foreign = existingTeams.find((row) => row.jellyTeamId !== teamId);
         if (foreign) {
           throw new ORPCError("CONFLICT", {
             message:
               `Conversation ${conversationId} already belongs to team ` +
               `${foreign.jellyTeamId}. Refusing to attach it to ` +
-              `${env.JELLY_TEAM_ID}: Jelly conversation ids are assumed unique ` +
+              `${teamId}: Jelly conversation ids are assumed unique ` +
               "across teams and this one is not.",
           });
         }
@@ -219,14 +220,14 @@ export const conversationRouter = {
             .values({
               conversationId,
               jellyMailboxId: mailboxId,
-              jellyTeamId: env.JELLY_TEAM_ID,
+              jellyTeamId: teamId,
             })
             .onConflictDoNothing();
         }
 
         await db.insert(auditLog).values({
           userId: null,
-          jellyTeamId: env.JELLY_TEAM_ID,
+          jellyTeamId: teamId,
           action: "create",
           resource: "conversation",
           resourceId: conversationId.toString(),
@@ -251,7 +252,7 @@ export const conversationRouter = {
         }),
       )
       .output(z.object({ success: z.literal(true) }))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
         await db
           .update(conversation)
           .set({
@@ -262,7 +263,7 @@ export const conversationRouter = {
 
         await db.insert(auditLog).values({
           userId: null,
-          jellyTeamId: env.JELLY_TEAM_ID,
+          jellyTeamId: teamIdOf(context),
           action: "update_status",
           resource: "conversation",
           resourceId: input.jellyConversationId,
@@ -287,12 +288,13 @@ export const conversationRouter = {
         }),
       )
       .output(z.object({ success: z.literal(true) }))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
         await db
           .insert(conversationAssignment)
           .values({
             conversationId: input.jellyConversationId,
             jellyContactId: input.assignedToId,
+            jellyTeamId: teamIdOf(context),
           })
           .onConflictDoNothing();
 
@@ -519,7 +521,9 @@ export const conversationRouter = {
         }),
       )
       .output(z.object({ success: z.literal(true) }))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        const teamId = teamIdOf(context);
+
         if (!input.senderEmail) {
           throw new ORPCError("BAD_REQUEST", {
             message: "Message sender email is required",
@@ -542,7 +546,7 @@ export const conversationRouter = {
             name,
             email: input.senderEmail,
             role: "contact",
-            jellyTeamId: env.JELLY_TEAM_ID,
+            jellyTeamId: teamId,
             existsInJelly: false,
           });
           senderId = newContactId;
@@ -560,12 +564,13 @@ export const conversationRouter = {
               attachments_count: input.attachmentsCount ?? 0,
             },
             sentAt: input.sentAt ? new Date(input.sentAt) : new Date(),
+            jellyTeamId: teamId,
           })
           .onConflictDoNothing();
 
         await db.insert(auditLog).values({
           userId: null,
-          jellyTeamId: env.JELLY_TEAM_ID,
+          jellyTeamId: teamId,
           action: "create",
           resource: "message",
           resourceId: input.jellyMessageId,
@@ -590,6 +595,7 @@ export const conversationRouter = {
             byteSize: attachment.byte_size,
             inline: attachment.inline,
             url: attachment.url,
+            jellyTeamId: teamId,
           });
         }
 
@@ -710,7 +716,9 @@ export const conversationRouter = {
         }),
       )
       .output(z.object({ success: z.literal(true) }))
-      .handler(async ({ input }) => {
+      .handler(async ({ input, context }) => {
+        const teamId = teamIdOf(context);
+
         const existingContactRows = await db
           .select({ id: jellyTeamContact.id })
           .from(jellyTeamContact)
@@ -731,12 +739,13 @@ export const conversationRouter = {
             body: input.body ?? "",
             authorId: input.authorId ?? null,
             createdAt: input.createdAt ? new Date(input.createdAt) : new Date(),
+            jellyTeamId: teamId,
           })
           .onConflictDoNothing();
 
         await db.insert(auditLog).values({
           userId: null,
-          jellyTeamId: env.JELLY_TEAM_ID,
+          jellyTeamId: teamId,
           action: "create",
           resource: "comment",
           resourceId: input.jellyCommentId,

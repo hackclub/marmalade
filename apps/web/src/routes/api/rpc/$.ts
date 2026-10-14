@@ -67,7 +67,7 @@ async function handle({ request }: { request: Request }) {
   ) {
     const apiResult = await apiHandler.handle(request, {
       prefix: "/api/rpc/api-reference",
-      context: { auth: null, session: null },
+      context: { auth: null, session: null, team: null },
     });
     if (apiResult.response) return apiResult.response;
   }

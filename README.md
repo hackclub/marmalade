@@ -117,6 +117,30 @@ After that, manage credentials through the admin API:
 
 No endpoint returns a stored secret.
 
+## tests
+
+```bash
+pnpm test          # everything, through turbo
+pnpm test:watch    # from a package directory
+```
+
+They need no database and no credentials. The suite runs against
+[PGlite](https://pglite.dev) — Postgres compiled to WebAssembly — with the
+schema applied by `drizzle-kit push`, which is how production applies it too.
+A mock would answer whatever it was told to, and these tests exist to catch a
+`where` clause that forgot to name a team: that only shows up against an
+engine that really enforces the constraints.
+
+What is covered: mailbox and router scope checks, instance-operator
+authority, team resolution from the header and cookie including the
+membership check, API keys that act in more than one team, the uniqueness
+that makes two teams representable at all, and the backfill's refusal to
+guess whose rows are whose.
+
+The two teams in the fixtures deliberately both own a mailbox called
+`general`, and one person is staff in both with a different role in each.
+Most cross-tenant bugs are invisible unless the teams look alike.
+
 ## jelly rate limits
 
 Jelly publishes two limits, and they do not scale the same way. The
@@ -274,7 +298,7 @@ same name do not share a scope.
   - [ ] use better auth's apikey [system](https://better-auth.com/docs/plugins/api-key/advanced#rate-limiting) cause im a dumb dumb
   - [ ] custom error pages/toasts
   - [x] "unauthorized" redirects to /login
-  - [ ] CI
+  - [x] CI
   - [ ] store markdown in addition to html content?
 - dx
   - [x] ~~swagger~~ scalar api docs

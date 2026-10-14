@@ -23,6 +23,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.9",
     "@marmalade-v2/config": "workspace:*",
     "@types/pg": "catalog:",
     "drizzle-kit": "^0.31.8",

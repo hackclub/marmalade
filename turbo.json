@@ -30,6 +30,13 @@
     "check-types": {
       "dependsOn": ["^check-types"]
     },
+    "test": {
+      "outputs": []
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
     "dev": {
       "cache": false,
       "persistent": true

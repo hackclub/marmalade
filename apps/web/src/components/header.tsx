@@ -12,6 +12,7 @@ const internalLinks = [
   { to: "/team", label: "Team" },
   { to: "/keys", label: "Keys" },
   { to: "/admin/users", label: "Users" },
+  { to: "/admin/dashboard", label: "Admin" },
 ] as const;
 
 const externalLinks = [

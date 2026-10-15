@@ -5,6 +5,10 @@
     {
       "path": "/api/internal/drain",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/rollup",
+      "schedule": "7 * * * *"
     }
   ]
 }

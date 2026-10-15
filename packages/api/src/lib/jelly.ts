@@ -8,7 +8,7 @@ import {
 } from "./jelly-errors";
 import {
   checkCircuit,
-  checkTeamQuota,
+  checkQuotas,
   consumeQuota,
   recordCircuitFailure,
   recordCircuitSuccess,
@@ -297,9 +297,11 @@ class JellyApiClient {
       });
     }
 
-    const quota = await checkTeamQuota(this.teamId, {
-      worker: options.meta?.worker,
-    });
+    const quota = await checkQuotas(
+      this.teamId,
+      options.meta?.quotaTargets ?? [],
+      { worker: options.meta?.worker },
+    );
     if (!quota.allowed) {
       throw new JellyApiError({
         message: quota.reason,

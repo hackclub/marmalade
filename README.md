@@ -242,7 +242,10 @@ same name do not share a scope.
     - [x] impersonation
   - [x] instance admins are separate from jelly team roles
   - [x] admin actions audited (incl. who impersonated whom)
-  - [ ] see all audit logs
+  - [x] see all audit logs (paginated + filterable, rejections included)
+  - [x] service health: worker, queue depth, quota gauges, webhook liveness
+  - [x] usage by key/user/endpoint from hourly rollups
+  - [x] action queue browser with retry/cancel/approve/force-fail
 - [x] keys
   - [x] admin actions
     - [x] view all keys regardless of ownership (toggle)
@@ -268,7 +271,7 @@ same name do not share a scope.
       - [x] data-scoped keys
         - [x] metadata
         - [x] content
-  - [ ] more throroughly audit log request attempts regardless of status
+  - [x] more throroughly audit log request attempts regardless of status
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately
   - [ ] admins should not be able to mutate owners
@@ -285,8 +288,9 @@ same name do not share a scope.
   - [x] feature parity with jelly's documented write surface
   - [x] scheduled actions + cancel before dispatch
   - [x] `dryRun` on every write
-  - [ ] per-key and per-mailbox write ceilings
-  - [ ] admin queue browser and dead-letter requeue
+  - [x] per-key and per-mailbox write ceilings (`quota_policy`)
+  - [x] admin queue browser and dead-letter requeue
+  - [x] approval mode for keys that are not trusted yet
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
   - [ ] multiple jelly teams

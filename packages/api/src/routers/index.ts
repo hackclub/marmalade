@@ -12,6 +12,7 @@ import {
 } from "../index";
 import { teamMemberSchema } from "../schemas/output";
 import { actionRouter } from "./action";
+import { adminRouter } from "./admin";
 import { apiKeyRouter } from "./api";
 import { auditRouter } from "./audit";
 import { conversationRouter } from "./convo";
@@ -99,6 +100,7 @@ export const appRouter = {
   apiKey: apiKeyRouter,
   convo: conversationRouter,
   action: actionRouter,
+  admin: adminRouter,
 };
 export type AppRouter = typeof appRouter;
 export type AppRouterClient = RouterClient<typeof appRouter>;

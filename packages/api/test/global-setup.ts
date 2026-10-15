@@ -17,7 +17,13 @@ export default function setup() {
 
   execFileSync(
     "pnpm",
-    ["exec", "drizzle-kit", "push", "--force", "--config=drizzle.test.config.ts"],
+    [
+      "exec",
+      "drizzle-kit",
+      "push",
+      "--force",
+      "--config=drizzle.test.config.ts",
+    ],
     {
       cwd: new URL("../../db", import.meta.url).pathname,
       env: { ...process.env, TEST_DATABASE_DIR: dir },

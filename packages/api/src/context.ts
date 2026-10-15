@@ -21,6 +21,23 @@ import {
 } from "./lib/team";
 import { getTeamWebhookSecret } from "./lib/team-credentials";
 
+/**
+ * Per-request values lifted off the incoming headers.
+ *
+ * Only the header Marmalade actually reads is carried, and as a plain string.
+ * Putting a `Headers` object on the context pulls the ambient DOM/undici
+ * `Headers` type into this package's emitted declarations, which breaks the
+ * composite build for every consumer of `@marmalade-v2/api`.
+ *
+ * Optional on purpose: server-side `call()` sites build a context by hand and
+ * have no request to read a header from.
+ */
+type RequestMeta = { idempotencyKey?: string | null };
+
+function requestMeta(req: Request): RequestMeta {
+  return { idempotencyKey: req.headers.get("Idempotency-Key") };
+}
+
 export async function createAuthContext({ req }: { req: Request }) {
   const session = await auth.api.getSession({
     headers: req.headers,
@@ -50,6 +67,7 @@ export async function createAuthContext({ req }: { req: Request }) {
     auth: null,
     session,
     team,
+    ...requestMeta(req),
   };
 }
 
@@ -66,10 +84,10 @@ type JellyWebhookContext = {
   rawBody: string;
   request: Request;
   team: ResolvedTeam | null;
-};
+} & RequestMeta;
 
 /** Same reasoning as `JellyWebhookContext.team`: nullable to stay mergeable. */
-type MarmaladeApiKeyContext = {
+type MarmaladeApiKeyContext = RequestMeta & {
   team: ResolvedTeam | null;
   apiKey: {
     id: number;
@@ -77,6 +95,7 @@ type MarmaladeApiKeyContext = {
     name: string;
     mailboxIds: string[];
     resourceScopes: string[];
+    actionScopes: string[];
     fieldScopes: Array<{ resourceType: string; field: string }>;
     /** The team the key was issued for, and its default. */
     jellyTeamId: string;
@@ -313,6 +332,7 @@ export async function createApiKeyContext({
 
   const mailboxIds: string[] = [];
   const resourceScopes: string[] = [];
+  const actionScopes: string[] = [];
   // The issuing team is always allowed, so a single-team key needs no scope
   // row and nothing about an existing key changes.
   const teamIds: string[] = [keyRow.jellyTeamId];
@@ -331,6 +351,12 @@ export async function createApiKeyContext({
       !resourceScopes.includes(row.scopeResourceId)
     ) {
       resourceScopes.push(row.scopeResourceId);
+    }
+    if (
+      row.scopeResourceType === "action" &&
+      !actionScopes.includes(row.scopeResourceId)
+    ) {
+      actionScopes.push(row.scopeResourceId);
     }
     if (
       row.scopeResourceType === "team" &&
@@ -397,12 +423,14 @@ export async function createApiKeyContext({
 
   return {
     team,
+    ...requestMeta(req),
     apiKey: {
       id: keyRow.id,
       keyPrefix: keyRow.keyPrefix,
       name: keyRow.name,
       mailboxIds,
       resourceScopes,
+      actionScopes,
       fieldScopes,
       jellyTeamId: keyRow.jellyTeamId,
       teamIds,

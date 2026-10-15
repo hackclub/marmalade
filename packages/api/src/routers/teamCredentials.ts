@@ -98,7 +98,11 @@ export const teamCredentialsRouter = {
 
       let memberCount: number;
       try {
-        const probe = createJellyClient(apiBaseUrl, input.token);
+        const probe = createJellyClient(
+          apiBaseUrl,
+          input.token,
+          teamIdOf(context),
+        );
         memberCount = (await probe.listMembers()).length;
       } catch (error) {
         throw new ORPCError("BAD_REQUEST", {

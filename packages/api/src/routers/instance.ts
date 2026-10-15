@@ -83,6 +83,12 @@ export const instanceRouter = {
       z.object({
         token: z.string().min(8),
         apiBaseUrl: z.url().optional(),
+        /**
+         * The team being tested, when it is already known. Only used to key
+         * the probe's own request log and quota counters; nothing is stored
+         * against the team by a test.
+         */
+        id: z.string().min(1).optional(),
       }),
     )
     .output(
@@ -96,7 +102,13 @@ export const instanceRouter = {
     )
     .handler(async ({ input }) => {
       const apiBaseUrl = input.apiBaseUrl ?? env.JELLY_API_URL;
-      const probe = createJellyClient(apiBaseUrl, input.token);
+      const probe = createJellyClient(
+        apiBaseUrl,
+        input.token,
+        // No team exists yet when a token is being tested, and the client
+        // needs something to key its counters by.
+        input.id ?? "unonboarded",
+      );
 
       let members: Awaited<ReturnType<typeof probe.listMembers>>;
       let mailboxes: Awaited<ReturnType<typeof probe.listMailboxes>>;
@@ -179,7 +191,13 @@ export const instanceRouter = {
 
       let memberCount: number;
       try {
-        const probe = createJellyClient(apiBaseUrl, input.token);
+        const probe = createJellyClient(
+          apiBaseUrl,
+          input.token,
+          // No team exists yet when a token is being tested, and the client
+          // needs something to key its counters by.
+          input.id ?? "unonboarded",
+        );
         memberCount = (await probe.listMembers()).length;
       } catch (error) {
         throw new ORPCError("BAD_REQUEST", {

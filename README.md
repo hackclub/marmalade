@@ -9,7 +9,11 @@
 - finely-grained & least-privelidged api access
 - fully audit-trailed
 
-> note: currently marmalade's api access is read-only, while write access (required for use cases such as fully-featured custom clients) is being worked on
+> note: write access runs through a durable action queue (`jelly_action`). every
+> mutation is persisted before dispatch, retried on transient failure, and
+> audited. jelly's api cannot send customer-facing email — api tokens may create
+> drafts and internal comments only — so marmalade's "send" is "compose a draft a
+> teammate finishes in jelly".
 
 ## demonstration
 
@@ -155,12 +159,16 @@ The daily ceiling lives on `jelly_team.daily_ceiling`, defaulting to 80,000 so
 there is headroom for work Marmalade does not drive. Adding a team adds its
 own 100,000; one team exhausting its budget does not pause another.
 
-The five-minute limit is the one to watch. It is **not** per team, so ten
-teams at 4,000 requests per 5 minutes each would stay under their own
-ceilings and collectively hit a 429 that no per-team gauge predicted. A
-deployment therefore needs an instance-wide five-minute bucket checked on
-every outbound call, and a 429 on that limit has to pause every team rather
-than the one that happened to trip it. That bucket is not implemented yet.
+The five-minute limit is the one to watch, because it is **not** per team:
+ten teams at 4,000 requests per 5 minutes each would each stay under their
+own ceiling and collectively hit a 429 that no per-team gauge predicted.
+
+Marmalade therefore keeps an instance-wide bucket (`scope = 'instance'`)
+that every outbound call spends, checked before the per-team ceilings, and a
+429 opens the circuit for the whole deployment rather than for whichever team
+happened to make the call. `/admin/health` reports the shared window next to
+the team's own numbers, since it is the ceiling a team cannot explain from
+its own traffic.
 
 Worth measuring rather than assuming: on a host with rotating egress
 addresses the per-IP limit is pessimistic rather than wrong, so ceilings
@@ -238,7 +246,10 @@ same name do not share a scope.
     - [x] impersonation
   - [x] instance admins are separate from jelly team roles
   - [x] admin actions audited (incl. who impersonated whom)
-  - [ ] see all audit logs
+  - [x] see all audit logs (paginated + filterable, rejections included)
+  - [x] service health: worker, queue depth, quota gauges, webhook liveness
+  - [x] usage by key/user/endpoint from hourly rollups
+  - [x] action queue browser with retry/cancel/approve/force-fail
 - [x] keys
   - [x] admin actions
     - [x] view all keys regardless of ownership (toggle)
@@ -264,7 +275,7 @@ same name do not share a scope.
       - [x] data-scoped keys
         - [x] metadata
         - [x] content
-  - [ ] more throroughly audit log request attempts regardless of status
+  - [x] more throroughly audit log request attempts regardless of status
     - [ ] evlog for audit logs
   - [ ] ensure all admin routes are protected appropriately
   - [ ] admins should not be able to mutate owners
@@ -274,6 +285,16 @@ same name do not share a scope.
   - [x] jelly credentials encrypted at rest in `jelly_team`, not in env
   - [x] rotate the jelly api token and webhook secret without a redeploy
   - [x] enforce mailbox scoping on conversation/message/comment reads
+- [ ] write actions
+  - [x] durable action outbox with idempotency, retry and backoff
+  - [x] inline dispatch with queue fallback (202 + poll)
+  - [x] action scopes on api keys (fail closed) + per-mailbox write opt-in
+  - [x] feature parity with jelly's documented write surface
+  - [x] scheduled actions + cancel before dispatch
+  - [x] `dryRun` on every write
+  - [x] per-key and per-mailbox write ceilings (`quota_policy`)
+  - [x] admin queue browser and dead-letter requeue
+  - [x] approval mode for keys that are not trusted yet
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
   - [ ] multiple jelly teams
@@ -285,12 +306,12 @@ same name do not share a scope.
     - [x] instance operators, separate from jelly team admins, who onboard teams
     - [x] team switcher for session users who belong to more than one team
     - [x] api keys can be granted more than one team and pick one per request
-    - [ ] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
+    - [x] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
     - [ ] per-team worker fairness in the action drain
     - [ ] row-level security
   - [x] first time sync on registration and scheduled/manual org teammember resyncs
-  - [ ] track jelly requests made and add builtin quotas to avoid ratelimits
-    - [ ] for now, simply track every jelly request in db and monitor success/fail
+  - [x] track jelly requests made and add builtin quotas to avoid ratelimits
+    - [x] for now, simply track every jelly request in db and monitor success/fail
   - [ ] completely jelly-backwards-compatible api? (api v2)
   - [x] indexes
   - [x] ~~host on nest w/ cf tunnels~~ host on vercel

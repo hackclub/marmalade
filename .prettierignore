@@ -13,3 +13,6 @@ temp
 .output
 pnpm-lock.yaml
 **/routeTree.gen.ts
+# Drizzle writes these; reformatting them rewrites history for no gain and
+# makes an unrelated diff look like a schema change.
+packages/db/src/migrations/meta/

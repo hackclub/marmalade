@@ -7,7 +7,14 @@ vi.mock("@marmalade-v2/db", async () => {
 });
 
 import { resetDb } from "./db";
-import { ALPHA, ALPHA_ONLY, BETA, OPERATOR, PERSON, seedTwoTeams } from "./seed";
+import {
+  ALPHA,
+  ALPHA_ONLY,
+  BETA,
+  OPERATOR,
+  PERSON,
+  seedTwoTeams,
+} from "./seed";
 
 const {
   ACTIVE_TEAM_COOKIE,

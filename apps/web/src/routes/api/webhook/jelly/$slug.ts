@@ -1,4 +1,5 @@
 import { createJellyWebhookContext } from "@marmalade-v2/api/context";
+import { recordWebhookDelivery } from "@marmalade-v2/api/lib/observability";
 import {
   webhookRouter,
   type JellyWebhookInput,
@@ -25,9 +26,21 @@ async function handleWebhook({
   request: Request;
   params: { slug: string };
 }) {
+  // Jelly never retries a failed delivery and switches the webhook off after
+  // 10 consecutive failures, so every outcome is recorded here too — the
+  // per-team endpoint is the one new teams use, and a team whose deliveries
+  // went unrecorded would have no webhook health at all.
+  const started = Date.now();
+  const eventType = request.headers.get("X-Jelly-Event") ?? "unknown";
   const rawBody = await request.text();
 
   if (!rawBody) {
+    await recordWebhookDelivery({
+      event: eventType,
+      status: "rejected",
+      error: "Request body is required",
+      durationMs: Date.now() - started,
+    });
     return Response.json(
       { error: "Request body is required" },
       { status: 400 },
@@ -38,24 +51,51 @@ async function handleWebhook({
   try {
     body = JSON.parse(rawBody);
   } catch {
+    await recordWebhookDelivery({
+      event: eventType,
+      status: "rejected",
+      error: "Invalid JSON",
+      durationMs: Date.now() - started,
+    });
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  let jellyTeamId: string | null = null;
+
   try {
+    const context = await createJellyWebhookContext({
+      req: request,
+      rawBody,
+      slug: params.slug,
+    });
+    jellyTeamId = context.team?.id ?? null;
+
     const result = await call(
       webhookRouter.jellyEventWebhook,
       body as JellyWebhookInput,
-      {
-        context: await createJellyWebhookContext({
-          req: request,
-          rawBody,
-          slug: params.slug,
-        }),
-      },
+      { context },
     );
+
+    await recordWebhookDelivery({
+      event: (body as { event?: string } | null)?.event ?? eventType,
+      jellyTeamId,
+      // A mailbox Marmalade does not manage is a correct no-op, not a
+      // failure.
+      status: result.reason ? "skipped" : "accepted",
+      error: result.reason ?? null,
+      durationMs: Date.now() - started,
+    });
 
     return Response.json(result);
   } catch (error) {
+    await recordWebhookDelivery({
+      event: (body as { event?: string } | null)?.event ?? eventType,
+      jellyTeamId,
+      status: error instanceof ORPCError ? "rejected" : "failed",
+      error: error instanceof Error ? error.message : String(error),
+      durationMs: Date.now() - started,
+    });
+
     if (error instanceof ORPCError) {
       const statusMap: Record<string, number> = {
         BAD_REQUEST: 400,

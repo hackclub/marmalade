@@ -126,6 +126,7 @@ export const apiKeySchema = z.object({
   revokedAt: z.date().nullable(),
   mailboxIds: z.array(z.string()),
   resourceScopes: z.array(z.string()).optional(),
+  actionScopes: z.array(z.string()).optional(),
   /**
    * Every team the key may act in. The first is the team it was issued for
    * and its default; the rest were granted explicitly.
@@ -161,6 +162,7 @@ export const marmaladeMailboxSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   active: z.boolean(),
+  writesEnabled: z.boolean(),
 });
 
 export const mailboxMemberSchema = z.object({
@@ -188,4 +190,22 @@ export const mailboxListItemSchema = z.object({
       updatedAt: z.string(),
     })
     .nullable(),
+});
+
+export const actionSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+  actionType: z.string(),
+  targetResourceType: z.string(),
+  targetResourceId: z.string().nullable(),
+  jellyMailboxId: z.string().nullable(),
+  jellyResourceId: z.string().nullable(),
+  attempts: z.number(),
+  maxAttempts: z.number(),
+  scheduledFor: z.date(),
+  nextAttemptAt: z.date(),
+  lastError: z.unknown().nullable(),
+  createdAt: z.date(),
+  completedAt: z.date().nullable(),
+  deduplicated: z.boolean().optional(),
 });

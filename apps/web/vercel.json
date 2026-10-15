@@ -1,4 +1,14 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "tanstack-start"
+  "framework": "tanstack-start",
+  "crons": [
+    {
+      "path": "/api/internal/drain",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/internal/rollup",
+      "schedule": "7 * * * *"
+    }
+  ]
 }

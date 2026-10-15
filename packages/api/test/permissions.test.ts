@@ -18,15 +18,18 @@ const {
   teamOf,
 } = await import("../src/index");
 
-const sessionFor = (user: Record<string, unknown>) => ({
-  session: { user, session: {} },
-}) as never;
+const sessionFor = (user: Record<string, unknown>) =>
+  ({
+    session: { user, session: {} },
+  }) as never;
 
 describe("requireMailboxAccess", () => {
   const ctx = (ids: string[]) => ({ allowedMailboxIds: ids }) as never;
 
   it("admits a mailbox the caller holds", () => {
-    expect(() => requireMailboxAccess(ctx(["general"]), "general")).not.toThrow();
+    expect(() =>
+      requireMailboxAccess(ctx(["general"]), "general"),
+    ).not.toThrow();
   });
 
   it("admits anything when the caller holds the wildcard", () => {

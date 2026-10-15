@@ -295,6 +295,18 @@ same name do not share a scope.
   - [x] per-key and per-mailbox write ceilings (`quota_policy`)
   - [x] admin queue browser and dead-letter requeue
   - [x] approval mode for keys that are not trusted yet
+- [ ] sending, not just drafting
+  - jelly's api cannot send a customer-facing reply — "only people can send
+    customer-facing replies. api tokens can add internal comments, but they
+    cannot send a message to the customer" — so everything above stops at a
+    draft a teammate finishes by hand
+  - [ ] ask jelly for a send-capable scope before building around the
+        restriction
+  - [ ] decide the fallback: marmalade sends through its own provider and
+        feeds the sent copy back into jelly, or a human approves in-place
+  - [ ] human approval surface, whichever way the send happens
+  - [ ] per-key send ceilings, separate from read quota — an api that can
+        email strangers is a different risk from one that cannot
 - [ ] plumbing
   - [x] ensure uniqueness of relational tables and make references "official"
   - [ ] multiple jelly teams

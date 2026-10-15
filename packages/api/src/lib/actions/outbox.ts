@@ -2,6 +2,7 @@ import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
 import { apiKey } from "@marmalade-v2/db/schema/api";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { workerHeartbeat } from "@marmalade-v2/db/schema/observability";
 import { and, eq, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
@@ -201,7 +202,9 @@ export async function enqueueAction(
       userId: input.userId ?? null,
       // The clock starts when the approval is offered, not when it is seen.
       approvalExpiresAt:
-        status === "awaiting_approval" ? approvalDeadline() : null,
+        status === "awaiting_approval"
+          ? await approvalDeadline(input.jellyTeamId)
+          : null,
       maxAttempts: definition.idempotent || definition.reconcile ? 8 : 3,
       scheduledFor,
       nextAttemptAt: scheduledFor,
@@ -759,15 +762,29 @@ export async function retryAction(actionId: string): Promise<ActionRow | null> {
 
 /** Release an action held for admin approval into the normal queue. */
 /**
- * How long an approval stays on offer.
+ * Fallback window, in minutes, when a team has not chosen one.
  *
  * Long enough to survive a night and a meeting; short enough that nobody
  * approves a reply to a conversation that moved on without them.
  */
-export const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_APPROVAL_TTL_MINUTES = 1440;
 
-export function approvalDeadline(now = new Date()): Date {
-  return new Date(now.getTime() + APPROVAL_TTL_MS);
+/** Bounds on what a team may choose. */
+export const MIN_APPROVAL_TTL_MINUTES = 5;
+export const MAX_APPROVAL_TTL_MINUTES = 60 * 24 * 30;
+
+export async function approvalDeadline(
+  jellyTeamId: string,
+  now = new Date(),
+): Promise<Date> {
+  const [team] = await db
+    .select({ ttl: jellyTeam.approvalTtlMinutes })
+    .from(jellyTeam)
+    .where(eq(jellyTeam.id, jellyTeamId))
+    .limit(1);
+
+  const minutes = team?.ttl ?? DEFAULT_APPROVAL_TTL_MINUTES;
+  return new Date(now.getTime() + minutes * 60_000);
 }
 
 export type ApprovalOutcome =

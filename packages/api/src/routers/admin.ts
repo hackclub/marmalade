@@ -2,6 +2,7 @@ import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
 import { apiKey } from "@marmalade-v2/db/schema/api";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import {
   jellyRequestLog,
@@ -13,6 +14,8 @@ import z from "zod";
 import { teamAdminProtectedProcedure, teamIdOf } from "../index";
 import {
   approveAction,
+  MAX_APPROVAL_TTL_MINUTES,
+  MIN_APPROVAL_TTL_MINUTES,
   cancelAction,
   dispatchInline,
   drainActions,
@@ -720,6 +723,56 @@ export const adminRouter = {
       ),
     )
     .handler(() => listQuotaPolicies()),
+
+  /**
+   * How long this team's approvals stay on offer.
+   *
+   * A team that works a staffed desk can afford a short window; one that
+   * answers in the evenings needs the offer to survive the night. Bounded
+   * at both ends: a window of zero would expire every approval the instant
+   * it was offered, and one measured in months is not a window.
+   */
+  setApprovalWindow: teamAdminProtectedProcedure
+    .route({ method: "POST", path: "/admin/approval-window" })
+    .input(
+      z.object({
+        minutes: z
+          .number()
+          .int()
+          .min(MIN_APPROVAL_TTL_MINUTES)
+          .max(MAX_APPROVAL_TTL_MINUTES),
+      }),
+    )
+    .output(z.object({ message: z.string(), minutes: z.number() }))
+    .handler(async ({ input, context }) => {
+      const teamId = teamIdOf(context);
+
+      await db
+        .update(jellyTeam)
+        .set({ approvalTtlMinutes: input.minutes })
+        .where(eq(jellyTeam.id, teamId));
+
+      await db.insert(auditLog).values({
+        userId: context.session.user.id,
+        jellyTeamId: teamId,
+        action: "set_approval_window",
+        resource: "jelly_team",
+        resourceId: teamId,
+        status: "success",
+        ipAddress: context.session.session.ipAddress ?? null,
+        userAgent: context.session.session.userAgent ?? null,
+        metadata: { minutes: input.minutes },
+      });
+
+      // Deliberately not retroactive. Approvals already on offer keep the
+      // deadline they were offered with, because someone has been told how
+      // long they have and shortening it behind them is not a setting
+      // change, it is a surprise.
+      return {
+        message: `Approvals now stay on offer for ${input.minutes} minutes`,
+        minutes: input.minutes,
+      };
+    }),
 
   setQuotaPolicy: teamAdminProtectedProcedure
     .route({ method: "POST", path: "/admin/quotas" })

@@ -44,6 +44,14 @@ export const jellyTeam = pgTable("jelly_team", {
    * a second team brings its own budget rather than eating the first's.
    */
   dailyCeiling: integer("daily_ceiling").notNull().default(80_000),
+  /**
+   * How long an approval stays on offer, in minutes.
+   *
+   * Per team because the right answer depends on how the team works: a desk
+   * staffed through the day can afford a short window, and one that answers
+   * in the evenings needs the offer to survive the night.
+   */
+  approvalTtlMinutes: integer("approval_ttl_minutes").notNull().default(1440),
   /** Cleared teams are skipped by sync and refuse new work. */
   active: boolean("active").notNull().default(true),
   /** Set when onboarding stores a validated token for the team. */

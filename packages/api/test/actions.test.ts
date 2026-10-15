@@ -15,8 +15,14 @@ import { resetDb, testDb } from "./db";
 import { ALPHA, BETA, BETA_ADMIN, seedTwoTeams } from "./seed";
 
 const { actionRouter } = await import("../src/routers/action");
-const { reapStaleLeases, executeAction, approveAction, expireStaleApprovals } =
-  await import("../src/lib/actions/outbox");
+const {
+  reapStaleLeases,
+  executeAction,
+  approveAction,
+  expireStaleApprovals,
+  approvalDeadline,
+  DEFAULT_APPROVAL_TTL_MINUTES,
+} = await import("../src/lib/actions/outbox");
 const { checkTeamQuota, consumeQuota, INSTANCE_SCOPE_ID } =
   await import("../src/lib/quota");
 const { resolveTeamById } = await import("../src/lib/team");
@@ -287,5 +293,24 @@ describe("approvals go stale", () => {
 
     expect(await expireStaleApprovals()).toBe(0);
     expect((await approveAction(`act_${ALPHA}`)).ok).toBe(true);
+  });
+});
+
+describe("each team sets its own approval window", () => {
+  it("uses the team's window rather than the default", async () => {
+    await testDb
+      .update(jellyTeam)
+      .set({ approvalTtlMinutes: 30 })
+      .where(eq(jellyTeam.id, ALPHA));
+
+    const deadline = await approvalDeadline(ALPHA);
+    const minutes = Math.round((deadline.getTime() - Date.now()) / 60_000);
+    expect(minutes).toBe(30);
+  });
+
+  it("falls back to the default for a team that has not chosen", async () => {
+    const deadline = await approvalDeadline(BETA);
+    const minutes = Math.round((deadline.getTime() - Date.now()) / 60_000);
+    expect(minutes).toBe(DEFAULT_APPROVAL_TTL_MINUTES);
   });
 });

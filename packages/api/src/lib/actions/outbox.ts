@@ -2,6 +2,7 @@ import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
 import { apiKey } from "@marmalade-v2/db/schema/api";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { workerHeartbeat } from "@marmalade-v2/db/schema/observability";
 import { and, eq, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
@@ -19,13 +20,15 @@ export type ActionStatus =
   | "succeeded"
   | "failed"
   | "dead"
-  | "cancelled";
+  | "cancelled"
+  | "expired";
 
 export const TERMINAL_STATUSES: ActionStatus[] = [
   "succeeded",
   "failed",
   "dead",
   "cancelled",
+  "expired",
 ];
 
 /**
@@ -197,6 +200,11 @@ export async function enqueueAction(
       actorKey,
       apiKeyId: input.apiKeyId ?? null,
       userId: input.userId ?? null,
+      // The clock starts when the approval is offered, not when it is seen.
+      approvalExpiresAt:
+        status === "awaiting_approval"
+          ? await approvalDeadline(input.jellyTeamId)
+          : null,
       maxAttempts: definition.idempotent || definition.reconcile ? 8 : 3,
       scheduledFor,
       nextAttemptAt: scheduledFor,
@@ -597,6 +605,7 @@ export async function drainActions(
   const started = Date.now();
 
   await reapStaleLeases();
+  await expireStaleApprovals();
 
   const claimed = await db.execute<ActionRow>(sql`
     UPDATE jelly_action
@@ -752,12 +761,85 @@ export async function retryAction(actionId: string): Promise<ActionRow | null> {
 }
 
 /** Release an action held for admin approval into the normal queue. */
+/**
+ * Fallback window, in minutes, when a team has not chosen one.
+ *
+ * Long enough to survive a night and a meeting; short enough that nobody
+ * approves a reply to a conversation that moved on without them.
+ */
+export const DEFAULT_APPROVAL_TTL_MINUTES = 1440;
+
+/** Bounds on what a team may choose. */
+export const MIN_APPROVAL_TTL_MINUTES = 5;
+export const MAX_APPROVAL_TTL_MINUTES = 60 * 24 * 30;
+
+export async function approvalDeadline(
+  jellyTeamId: string,
+  now = new Date(),
+): Promise<Date> {
+  const [team] = await db
+    .select({ ttl: jellyTeam.approvalTtlMinutes })
+    .from(jellyTeam)
+    .where(eq(jellyTeam.id, jellyTeamId))
+    .limit(1);
+
+  const minutes = team?.ttl ?? DEFAULT_APPROVAL_TTL_MINUTES;
+  return new Date(now.getTime() + minutes * 60_000);
+}
+
+export type ApprovalOutcome =
+  | { ok: true; action: ActionRow }
+  | { ok: false; reason: "not_found" | "expired"; action: ActionRow | null };
+
+/**
+ * Take an approval, unless the offer has gone stale.
+ *
+ * Expiry is settled here rather than trusted from whatever surface showed
+ * the button: a Slack message, once sent, says whatever it said when it was
+ * sent, and a card from yesterday is indistinguishable from one from a
+ * minute ago until the server is asked.
+ */
 export async function approveAction(
   actionId: string,
-): Promise<ActionRow | null> {
+  now = new Date(),
+): Promise<ApprovalOutcome> {
+  const [current] = await db
+    .select()
+    .from(jellyAction)
+    .where(
+      and(
+        eq(jellyAction.id, actionId),
+        eq(jellyAction.status, "awaiting_approval"),
+      ),
+    )
+    .limit(1);
+
+  if (!current) return { ok: false, reason: "not_found", action: null };
+
+  if (current.approvalExpiresAt && current.approvalExpiresAt <= now) {
+    const [expired] = await db
+      .update(jellyAction)
+      .set({
+        status: "expired",
+        completedAt: now,
+        lastError: {
+          kind: "expired",
+          message: "The approval window closed before anyone approved this.",
+        } as never,
+      })
+      .where(
+        and(
+          eq(jellyAction.id, actionId),
+          eq(jellyAction.status, "awaiting_approval"),
+        ),
+      )
+      .returning();
+    return { ok: false, reason: "expired", action: expired ?? current };
+  }
+
   const [updated] = await db
     .update(jellyAction)
-    .set({ status: "pending", nextAttemptAt: new Date() })
+    .set({ status: "pending", nextAttemptAt: now })
     .where(
       and(
         eq(jellyAction.id, actionId),
@@ -765,5 +847,35 @@ export async function approveAction(
       ),
     )
     .returning();
-  return updated ?? null;
+
+  return updated
+    ? { ok: true, action: updated }
+    : { ok: false, reason: "not_found", action: null };
+}
+
+/**
+ * Close approval windows nobody acted on.
+ *
+ * Runs with the drain so a stale offer stops being live even if nobody ever
+ * presses the button, rather than only at the moment someone does.
+ */
+export async function expireStaleApprovals(now = new Date()): Promise<number> {
+  const expired = await db
+    .update(jellyAction)
+    .set({
+      status: "expired",
+      completedAt: now,
+      lastError: {
+        kind: "expired",
+        message: "The approval window closed before anyone approved this.",
+      } as never,
+    })
+    .where(
+      and(
+        eq(jellyAction.status, "awaiting_approval"),
+        sql`${jellyAction.approvalExpiresAt} <= ${UTC_NOW}`,
+      ),
+    )
+    .returning({ id: jellyAction.id });
+  return expired.length;
 }

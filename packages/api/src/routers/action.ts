@@ -446,6 +446,7 @@ export const actionRouter = {
             "failed",
             "dead",
             "cancelled",
+            "expired",
           ])
           .optional(),
         mailboxId: z.string().min(1).optional(),

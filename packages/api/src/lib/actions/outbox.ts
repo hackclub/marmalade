@@ -29,6 +29,15 @@ export const TERMINAL_STATUSES: ActionStatus[] = [
 ];
 
 /**
+ * `now()` as a plain UTC timestamp.
+ *
+ * The time columns here are `timestamp` without a zone and hold UTC, so they
+ * must be compared against UTC rather than against `now()`, which is a
+ * timestamptz rendered in the session's zone.
+ */
+const UTC_NOW = sql`(now() at time zone 'utc')`;
+
+/**
  * Lexicographically sortable id: a zero-padded base36 timestamp followed by
  * randomness. Ordering by id is ordering by creation time, without pulling in
  * a ULID dependency.
@@ -408,6 +417,26 @@ export async function executeAction(
     );
   }
 
+  // An action that cannot be repeated safely and cannot be checked must not
+  // be retried after an unknown outcome. Running it again is a coin flip
+  // between "nothing happened" and "a second draft appeared in a customer's
+  // thread"; a dead letter a human can look at is the lesser harm.
+  if (
+    action.needsReconcile &&
+    !definition.idempotent &&
+    !definition.reconcile
+  ) {
+    return markTerminalFailure(
+      action,
+      new Error(
+        `Previous attempt of ${action.actionType} ended with an unknown ` +
+          "outcome and this action can be neither repeated safely nor " +
+          "checked. Confirm in Jelly before retrying.",
+      ),
+      "dead",
+    );
+  }
+
   // Per action, not per process: the drain walks actions belonging to
   // different teams and each needs that team's credentials.
   const client = await getJellyClient(action.jellyTeamId);
@@ -512,15 +541,36 @@ export async function executeAction(
   }
 }
 
-/** Reclaim actions whose worker died mid-flight. */
+/**
+ * Reclaim actions whose worker died mid-flight.
+ *
+ * `needsReconcile` is set, because a lease that expired is the definition of
+ * an unknown outcome: the request may well have reached Jelly before the
+ * process went away. Serverless makes this ordinary rather than exceptional
+ * — an inline dispatch that overruns its budget is frozen when the response
+ * is returned, leaving the row `in_flight` with nobody to finish it.
+ *
+ * Reclaiming without this flag re-ran the action blind, which for a
+ * `draft_reply.create` means a second draft.
+ */
 export async function reapStaleLeases(leaseMs = 120_000): Promise<number> {
   const result = await db
     .update(jellyAction)
-    .set({ status: "pending", lockedAt: null, lockedBy: null })
+    .set({
+      status: "pending",
+      lockedAt: null,
+      lockedBy: null,
+      needsReconcile: new Date(),
+    })
     .where(
       and(
         eq(jellyAction.status, "in_flight"),
-        sql`${jellyAction.lockedAt} < now() - ${sql.raw(`interval '${Math.floor(leaseMs / 1000)} seconds'`)}`,
+        // `now()` is a timestamptz and these columns are plain timestamps
+        // holding UTC, so comparing them directly makes Postgres read the
+        // column in the session's time zone. On a connection that is not
+        // UTC that is wrong by the offset — west of UTC nothing is ever
+        // reaped, east of it everything is reaped early.
+        sql`${jellyAction.lockedAt} < ${UTC_NOW} - ${sql.raw(`interval '${Math.floor(leaseMs / 1000)} seconds'`)}`,
       ),
     )
     .returning({ id: jellyAction.id });
@@ -554,8 +604,8 @@ export async function drainActions(
     WHERE id IN (
       SELECT id FROM jelly_action
       WHERE status IN ('pending', 'scheduled')
-        AND next_attempt_at <= now()
-        AND scheduled_for <= now()
+        AND next_attempt_at <= ${UTC_NOW}
+        AND scheduled_for <= ${UTC_NOW}
       ORDER BY next_attempt_at ASC
       FOR UPDATE SKIP LOCKED
       LIMIT ${limit}

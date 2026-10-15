@@ -159,12 +159,16 @@ The daily ceiling lives on `jelly_team.daily_ceiling`, defaulting to 80,000 so
 there is headroom for work Marmalade does not drive. Adding a team adds its
 own 100,000; one team exhausting its budget does not pause another.
 
-The five-minute limit is the one to watch. It is **not** per team, so ten
-teams at 4,000 requests per 5 minutes each would stay under their own
-ceilings and collectively hit a 429 that no per-team gauge predicted. A
-deployment therefore needs an instance-wide five-minute bucket checked on
-every outbound call, and a 429 on that limit has to pause every team rather
-than the one that happened to trip it. That bucket is not implemented yet.
+The five-minute limit is the one to watch, because it is **not** per team:
+ten teams at 4,000 requests per 5 minutes each would each stay under their
+own ceiling and collectively hit a 429 that no per-team gauge predicted.
+
+Marmalade therefore keeps an instance-wide bucket (`scope = 'instance'`)
+that every outbound call spends, checked before the per-team ceilings, and a
+429 opens the circuit for the whole deployment rather than for whichever team
+happened to make the call. `/admin/health` reports the shared window next to
+the team's own numbers, since it is the ceiling a team cannot explain from
+its own traffic.
 
 Worth measuring rather than assuming: on a host with rotating egress
 addresses the per-IP limit is pessimistic rather than wrong, so ceilings
@@ -302,7 +306,7 @@ same name do not share a scope.
     - [x] instance operators, separate from jelly team admins, who onboard teams
     - [x] team switcher for session users who belong to more than one team
     - [x] api keys can be granted more than one team and pick one per request
-    - [ ] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
+    - [x] instance-wide 5-minute quota bucket (jelly rate-limits per IP, not per team)
     - [ ] per-team worker fairness in the action drain
     - [ ] row-level security
   - [x] first time sync on registration and scheduled/manual org teammember resyncs

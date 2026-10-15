@@ -4,10 +4,22 @@ import {
   jellyQuotaBucket,
   quotaPolicy,
 } from "@marmalade-v2/db/schema/observability";
+import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { and, eq, or, sql } from "drizzle-orm";
 
 export type QuotaWindow = "five_minute" | "day";
-export type QuotaScope = "team" | "mailbox" | "api_key" | "user";
+/**
+ * `instance` is the whole deployment, not a tenant.
+ *
+ * Jelly's 5,000-per-5-minutes limit is per source IP, so every team on one
+ * deployment shares it. Ten teams each sitting comfortably under their own
+ * ceiling can still trip it together, and the 429 arrives with no per-team
+ * gauge having predicted it.
+ */
+export type QuotaScope = "instance" | "team" | "mailbox" | "api_key" | "user";
+
+/** The one scope id the instance scope ever uses. */
+export const INSTANCE_SCOPE_ID = "marmalade";
 
 /**
  * Jelly publishes 100,000 requests per day per team (midnight UTC reset) and
@@ -16,6 +28,19 @@ export type QuotaScope = "team" | "mailbox" | "api_key" | "user";
  */
 export const JELLY_DAILY_LIMIT = 100_000;
 export const JELLY_FIVE_MINUTE_LIMIT = 5_000;
+
+/**
+ * Fallback only. The real ceiling lives on `jelly_team.daily_ceiling`, so a
+ * team can be given more or less than the default without a deploy, and so
+ * that connecting a second team brings its own budget rather than sharing
+ * this one.
+ */
+/**
+ * Instance-wide short-window ceiling, below Jelly's per-IP 5,000 so there is
+ * room for the Jelly web UI and anything else egressing from the same
+ * address.
+ */
+export const INSTANCE_FIVE_MINUTE_CEILING = 4_500;
 
 export const TEAM_DAILY_CEILING = 80_000;
 export const TEAM_FIVE_MINUTE_CEILING = 4_000;
@@ -123,9 +148,35 @@ export async function checkTeamQuota(
   options: QuotaCheckOptions = {},
   now = new Date(),
 ): Promise<QuotaVerdict> {
+  const [team] = await db
+    .select({ dailyCeiling: jellyTeam.dailyCeiling })
+    .from(jellyTeam)
+    .where(eq(jellyTeam.id, teamId))
+    .limit(1);
+
+  // Checked first: it is the limit a team cannot see coming, because the
+  // traffic that exhausts it may belong to someone else entirely.
+  const shared = await readQuota(
+    "instance",
+    INSTANCE_SCOPE_ID,
+    "five_minute",
+    now,
+  );
+  if (shared >= INSTANCE_FIVE_MINUTE_CEILING) {
+    return {
+      allowed: false,
+      reason:
+        "This deployment reached its shared short-term Jelly ceiling " +
+        `(${shared}/${INSTANCE_FIVE_MINUTE_CEILING}). Jelly rate-limits per ` +
+        "source IP, so every connected team shares it.",
+      retryAt: windowEndFor("five_minute", now),
+    };
+  }
+
+  const teamCeiling = team?.dailyCeiling ?? TEAM_DAILY_CEILING;
   const dailyCeiling = options.worker
-    ? Math.floor(TEAM_DAILY_CEILING * WORKER_DAILY_SHARE)
-    : TEAM_DAILY_CEILING;
+    ? Math.floor(teamCeiling * WORKER_DAILY_SHARE)
+    : teamCeiling;
 
   const [daily, burst] = await Promise.all([
     readQuota("team", teamId, "day", now),
@@ -391,10 +442,18 @@ export async function listQuotaPolicies() {
 
 /** Current usage against every ceiling that applies, for the admin gauges. */
 export async function quotaSnapshot(teamId: string, now = new Date()) {
-  const [dayUsed, burstUsed] = await Promise.all([
+  const [dayUsed, burstUsed, sharedUsed, team] = await Promise.all([
     readQuota("team", teamId, "day", now),
     readQuota("team", teamId, "five_minute", now),
+    readQuota("instance", INSTANCE_SCOPE_ID, "five_minute", now),
+    db
+      .select({ dailyCeiling: jellyTeam.dailyCeiling })
+      .from(jellyTeam)
+      .where(eq(jellyTeam.id, teamId))
+      .limit(1),
   ]);
+
+  const dailyCeiling = team[0]?.dailyCeiling ?? TEAM_DAILY_CEILING;
 
   const [circuit] = await db
     .select()
@@ -410,14 +469,23 @@ export async function quotaSnapshot(teamId: string, now = new Date()) {
   return {
     day: {
       used: dayUsed,
-      ceiling: TEAM_DAILY_CEILING,
-      workerCeiling: Math.floor(TEAM_DAILY_CEILING * WORKER_DAILY_SHARE),
+      ceiling: dailyCeiling,
+      workerCeiling: Math.floor(dailyCeiling * WORKER_DAILY_SHARE),
       jellyLimit: JELLY_DAILY_LIMIT,
       resetsAt: windowEndFor("day", now),
     },
     fiveMinute: {
       used: burstUsed,
       ceiling: TEAM_FIVE_MINUTE_CEILING,
+      jellyLimit: JELLY_FIVE_MINUTE_LIMIT,
+      resetsAt: windowEndFor("five_minute", now),
+    },
+    // Reported alongside the team's own numbers because it is the ceiling a
+    // team cannot explain from its own traffic: another team may be
+    // spending it.
+    sharedFiveMinute: {
+      used: sharedUsed,
+      ceiling: INSTANCE_FIVE_MINUTE_CEILING,
       jellyLimit: JELLY_FIVE_MINUTE_LIMIT,
       resetsAt: windowEndFor("five_minute", now),
     },

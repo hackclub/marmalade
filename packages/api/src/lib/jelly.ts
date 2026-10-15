@@ -10,6 +10,7 @@ import {
   checkCircuit,
   checkQuotas,
   consumeQuota,
+  INSTANCE_SCOPE_ID,
   recordCircuitFailure,
   recordCircuitSuccess,
   type QuotaTarget,
@@ -266,6 +267,16 @@ class JellyApiClient {
       retryAfterSeconds,
     });
 
+    // A 429 is Jelly refusing this source address, not this team. Pausing
+    // only the team that happened to make the request leaves every other
+    // team walking into the same wall one call later.
+    if (kind === "throttled") {
+      await recordCircuitFailure("instance", INSTANCE_SCOPE_ID, {
+        throttled: true,
+        retryAfterSeconds,
+      });
+    }
+
     throw new JellyApiError({
       message: `Jelly API ${method} ${path} failed: ${response.status} ${response.statusText}`,
       kind,
@@ -282,7 +293,12 @@ class JellyApiClient {
     path: string,
     options: RequestOptions = {},
   ): Promise<T> {
-    const circuit = await checkCircuit("team", this.teamId);
+    // The instance circuit first: a 429 on the per-IP limit is not this
+    // team's fault and not this team's to wait out alone.
+    const instanceCircuit = await checkCircuit("instance", INSTANCE_SCOPE_ID);
+    const circuit = instanceCircuit.open
+      ? instanceCircuit
+      : await checkCircuit("team", this.teamId);
     if (circuit.open) {
       throw new JellyApiError({
         message: circuit.reason,
@@ -322,6 +338,8 @@ class JellyApiClient {
     let lastError: unknown;
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       await consumeQuota([
+        // The shared per-IP budget, spent by every team on this deployment.
+        { scope: "instance", scopeId: INSTANCE_SCOPE_ID },
         { scope: "team", scopeId: this.teamId },
         ...(options.meta?.quotaTargets ?? []),
       ]);

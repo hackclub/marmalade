@@ -39,7 +39,12 @@ async function sessionContext(
     team: await resolveTeamById(teamId),
     session: {
       user: { ...person, role: "user" },
-      session: { id: "s1", userId: person.id, token: "t", expiresAt: new Date() },
+      session: {
+        id: "s1",
+        userId: person.id,
+        token: "t",
+        expiresAt: new Date(),
+      },
     },
   } as never;
 }

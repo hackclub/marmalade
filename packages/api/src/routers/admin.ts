@@ -76,6 +76,13 @@ export const adminRouter = {
             jellyLimit: z.number(),
             resetsAt: z.date(),
           }),
+          /** Shared by every team on this deployment: Jelly limits per IP. */
+          sharedFiveMinute: z.object({
+            used: z.number(),
+            ceiling: z.number(),
+            jellyLimit: z.number(),
+            resetsAt: z.date(),
+          }),
           circuit: z.object({
             consecutiveFailures: z.number(),
             pausedUntil: z.date().nullable(),

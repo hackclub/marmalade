@@ -404,7 +404,16 @@ export const actionRouter = {
       const [action] = await db
         .select()
         .from(jellyAction)
-        .where(eq(jellyAction.id, input.actionId))
+        // Scoped to the team before anything else is checked. The guards
+        // below are not enough on their own: a team-scoped action has no
+        // mailbox, so a session caller would pass them unexamined, and a
+        // mailbox id is unique within a team rather than across teams.
+        .where(
+          and(
+            eq(jellyAction.id, input.actionId),
+            eq(jellyAction.jellyTeamId, teamIdOf(context)),
+          ),
+        )
         .limit(1);
 
       if (!action) {
@@ -497,7 +506,12 @@ export const actionRouter = {
       const [existing] = await db
         .select()
         .from(jellyAction)
-        .where(eq(jellyAction.id, input.actionId))
+        .where(
+          and(
+            eq(jellyAction.id, input.actionId),
+            eq(jellyAction.jellyTeamId, jellyTeamId),
+          ),
+        )
         .limit(1);
 
       if (!existing) {
@@ -549,7 +563,12 @@ export const actionRouter = {
       const [existing] = await db
         .select()
         .from(jellyAction)
-        .where(eq(jellyAction.id, input.actionId))
+        .where(
+          and(
+            eq(jellyAction.id, input.actionId),
+            eq(jellyAction.jellyTeamId, jellyTeamId),
+          ),
+        )
         .limit(1);
 
       if (!existing) {

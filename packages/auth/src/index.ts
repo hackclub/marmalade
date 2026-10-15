@@ -62,6 +62,11 @@ export function createAuth(options?: AuthOptions) {
     hooks: {
       after: auditAdminActions,
     },
+    user: {
+      additionalFields: {
+        slackId: { type: "string", required: false, input: false },
+      },
+    },
     plugins: [
       admin({
         // Instance administration, distinct from a Jelly team role. New
@@ -94,7 +99,29 @@ export function createAuth(options?: AuthOptions) {
                 clientId: env.HACKCLUB_CLIENT_ID,
                 clientSecret: env.HACKCLUB_CLIENT_SECRET,
                 redirectURI: `${env.BETTER_AUTH_URL}/api/auth/oauth2/callback/hackclub`,
-                scopes: ["openid", "profile", "email", "verification_status"],
+                // `slack_id` is listed in Hack Club Auth's
+                // `claims_supported` but not in `scopes_supported`, which
+                // is already true of `email` and `verification_status` —
+                // this provider takes a scope per claim. If the client is
+                // not granted it, the claim is simply absent and approvals
+                // fall back to the link.
+                scopes: [
+                  "openid",
+                  "profile",
+                  "email",
+                  "verification_status",
+                  "slack_id",
+                ],
+                // Cast because Better Auth types this against the base
+                // user shape and does not fold in `additionalFields`.
+                mapProfileToUser: (profile) =>
+                  ({
+                    slackId:
+                      typeof (profile as { slack_id?: unknown }).slack_id ===
+                      "string"
+                        ? (profile as { slack_id: string }).slack_id
+                        : null,
+                  }) as Record<string, unknown>,
               },
             ]
           : [],

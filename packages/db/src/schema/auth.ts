@@ -7,6 +7,15 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").default(false).notNull(),
   image: text("image"),
+  /**
+   * Slack id, from Hack Club Auth's `slack_id` claim.
+   *
+   * Only used to route an approval to the right person in Slack. Nullable
+   * because not everyone who signs in has one — someone outside the
+   * workspace, or a sign-in that predates the scope — and the approval
+   * falls back to a link rather than failing when it is missing.
+   */
+  slackId: text("slack_id"),
   // Better Auth admin plugin. This is Marmalade-instance administration —
   // who may ban and impersonate — and is deliberately separate from
   // `jelly_contact.role`, which is a fact about a Jelly team.

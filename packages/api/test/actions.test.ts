@@ -15,7 +15,7 @@ import { resetDb, testDb } from "./db";
 import { ALPHA, BETA, BETA_ADMIN, seedTwoTeams } from "./seed";
 
 const { actionRouter } = await import("../src/routers/action");
-const { reapStaleLeases, executeAction } =
+const { reapStaleLeases, executeAction, approveAction, expireStaleApprovals } =
   await import("../src/lib/actions/outbox");
 const { checkTeamQuota, consumeQuota, INSTANCE_SCOPE_ID } =
   await import("../src/lib/quota");
@@ -232,5 +232,60 @@ describe("time comparisons are made in UTC", () => {
     expect(row?.status).toBe("pending");
 
     await testDb.execute("set time zone 'UTC'");
+  });
+});
+
+describe("approvals go stale", () => {
+  it("refuses an approval whose window has closed", async () => {
+    await seedAction(ALPHA, {
+      status: "awaiting_approval",
+      approvalExpiresAt: new Date(Date.now() - 60_000),
+    });
+
+    const outcome = await approveAction(`act_${ALPHA}`);
+
+    expect(outcome.ok).toBe(false);
+    if (!outcome.ok) expect(outcome.reason).toBe("expired");
+
+    const [row] = await testDb
+      .select()
+      .from(jellyAction)
+      .where(eq(jellyAction.id, `act_${ALPHA}`));
+    // Settled, not left on offer: a Slack card from yesterday looks exactly
+    // like one from a minute ago until the server is asked.
+    expect(row?.status).toBe("expired");
+  });
+
+  it("takes an approval that is still open", async () => {
+    await seedAction(ALPHA, {
+      status: "awaiting_approval",
+      approvalExpiresAt: new Date(Date.now() + 60_000),
+    });
+
+    const outcome = await approveAction(`act_${ALPHA}`);
+    expect(outcome.ok).toBe(true);
+
+    const [row] = await testDb
+      .select()
+      .from(jellyAction)
+      .where(eq(jellyAction.id, `act_${ALPHA}`));
+    expect(row?.status).toBe("pending");
+  });
+
+  it("closes stale windows nobody pressed", async () => {
+    await seedAction(ALPHA, {
+      status: "awaiting_approval",
+      approvalExpiresAt: new Date(Date.now() - 60_000),
+    });
+
+    expect(await expireStaleApprovals()).toBe(1);
+  });
+
+  it("leaves an approval with no deadline alone", async () => {
+    // Rows that predate the column were never offered with a window.
+    await seedAction(ALPHA, { status: "awaiting_approval" });
+
+    expect(await expireStaleApprovals()).toBe(0);
+    expect((await approveAction(`act_${ALPHA}`)).ok).toBe(true);
   });
 });

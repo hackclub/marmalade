@@ -36,6 +36,14 @@ export const jellyAction = pgTable(
     targetResourceId: text("target_resource_id"),
     payload: jsonb("payload").notNull(),
     status: text("status").notNull().default("pending"),
+    /**
+     * When an approval stops being offered.
+     *
+     * A button sitting in a Slack DM for a week, pressed by someone who has
+     * forgotten the context, sends a reply about something resolved days
+     * ago. Letting the offer go stale is better than letting it go out.
+     */
+    approvalExpiresAt: timestamp("approval_expires_at", { mode: "date" }),
     actorType: text("actor_type").notNull(),
     // Denormalised "api_key:12" / "user:abc" / "system:sync". Postgres treats
     // NULLs as distinct in a unique index, so a nullable apiKeyId/userId pair

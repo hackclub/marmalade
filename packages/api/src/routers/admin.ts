@@ -483,12 +483,15 @@ export const adminRouter = {
         }
         case "approve": {
           const approved = await approveAction(input.actionId);
-          if (!approved) {
+          if (!approved.ok) {
             throw new ORPCError("CONFLICT", {
-              message: `Action is ${existing.status}, not awaiting approval`,
+              message:
+                approved.reason === "expired"
+                  ? "The approval window for this action has closed. Submit it again if it is still wanted."
+                  : `Action is ${existing.status}, not awaiting approval`,
             });
           }
-          status = (await dispatchInline(approved)).status;
+          status = (await dispatchInline(approved.action)).status;
           message = "Action approved";
           break;
         }

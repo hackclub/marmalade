@@ -71,6 +71,13 @@
       "when": 1792067985690,
       "tag": "0009_admin_oversight",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792079394449,
+      "tag": "0010_approval_expiry",
+      "breakpoints": true
     }
   ]
 }

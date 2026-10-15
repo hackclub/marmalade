@@ -1,5 +1,6 @@
 import { createDb } from "@marmalade-v2/db";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
+import { jellyTeam } from "@marmalade-v2/db/schema/team";
 import { env } from "@marmalade-v2/env/server";
 import { createAuthMiddleware } from "better-auth/api";
 
@@ -56,39 +57,60 @@ function safeMetadata(body: unknown): Record<string, unknown> {
   );
 }
 
+/**
+ * Which team an instance-level admin action is recorded against.
+ *
+ * These actions are not team-scoped — banning a user is a fact about
+ * Marmalade, not about any Jelly team — but `audit_log.jelly_team_id` is
+ * `NOT NULL`, so a row needs one. The configured team, else the sole
+ * connected team.
+ */
+async function auditTeamId(db: ReturnType<typeof createDb>) {
+  if (env.JELLY_TEAM_ID) return env.JELLY_TEAM_ID;
+  const teams = await db.select({ id: jellyTeam.id }).from(jellyTeam);
+  return teams.length === 1 ? teams[0]!.id : null;
+}
+
 export const auditAdminActions = createAuthMiddleware(async (ctx) => {
   const action = AUDITED_PATHS[ctx.path];
   if (!action) return;
 
   try {
     const session = ctx.context.session;
+    const db = createDb();
+    const jellyTeamId = await auditTeamId(db);
+    if (!jellyTeamId) {
+      console.error(
+        "Skipped auditing admin action: no Jelly team to record it against",
+        ctx.path,
+      );
+      return;
+    }
 
-    await createDb()
-      .insert(auditLog)
-      .values({
-        // The admin who performed it, never the user it was performed on.
-        userId: session?.user?.id ?? null,
-        jellyTeamId: env.JELLY_TEAM_ID,
-        action,
-        resource: "auth_user",
-        resourceId: targetOf(ctx.body),
-        status: "success",
-        ipAddress:
-          ctx.headers?.get("x-forwarded-for") ??
-          ctx.headers?.get("x-real-ip") ??
-          null,
-        userAgent: ctx.headers?.get("user-agent") ?? null,
-        metadata: {
-          path: ctx.path,
-          actorEmail: session?.user?.email ?? null,
-          // Already an impersonated session? Then an admin is acting through
-          // someone else, and the chain matters more than the leaf.
-          impersonatedBy:
-            (session?.session as { impersonatedBy?: string } | undefined)
-              ?.impersonatedBy ?? null,
-          ...safeMetadata(ctx.body),
-        },
-      });
+    await db.insert(auditLog).values({
+      // The admin who performed it, never the user it was performed on.
+      userId: session?.user?.id ?? null,
+      jellyTeamId,
+      action,
+      resource: "auth_user",
+      resourceId: targetOf(ctx.body),
+      status: "success",
+      ipAddress:
+        ctx.headers?.get("x-forwarded-for") ??
+        ctx.headers?.get("x-real-ip") ??
+        null,
+      userAgent: ctx.headers?.get("user-agent") ?? null,
+      metadata: {
+        path: ctx.path,
+        actorEmail: session?.user?.email ?? null,
+        // Already an impersonated session? Then an admin is acting through
+        // someone else, and the chain matters more than the leaf.
+        impersonatedBy:
+          (session?.session as { impersonatedBy?: string } | undefined)
+            ?.impersonatedBy ?? null,
+        ...safeMetadata(ctx.body),
+      },
+    });
   } catch (error) {
     // Never let the audit write break the action it is recording. A failed
     // ban because the log was unavailable is worse than a missing row, and

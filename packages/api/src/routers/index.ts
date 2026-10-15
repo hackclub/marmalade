@@ -2,16 +2,23 @@ import { ORPCError, type RouterClient } from "@orpc/server";
 
 import { db } from "@marmalade-v2/db";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { and, eq } from "drizzle-orm";
 import z from "zod";
-import { publicProcedure, teamMemberProtectedProcedure } from "../index";
+import {
+  isInstanceAdmin,
+  publicProcedure,
+  teamIdOf,
+  teamMemberProtectedProcedure,
+} from "../index";
 import { teamMemberSchema } from "../schemas/output";
 import { actionRouter } from "./action";
 import { apiKeyRouter } from "./api";
+import { auditRouter } from "./audit";
 import { conversationRouter } from "./convo";
+import { instanceRouter } from "./instance";
 import { mailboxRouter } from "./mailbox";
 import { teamRouter } from "./team";
+import { teamCredentialsRouter } from "./teamCredentials";
 
 export const appRouter = {
   healthCheck: publicProcedure
@@ -51,21 +58,44 @@ export const appRouter = {
         .where(
           and(
             eq(jellyTeamContact.email, context.session?.user.email ?? ""),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.existsInJelly, true),
           ),
         );
 
-      if (!teamMember || teamMember.length === 0 || !teamMember[0]) {
-        throw new ORPCError("UNAUTHORIZED", {
-          message: "User is not a member of the team",
-        });
+      if (teamMember[0]) return teamMember[0];
+
+      // The `_auth` layout calls this on every navigation and redirects to
+      // the login page when it fails, so an operator who selected a team
+      // they hold no Jelly role in was bounced out of the whole app rather
+      // than shown the team they had just connected.
+      if (isInstanceAdmin(context.session?.user)) {
+        return {
+          id: context.session!.user.id,
+          name: context.session!.user.name,
+          email: context.session!.user.email,
+          role: "instance",
+          active: true,
+          jellyTeamId: teamIdOf(context),
+          existsInJelly: false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
       }
-      return teamMember[0];
+
+      throw new ORPCError("UNAUTHORIZED", {
+        message: "User is not a member of the team",
+      });
     }),
 
+  // Only `list`. `audit.create` is written to by handlers through `call()`
+  // and has no business being reachable from outside: mounting it would put
+  // a writer for the record of everything else on the public router.
+  audit: { list: auditRouter.list },
   mailbox: mailboxRouter,
   team: teamRouter,
+  instance: instanceRouter,
+  teamCredentials: teamCredentialsRouter,
   apiKey: apiKeyRouter,
   convo: conversationRouter,
   action: actionRouter,

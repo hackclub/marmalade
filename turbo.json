@@ -20,6 +20,7 @@
         "JELLY_TEAM_ID",
         "JELLY_WEBHOOK_SECRET",
         "LOOPS_API_KEY",
+        "MARMALADE_ENCRYPTION_KEY",
         "WEBHOOK_USERNAME",
         "WEBHOOK_PASSWORD"
       ]
@@ -29,6 +30,13 @@
     },
     "check-types": {
       "dependsOn": ["^check-types"]
+    },
+    "test": {
+      "outputs": []
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
     },
     "dev": {
       "cache": false,

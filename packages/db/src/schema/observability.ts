@@ -34,6 +34,12 @@ export const jellyRequestLog = pgTable(
       onDelete: "set null",
     }),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    /**
+     * Which team's budget this request spent. Nullable because `db:push` is
+     * the deploy path and rows written before the column exists have none;
+     * every write sets it.
+     */
+    jellyTeamId: text("jelly_team_id"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (t) => [

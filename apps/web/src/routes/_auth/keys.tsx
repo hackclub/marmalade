@@ -1,3 +1,4 @@
+import { canAdministerTeam, roleLabel } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 import {
   apiKeySchema,
@@ -104,7 +105,7 @@ function KeyCard({
   teamMemberRole: string;
   revokeMutate: (variables: { keyId: number }) => void;
 }) {
-  const isAdmin = teamMemberRole === "owner" || teamMemberRole === "admin";
+  const isAdmin = canAdministerTeam(teamMemberRole);
   const isExpired = apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date();
   const [detailsShowing, setDetailsShowing] = useState(false);
 
@@ -375,7 +376,8 @@ function ResourceScopeSection({
                   >
                     <Checkbox
                       checked={selectedFieldScopes.some(
-                        (s) => s.resourceType === resourceType && s.field === field,
+                        (s) =>
+                          s.resourceType === resourceType && s.field === field,
                       )}
                       onCheckedChange={() => onToggleField(resourceType, field)}
                     />
@@ -712,7 +714,7 @@ function KeysRoute() {
         <CardHeader className="items-center justify-between">
           <CardTitle>Your API Keys</CardTitle>
           <CardDescription>
-            View and manage your keys as a <u>team {teamMember.role}</u>
+            View and manage your keys as <u>{roleLabel(teamMember.role)}</u>
           </CardDescription>
           <CardAction>
             <CreateKeyDialog

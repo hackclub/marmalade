@@ -1,6 +1,5 @@
 import { db } from "@marmalade-v2/db";
 import { jellyRequestLog } from "@marmalade-v2/db/schema/observability";
-import { env } from "@marmalade-v2/env/server";
 import {
   classifyStatus,
   JellyApiError,
@@ -15,6 +14,7 @@ import {
   recordCircuitSuccess,
   type QuotaTarget,
 } from "./quota";
+import { getTeamCredentials } from "./team-credentials";
 
 export interface JellyMember {
   id: string;
@@ -165,6 +165,7 @@ class JellyApiClient {
         actorType: entry.meta?.actorType ?? "system",
         apiKeyId: entry.meta?.apiKeyId ?? null,
         userId: entry.meta?.userId ?? null,
+        jellyTeamId: this.teamId,
       });
     } catch (error) {
       // Never let observability failures take down the call they observe.
@@ -698,26 +699,40 @@ class JellyApiClient {
 
 export type { JellyApiClient };
 
-let jellyClient: JellyApiClient | null = null;
+/**
+ * Build a client for one Jelly team from the credentials stored on its row.
+ *
+ * Async and per-team on purpose. The module-level singleton this replaced
+ * baked one team's environment-supplied token into the module at import
+ * time, which made rotating a token a redeploy and connecting a second team
+ * impossible.
+ *
+ * The team id is also what the request log, the quota counters and the
+ * circuit breaker are keyed by, so it has to reach the client rather than
+ * being implied by the process.
+ *
+ * `getTeamCredentials` caches the decrypted token keyed on the row's
+ * `credentialsUpdatedAt`, so the common path is a single indexed row read.
+ */
+export async function getJellyClient(teamId: string): Promise<JellyApiClient> {
+  const credentials = await getTeamCredentials(teamId);
 
-export function getJellyClient(): JellyApiClient {
-  if (!jellyClient) {
-    if (!env.JELLY_API_URL || !env.JELLY_API_KEY) {
-      throw new Error("JELLY_API_URL and JELLY_API_KEY must be set");
-    }
-    jellyClient = new JellyApiClient(
-      env.JELLY_API_URL,
-      env.JELLY_API_KEY,
-      env.JELLY_TEAM_ID,
-    );
+  if (!credentials.active) {
+    throw new Error(`Jelly team ${teamId} is not active`);
   }
-  return jellyClient;
+
+  return new JellyApiClient(
+    credentials.apiBaseUrl,
+    credentials.apiToken,
+    teamId,
+  );
 }
 
+/** Escape hatch for credentials that are not (yet) stored on a team row. */
 export function createJellyClient(
   apiUrl: string,
   apiKey: string,
-  teamId: string = env.JELLY_TEAM_ID,
+  teamId: string,
 ): JellyApiClient {
   return new JellyApiClient(apiUrl, apiKey, teamId);
 }

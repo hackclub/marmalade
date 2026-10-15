@@ -2,7 +2,6 @@ import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { workerHeartbeat } from "@marmalade-v2/db/schema/observability";
-import { env } from "@marmalade-v2/env/server";
 import { and, eq, sql } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 import { getJellyClient, type JellyRequestMeta } from "../jelly";
@@ -100,6 +99,13 @@ function jitter(seconds: number): number {
 }
 
 export type EnqueueInput = {
+  /**
+   * The team this action belongs to. Carried explicitly rather than read
+   * from the environment: the drain runs outside any request, and an action
+   * that cannot say whose it is would be dispatched with whichever team the
+   * process happened to be configured for.
+   */
+  jellyTeamId: string;
   actionType: string;
   targetResourceId: string | null;
   jellyMailboxId: string | null;
@@ -155,7 +161,7 @@ export async function enqueueAction(
     .values({
       id: generateActionId(),
       idempotencyKey,
-      jellyTeamId: env.JELLY_TEAM_ID,
+      jellyTeamId: input.jellyTeamId,
       jellyMailboxId: input.jellyMailboxId,
       actionType: input.actionType,
       targetResourceType: definition.resourceType,
@@ -196,7 +202,7 @@ export async function enqueueAction(
   await db.insert(auditLog).values({
     userId: input.userId ?? null,
     apiKeyId: input.apiKeyId ?? null,
-    jellyTeamId: env.JELLY_TEAM_ID,
+    jellyTeamId: input.jellyTeamId,
     action: "enqueue",
     resource: "jelly_action",
     resourceId: inserted.id,
@@ -386,7 +392,9 @@ export async function executeAction(
     );
   }
 
-  const client = getJellyClient();
+  // Per action, not per process: the drain walks actions belonging to
+  // different teams and each needs that team's credentials.
+  const client = await getJellyClient(action.jellyTeamId);
   const meta = metaFor(action, options.worker ?? false);
   const ctx = {
     client,

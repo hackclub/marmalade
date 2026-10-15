@@ -1,5 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 
+import { canAdministerTeam } from "@/lib/roles";
+import { orpc } from "@/utils/orpc";
+import TeamSwitcher from "./team-switcher";
 import UserMenu from "./user-menu";
 
 const internalLinks = [
@@ -15,6 +19,16 @@ const externalLinks = [
 ] as const;
 
 export default function Header() {
+  // Admin holds the audit log, which a team admin may read, and the team
+  // list, which only an operator may. Shown to either rather than to
+  // operators alone, and hidden from everyone else rather than shown and
+  // then refused.
+  const mine = useQuery(orpc.team.listMine.queryOptions());
+  const membership = useQuery(orpc.membershipInfo.queryOptions());
+  const showAdmin =
+    (mine.data?.isInstanceOperator ?? false) ||
+    canAdministerTeam(membership.data?.role);
+
   return (
     <div className="z-10">
       <div className="flex flex-row items-center justify-between px-2 py-1">
@@ -24,6 +38,11 @@ export default function Header() {
               {label}
             </Link>
           ))}
+          {showAdmin && (
+            <Link key="/admin" to="/admin">
+              Admin
+            </Link>
+          )}
           <hr
             key="divider"
             className="h-[20px] self-center border border-gray-600"
@@ -38,6 +57,7 @@ export default function Header() {
           ))}
         </nav>
         <div className="flex items-center gap-2">
+          <TeamSwitcher />
           <UserMenu />
         </div>
       </div>

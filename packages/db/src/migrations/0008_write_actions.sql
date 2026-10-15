@@ -1,3 +1,11 @@
+-- NOTE: `db:push` is the deploy path here, so it applies the DDL below and
+-- would skip anything else in this file.
+--
+-- Safe to push: everything is a new table except one column on `mailbox`,
+-- `writes_enabled`, which has a default and so does not stall a
+-- non-interactive push. It defaults to false, which means a mailbox has to
+-- be opted into writes explicitly — holding a write scope is not enough.
+
 CREATE TABLE "jelly_action" (
 	"id" text PRIMARY KEY NOT NULL,
 	"idempotency_key" text NOT NULL,
@@ -64,6 +72,7 @@ CREATE TABLE "jelly_request_log" (
 	"actor_type" text DEFAULT 'system' NOT NULL,
 	"api_key_id" integer,
 	"user_id" text,
+	"jelly_team_id" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

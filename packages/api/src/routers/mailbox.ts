@@ -13,22 +13,24 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { aliasedTable } from "drizzle-orm/alias";
 import { getJellyClient } from "../lib/jelly";
 
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import z from "zod";
 import {
   checkRouterScope,
   filterFieldsByScope,
   mailboxScopedProcedure,
-  publicProcedure,
   requireMailboxAccess,
+  sessionOrInternalProcedure,
   teamAdminProtectedProcedure,
+  teamIdOf,
+  teamIdOrDefault,
   teamMemberProtectedProcedure,
 } from "../index";
+import { canAdministerTeam } from "../lib/roles";
+import { backfillTeamIds, ensureTeamSlug } from "../lib/team";
 import { mailboxListItemSchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
-const jelly = getJellyClient();
 const jellyMailboxMembersAll = aliasedTable(
   jellyMailboxMember,
   "jelly_mailbox_members_all",
@@ -118,7 +120,12 @@ export const mailboxRouter = {
             isArchived: jellyMailbox.isArchived,
           })
           .from(jellyMailbox)
-          .where(eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId))
+          .where(
+            and(
+              eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+            ),
+          )
           .limit(1);
       } catch (error) {
         console.warn("Jelly mailbox table unavailable during webhook", error);
@@ -156,7 +163,12 @@ export const mailboxRouter = {
           active: marmaladeMailbox.active,
         })
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId))
+        .where(
+          and(
+            eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        )
         .limit(1);
 
       if (marmaladeMailboxRows.length === 0) {
@@ -207,16 +219,31 @@ export const mailboxRouter = {
             .from(jellyMailbox)
             .innerJoin(
               marmaladeMailbox,
-              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              and(
+                eq(
+                  jellyMailbox.jellyMailboxId,
+                  marmaladeMailbox.jellyMailboxId,
+                ),
+                eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+              ),
             )
             .where(
-              inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+              and(
+                eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+                inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+              ),
             )
             .leftJoin(
               jellyMailboxMembersAll,
-              eq(
-                jellyMailbox.jellyMailboxId,
-                jellyMailboxMembersAll.jellyMailboxId,
+              and(
+                eq(
+                  jellyMailbox.jellyMailboxId,
+                  jellyMailboxMembersAll.jellyMailboxId,
+                ),
+                eq(
+                  jellyMailbox.jellyTeamId,
+                  jellyMailboxMembersAll.jellyTeamId,
+                ),
               ),
             )
             .leftJoin(
@@ -345,10 +372,16 @@ export const mailboxRouter = {
           .from(jellyMailbox)
           .innerJoin(
             marmaladeMailbox,
-            eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+            and(
+              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+            ),
           )
           .where(
-            inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+            and(
+              eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+              inArray(jellyMailbox.jellyMailboxId, context.allowedMailboxIds),
+            ),
           );
 
         return mailboxes.map((row) => ({
@@ -373,6 +406,121 @@ export const mailboxRouter = {
           message: "User is not authenticated",
         });
       }
+
+      // Everyone else's list is built from the mailboxes they are a Jelly
+      // member of, which is right for a member and wrong for an admin: it
+      // hides every mailbox nobody has joined, including all of them in a
+      // team that has just been connected. The admin cannot then register
+      // one, because the control to do that lives on the row that is not
+      // shown. Admins get the team's mailboxes instead, registered or not.
+      if (canAdministerTeam(context.role)) {
+        const teamId = teamIdOf(context);
+
+        const rows = await db
+          .select({ jelly_mailbox: jellyMailbox, mailbox: marmaladeMailbox })
+          .from(jellyMailbox)
+          // Left, not inner: an unregistered mailbox is exactly the one an
+          // admin needs to see.
+          .leftJoin(
+            marmaladeMailbox,
+            and(
+              eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+              eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+            ),
+          )
+          .where(eq(jellyMailbox.jellyTeamId, teamId));
+
+        // Members are fetched, not counted with a subquery. Counting alone
+        // produced a card headed "Jelly Mailbox Members (29)" above an empty
+        // list, because the heading came from the count and the list from an
+        // array that was never filled. Both now derive from the same rows,
+        // so they cannot disagree.
+        const jellyMembers = await db
+          .select({
+            jellyMailboxId: jellyMailboxMember.jellyMailboxId,
+            contact: jellyTeamContact,
+            marmalade: authUser,
+          })
+          .from(jellyMailboxMember)
+          .innerJoin(
+            jellyTeamContact,
+            and(
+              eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          )
+          .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
+          .where(eq(jellyMailboxMember.jellyTeamId, teamId));
+
+        const marmaladeMembers = await db
+          .select({
+            marmaladeMailboxId: marmaladeMailboxMember.marmaladeMailboxId,
+            marmalade: authUser,
+            contact: jellyTeamContact,
+          })
+          .from(marmaladeMailboxMember)
+          .innerJoin(
+            marmaladeMailbox,
+            and(
+              eq(
+                marmaladeMailboxMember.marmaladeMailboxId,
+                marmaladeMailbox.id,
+              ),
+              eq(marmaladeMailbox.jellyTeamId, teamId),
+            ),
+          )
+          .innerJoin(
+            authUser,
+            eq(marmaladeMailboxMember.marmaladeUserId, authUser.id),
+          )
+          .leftJoin(
+            jellyTeamContact,
+            and(
+              eq(jellyTeamContact.email, authUser.email),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          );
+
+        return rows.map((row) => {
+          const jelly = jellyMembers
+            .filter(
+              (member) =>
+                member.jellyMailboxId === row.jelly_mailbox.jellyMailboxId,
+            )
+            .map((member) => ({
+              jelly: member.contact,
+              marmalade: member.marmalade,
+            }));
+
+          const granted = row.mailbox
+            ? marmaladeMembers
+                .filter(
+                  (member) => member.marmaladeMailboxId === row.mailbox!.id,
+                )
+                .map((member) => ({
+                  jelly: member.contact,
+                  marmalade: member.marmalade,
+                }))
+            : [];
+
+          return {
+            jellyMailbox: {
+              ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
+              memberCount: jelly.length,
+              members: jelly,
+            },
+            marmaladeMailbox: row.mailbox
+              ? {
+                  ...filterFieldsByScope(context, "mailbox", row.mailbox),
+                  memberCount: granted.length,
+                  members: granted,
+                }
+              : null,
+            marmaladeMailboxMembership: null,
+          };
+        });
+      }
+
       const results = ((await db
         .select({
           jellyMailbox: jellyMailbox,
@@ -386,21 +534,27 @@ export const mailboxRouter = {
         .from(jellyMailbox)
         .innerJoin(
           jellyMailboxMember,
-          eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+          and(
+            eq(jellyMailbox.jellyMailboxId, jellyMailboxMember.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, jellyMailboxMember.jellyTeamId),
+          ),
         )
         .innerJoin(
           jellyTeamContact,
           and(
             eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
             eq(jellyTeamContact.email, requesterEmail),
           ),
         )
         .leftJoin(
           jellyMailboxMembersAll,
-          eq(
-            jellyMailbox.jellyMailboxId,
-            jellyMailboxMembersAll.jellyMailboxId,
+          and(
+            eq(
+              jellyMailbox.jellyMailboxId,
+              jellyMailboxMembersAll.jellyMailboxId,
+            ),
+            eq(jellyMailbox.jellyTeamId, jellyMailboxMembersAll.jellyTeamId),
           ),
         )
         .leftJoin(
@@ -418,7 +572,10 @@ export const mailboxRouter = {
         )
         .leftJoin(
           marmaladeMailbox,
-          eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+          and(
+            eq(jellyMailbox.jellyMailboxId, marmaladeMailbox.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
+          ),
         )
         .leftJoin(
           marmaladeMailboxMembersAll,
@@ -540,21 +697,51 @@ export const mailboxRouter = {
       const mailbox = await db
         .select()
         .from(jellyMailbox)
-        .where(eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId));
-      if (!mailbox) {
+        .where(
+          and(
+            eq(jellyMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(jellyMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
+      // `db.select()` resolves to an array, so the previous `!mailbox` check
+      // was always false and a Marmalade mailbox could be created for a Jelly
+      // mailbox that does not exist.
+      if (mailbox.length === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
         });
       }
+
+      // Nothing stopped this handler creating a second row for the same Jelly
+      // mailbox, which is how the duplicates this branch adds a constraint for
+      // came about. Answer clearly rather than letting the constraint surface
+      // as a raw database error.
+      const existing = await db
+        .select({ id: marmaladeMailbox.id })
+        .from(marmaladeMailbox)
+        .where(
+          and(
+            eq(marmaladeMailbox.jellyMailboxId, input.jellyMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        )
+        .limit(1);
+      if (existing.length > 0) {
+        throw new ORPCError("CONFLICT", {
+          message: "This mailbox is already managed by Marmalade",
+        });
+      }
+
       const newMailbox = await db
         .insert(marmaladeMailbox)
         .values({
           jellyMailboxId: input.jellyMailboxId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          jellyTeamId: env.JELLY_TEAM_ID,
+          jellyTeamId: teamIdOf(context),
           active: true,
         })
+        .onConflictDoNothing()
         .returning({ id: marmaladeMailbox.id });
       await call(
         auditRouter.create,
@@ -569,20 +756,30 @@ export const mailboxRouter = {
       );
       return { message: "Mailbox created successfully" };
     }),
-  resync: publicProcedure
+  resync: sessionOrInternalProcedure
     .route({ method: "POST", path: "/mailboxes/resync" })
     .output(z.object({ message: z.string() }))
     .handler(async ({ context }) => {
+      const teamId = await teamIdOrDefault(context);
+
       const existingTeam = await db
         .select()
         .from(jellyTeam)
-        .where(eq(jellyTeam.id, env.JELLY_TEAM_ID))
+        .where(eq(jellyTeam.id, teamId))
         .limit(1);
       if (existingTeam.length === 0) {
-        await db.insert(jellyTeam).values({ id: env.JELLY_TEAM_ID });
+        await db.insert(jellyTeam).values({ id: teamId }).onConflictDoNothing();
       }
+
+      // Same self-repair as `team.resync`: `db:push` applies columns and
+      // never runs a data step, so the backfill has to live in code that
+      // actually executes. Both calls are no-ops once they have taken effect.
+      await ensureTeamSlug(teamId);
+      await backfillTeamIds(teamId);
+
       let mailboxes;
       try {
+        const jelly = await getJellyClient(teamId);
         mailboxes = await jelly.listMailboxes();
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -598,7 +795,12 @@ export const mailboxRouter = {
       const existingMailboxes = await db
         .select()
         .from(jellyMailbox)
-        .where(inArray(jellyMailbox.jellyMailboxId, mailboxIds));
+        .where(
+          and(
+            eq(jellyMailbox.jellyTeamId, teamId),
+            inArray(jellyMailbox.jellyMailboxId, mailboxIds),
+          ),
+        );
       const existingMailboxIds = existingMailboxes.map(
         (mailbox) => mailbox.jellyMailboxId,
       );
@@ -613,9 +815,12 @@ export const mailboxRouter = {
           .update(jellyMailbox)
           .set({ existsInJelly: false })
           .where(
-            inArray(
-              jellyMailbox.jellyMailboxId,
-              removedMailboxes.map((mailbox) => mailbox.jellyMailboxId),
+            and(
+              eq(jellyMailbox.jellyTeamId, teamId),
+              inArray(
+                jellyMailbox.jellyMailboxId,
+                removedMailboxes.map((mailbox) => mailbox.jellyMailboxId),
+              ),
             ),
           );
       }
@@ -624,7 +829,7 @@ export const mailboxRouter = {
           newMailboxes.map((mailbox) => ({
             jellyMailboxId: mailbox.id,
             name: mailbox.name,
-            jellyTeamId: env.JELLY_TEAM_ID,
+            jellyTeamId: teamId,
             createdAt: new Date(mailbox.created_at).toISOString(),
             updatedAt: new Date(mailbox.updated_at).toISOString(),
             isDefault: mailbox.default,
@@ -668,8 +873,11 @@ export const mailboxRouter = {
     )
     .output(z.object({ message: z.string() }))
     .handler(async ({ input, context }) => {
+      const teamId = teamIdOf(context);
+
       let mailboxMembers;
       try {
+        const jelly = await getJellyClient(teamId);
         mailboxMembers = await jelly.listMailboxMembers(input.mailboxId);
       } catch {
         throw new ORPCError("INTERNAL_SERVER_ERROR", {
@@ -714,9 +922,12 @@ export const mailboxRouter = {
             .select({ id: jellyTeamContact.id })
             .from(jellyTeamContact)
             .where(
-              inArray(
-                jellyTeamContact.id,
-                newMembers.map((m) => m.id),
+              and(
+                eq(jellyTeamContact.jellyTeamId, teamId),
+                inArray(
+                  jellyTeamContact.id,
+                  newMembers.map((m) => m.id),
+                ),
               ),
             )
         ).map((c) => c.id);
@@ -728,7 +939,7 @@ export const mailboxRouter = {
             membersWithContacts.map((member) => ({
               jellyContactId: member.id,
               jellyMailboxId: input.mailboxId,
-              jellyTeamId: env.JELLY_TEAM_ID,
+              jellyTeamId: teamId,
             })),
           );
         }
@@ -768,7 +979,15 @@ export const mailboxRouter = {
       const mailbox = await db
         .select()
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            // `marmalade_mailbox_id` is a surrogate key, so it names a
+            // mailbox without saying whose. Without the team, an admin of one
+            // team could act on another team's mailbox by passing its id.
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (!mailbox || mailbox.length === 0 || !mailbox[0]) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
@@ -795,6 +1014,10 @@ export const mailboxRouter = {
           marmaladeUserId: input.marmaladeMemberId,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
+          // Set on the write, not left for the backfill. A grant made
+          // between deploy and the next resync would otherwise sit with a
+          // null team.
+          jellyTeamId: teamIdOf(context),
         })
         .returning({ id: marmaladeMailboxMember.id });
       await call(
@@ -834,8 +1057,16 @@ export const mailboxRouter = {
       const [targetMailbox] = await db
         .select({ jellyMailboxId: marmaladeMailbox.jellyMailboxId })
         .from(marmaladeMailbox)
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId))
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        )
         .limit(1);
+      if (!targetMailbox) {
+        throw new ORPCError("NOT_FOUND", { message: "Mailbox not found" });
+      }
 
       const status = await db
         .delete(marmaladeMailboxMember)
@@ -879,7 +1110,7 @@ export const mailboxRouter = {
                   .where(
                     and(
                       eq(apiKey.createdBy, input.marmaladeMemberId),
-                      eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+                      eq(apiKey.jellyTeamId, teamIdOf(context)),
                     ),
                   ),
               ),
@@ -949,7 +1180,12 @@ export const mailboxRouter = {
       const result = await db
         .update(marmaladeMailbox)
         .set({ active: false })
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (result.rowCount === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
@@ -987,7 +1223,12 @@ export const mailboxRouter = {
       const result = await db
         .update(marmaladeMailbox)
         .set({ active: true })
-        .where(eq(marmaladeMailbox.id, input.marmaladeMailboxId));
+        .where(
+          and(
+            eq(marmaladeMailbox.id, input.marmaladeMailboxId),
+            eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
+          ),
+        );
       if (result.rowCount === 0) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",

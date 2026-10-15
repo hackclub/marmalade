@@ -1,16 +1,25 @@
 import { db } from "@marmalade-v2/db";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
 import { env } from "@marmalade-v2/env/server";
+import { ORPCError } from "@orpc/server";
 
 import z from "zod";
 
-import { publicProcedure, teamAdminProtectedProcedure } from "../index";
+import { eq } from "drizzle-orm";
+import {
+  sessionOrInternalProcedure,
+  teamAdminProtectedProcedure,
+  teamIdOf,
+} from "../index";
 
 export const auditRouter = {
-  list: teamAdminProtectedProcedure.handler(async () => {
-    return await db.select().from(auditLog);
+  list: teamAdminProtectedProcedure.handler(async ({ context }) => {
+    return await db
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.jellyTeamId, teamIdOf(context)));
   }),
-  create: publicProcedure
+  create: sessionOrInternalProcedure
     .input(
       z.object({
         resource: z.string().min(1),
@@ -37,10 +46,21 @@ export const auditRouter = {
         apiKeyId = ctx.apiKey.id;
       }
 
+      // Internal callers reach this through `call()` with a synthetic context
+      // that has no team — the Better Auth signup hook is one — so the
+      // configured team remains the fallback here rather than a hard error
+      // that would lose the audit row entirely.
+      const jellyTeamId = ctx.team?.id ?? env.JELLY_TEAM_ID;
+      if (!jellyTeamId) {
+        throw new ORPCError("BAD_REQUEST", {
+          message: "No Jelly team resolved for this audit entry",
+        });
+      }
+
       return await db.insert(auditLog).values({
         userId,
         apiKeyId,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId,
         action: input.action,
         resource: input.resource,
         resourceId: input.resourceId ?? "-1",

@@ -7,6 +7,14 @@ import {
 import { ORPCError, call } from "@orpc/server";
 import { createFileRoute } from "@tanstack/react-router";
 
+/**
+ * Legacy single-team webhook endpoint.
+ *
+ * Kept working so an integration already configured in Jelly does not break
+ * on deploy. It can only mean `JELLY_TEAM_ID`: with no slug there is nothing
+ * in the request to tell teams apart. New teams are pointed at
+ * `/api/webhook/jelly/{slug}` instead.
+ */
 async function handleWebhook({ request }: { request: Request }) {
   const started = Date.now();
   // Jelly never retries a failed delivery and switches the webhook off after
@@ -41,19 +49,23 @@ async function handleWebhook({ request }: { request: Request }) {
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
+  // Resolved outside the try so a failure further down can still say whose
+  // delivery it was, where the team got far enough to be known.
+  let jellyTeamId: string | null = null;
+
   try {
+    const context = await createJellyWebhookContext({ req: request, rawBody });
+    jellyTeamId = context.team?.id ?? null;
+
     const result = await call(
       webhookRouter.jellyEventWebhook,
       body as JellyWebhookInput,
-      {
-        context: {
-          ...(await createJellyWebhookContext({ req: request, rawBody })),
-        },
-      },
+      { context },
     );
 
     await recordWebhookDelivery({
       event: (body as { event?: string } | null)?.event ?? eventType,
+      jellyTeamId,
       // A mailbox Marmalade does not manage is a correct no-op, not a failure.
       status: result.reason ? "skipped" : "accepted",
       error: result.reason ?? null,
@@ -64,6 +76,7 @@ async function handleWebhook({ request }: { request: Request }) {
   } catch (error) {
     await recordWebhookDelivery({
       event: (body as { event?: string } | null)?.event ?? eventType,
+      jellyTeamId,
       status: error instanceof ORPCError ? "rejected" : "failed",
       error: error instanceof Error ? error.message : String(error),
       durationMs: Date.now() - started,

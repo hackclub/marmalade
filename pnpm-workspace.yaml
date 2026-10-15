@@ -6,29 +6,45 @@ allowBuilds:
   msw: true
   msgpackr-extract: true
   sharp: true
+# Vercel enforces a supply-chain policy that rejects a lockfile containing
+# very recently published packages. Declaring it here too means local
+# resolution produces a lockfile the deploy will accept, instead of the build
+# failing on entries that only looked fine on this machine.
+# Unit is minutes.
+minimumReleaseAge: 1440
+
+# Transitive pins for published advisories. Everything here is reachable only
+# through build or dev tooling; the one advisory that affected shipped code was
+# @orpc/server, fixed by the catalog bump above rather than by an override.
 overrides:
   postcss: 8.5.26
-  undici: 7.29.0
-  brace-expansion: 5.0.9
-  ip-address: 10.5.0
-  hono: 4.13.5
+  undici: ^7.30.0
+  brace-expansion: ^5.0.12
+  ip-address: ^10.7.3
+  hono: ^4.13.13
   "@hono/node-server": 2.0.10
+  qs: ^6.16.0
+  fast-uri: ^3.1.8
+  js-yaml: ^4.3.2
+  browserslist: ^4.29.3
+  baseline-browser-mapping: ^2.11.27
+  # drizzle-kit still pulls the deprecated @esbuild-kit shim, which pins an
+  # esbuild from before the dev-server request advisory.
+  esbuild: ^0.25.12
 catalog:
   dotenv: ^17.4.2
   zod: ^4.4.3
   typescript: ^6.0.3
   "@types/node": ^22.20.1
   next-themes: ^0.4.6
-  "@orpc/server": ^1.14.8
-  "@orpc/client": ^1.13.14
-  "@orpc/openapi": ^1.13.14
-  "@orpc/zod": ^1.13.14
-  "@orpc/tanstack-query": ^1.13.14
+  "@orpc/server": ^1.15.4
+  "@orpc/client": ^1.15.4
+  "@orpc/openapi": ^1.15.4
+  "@orpc/zod": ^1.15.4
+  "@orpc/tanstack-query": ^1.15.4
   better-auth: 1.6.22
   "@tanstack/react-form": ^1.28.0
   "@types/react-dom": ^19.2.3
   "@better-auth/expo": 1.6.11
   drizzle-orm: ^0.45.1
   "@types/pg": ^8.16.0
-minimumReleaseAgeExclude:
-  - hono@4.13.5

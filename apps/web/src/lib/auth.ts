@@ -1,3 +1,4 @@
+import { INTERNAL_CONTEXT } from "@marmalade-v2/api";
 import { auditRouter } from "@marmalade-v2/api/routers/audit";
 import { mailboxRouter } from "@marmalade-v2/api/routers/mailbox";
 import { teamRouter } from "@marmalade-v2/api/routers/team";
@@ -22,7 +23,11 @@ export const auth = createAuth({
               {
                 path: ["/team"],
                 context: {
+                  ...INTERNAL_CONTEXT,
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {
@@ -40,7 +45,11 @@ export const auth = createAuth({
               {
                 path: ["/mailboxes"],
                 context: {
+                  ...INTERNAL_CONTEXT,
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {
@@ -67,7 +76,11 @@ export const auth = createAuth({
               {
                 path: ["/audit"],
                 context: {
+                  ...INTERNAL_CONTEXT,
                   auth: null,
+                  // Signup has no request and so no team. The resync handlers
+                  // fall back to the configured team for exactly this case.
+                  team: null,
                   session: {
                     user,
                     session: {

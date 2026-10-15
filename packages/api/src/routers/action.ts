@@ -1,7 +1,6 @@
 import { db } from "@marmalade-v2/db";
 import { jellyAction } from "@marmalade-v2/db/schema/action";
 import { auditLog } from "@marmalade-v2/db/schema/audit";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq, inArray, lt, sql } from "drizzle-orm";
 import z from "zod";
@@ -11,6 +10,7 @@ import {
   requireMailboxAccess,
   requireMailboxWritesEnabled,
   resolveActor,
+  teamIdOf,
   teamMemberProtectedProcedure,
 } from "../index";
 import { ACTION_TYPES, getActionDefinition } from "../lib/actions/catalogue";
@@ -50,6 +50,7 @@ function serialiseAction(action: ActionRow, deduplicated = false) {
  */
 async function auditRejection(input: {
   actor: ReturnType<typeof resolveActor>;
+  jellyTeamId: string;
   actionType: string;
   targetResourceId: string | null;
   reason: string;
@@ -57,7 +58,7 @@ async function auditRejection(input: {
   await db.insert(auditLog).values({
     userId: input.actor.userId,
     apiKeyId: input.actor.apiKeyId,
-    jellyTeamId: env.JELLY_TEAM_ID,
+    jellyTeamId: input.jellyTeamId,
     action: input.actionType,
     resource: "jelly_action",
     resourceId: input.targetResourceId ?? "-1",
@@ -88,6 +89,7 @@ async function submitAction(options: SubmitOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const context = options.context as any;
   const actor = resolveActor(context);
+  const jellyTeamId = teamIdOf(context);
 
   const definition = getActionDefinition(options.actionType);
   if (!definition) {
@@ -101,6 +103,7 @@ async function submitAction(options: SubmitOptions) {
   } catch (error) {
     await auditRejection({
       actor,
+      jellyTeamId,
       actionType: options.actionType,
       targetResourceId: options.targetResourceId,
       reason: error instanceof ORPCError ? error.message : "scope denied",
@@ -116,10 +119,11 @@ async function submitAction(options: SubmitOptions) {
     }
     try {
       requireMailboxAccess(context, options.jellyMailboxId);
-      await requireMailboxWritesEnabled(options.jellyMailboxId);
+      await requireMailboxWritesEnabled(options.jellyMailboxId, jellyTeamId);
     } catch (error) {
       await auditRejection({
         actor,
+        jellyTeamId,
         actionType: options.actionType,
         targetResourceId: options.targetResourceId,
         reason: error instanceof ORPCError ? error.message : "mailbox denied",
@@ -164,6 +168,7 @@ async function submitAction(options: SubmitOptions) {
     : null;
 
   const { action, deduplicated } = await enqueueAction({
+    jellyTeamId,
     actionType: options.actionType,
     targetResourceId: options.targetResourceId,
     jellyMailboxId: options.jellyMailboxId,
@@ -446,7 +451,7 @@ export const actionRouter = {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const allowed = (context as any).allowedMailboxIds as string[];
 
-      const conditions = [eq(jellyAction.jellyTeamId, env.JELLY_TEAM_ID)];
+      const conditions = [eq(jellyAction.jellyTeamId, teamIdOf(context))];
 
       if (actor.actorType === "api_key" && actor.apiKeyId != null) {
         conditions.push(eq(jellyAction.apiKeyId, actor.apiKeyId));
@@ -488,6 +493,7 @@ export const actionRouter = {
     .output(actionSchema)
     .handler(async ({ input, context }) => {
       const actor = resolveActor(context);
+      const jellyTeamId = teamIdOf(context);
       const [existing] = await db
         .select()
         .from(jellyAction)
@@ -520,7 +526,7 @@ export const actionRouter = {
       await db.insert(auditLog).values({
         userId: actor.userId,
         apiKeyId: actor.apiKeyId,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId,
         action: "cancel",
         resource: "jelly_action",
         resourceId: input.actionId,
@@ -539,6 +545,7 @@ export const actionRouter = {
     .output(actionSchema)
     .handler(async ({ input, context }) => {
       const actor = resolveActor(context);
+      const jellyTeamId = teamIdOf(context);
       const [existing] = await db
         .select()
         .from(jellyAction)
@@ -570,7 +577,7 @@ export const actionRouter = {
       await db.insert(auditLog).values({
         userId: actor.userId,
         apiKeyId: actor.apiKeyId,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId,
         action: "retry",
         resource: "jelly_action",
         resourceId: input.actionId,
@@ -639,7 +646,7 @@ export const actionRouter = {
         oldestPendingAt: z.date().nullable(),
       }),
     )
-    .handler(async () => {
+    .handler(async ({ context }) => {
       const rows = await db
         .select({
           status: jellyAction.status,
@@ -647,7 +654,7 @@ export const actionRouter = {
           oldest: sql<Date | null>`min(${jellyAction.createdAt})`,
         })
         .from(jellyAction)
-        .where(eq(jellyAction.jellyTeamId, env.JELLY_TEAM_ID))
+        .where(eq(jellyAction.jellyTeamId, teamIdOf(context)))
         .groupBy(jellyAction.status);
 
       const counts: Record<string, number> = {};

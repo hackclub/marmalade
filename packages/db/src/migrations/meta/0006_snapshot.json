@@ -1,340 +1,9 @@
 {
-  "id": "4fdc8926-0955-4070-8fdf-9e96a589bb03",
-  "prevId": "81b50bac-1f2c-4daa-9005-4dcc19043444",
+  "id": "38dfcd2c-b02b-45fb-92f6-66560f76311a",
+  "prevId": "6a686433-1790-4c9d-8935-dde22ceaac55",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.jelly_action": {
-      "name": "jelly_action",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "idempotency_key": {
-          "name": "idempotency_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "jelly_team_id": {
-          "name": "jelly_team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "jelly_mailbox_id": {
-          "name": "jelly_mailbox_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "action_type": {
-          "name": "action_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_resource_type": {
-          "name": "target_resource_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "target_resource_id": {
-          "name": "target_resource_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "payload": {
-          "name": "payload",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "actor_type": {
-          "name": "actor_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "actor_key": {
-          "name": "actor_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "api_key_id": {
-          "name": "api_key_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "attempts": {
-          "name": "attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "max_attempts": {
-          "name": "max_attempts",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 8
-        },
-        "needs_reconcile": {
-          "name": "needs_reconcile",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scheduled_for": {
-          "name": "scheduled_for",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "next_attempt_at": {
-          "name": "next_attempt_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "locked_at": {
-          "name": "locked_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "locked_by": {
-          "name": "locked_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "jelly_response": {
-          "name": "jelly_response",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "jelly_resource_id": {
-          "name": "jelly_resource_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "completed_at": {
-          "name": "completed_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_jelly_action_drain": {
-          "name": "idx_jelly_action_drain",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "next_attempt_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_action_mailbox": {
-          "name": "idx_jelly_action_mailbox",
-          "columns": [
-            {
-              "expression": "jelly_mailbox_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_action_api_key": {
-          "name": "idx_jelly_action_api_key",
-          "columns": [
-            {
-              "expression": "api_key_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_action_type_status": {
-          "name": "idx_jelly_action_type_status",
-          "columns": [
-            {
-              "expression": "action_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_action_target": {
-          "name": "idx_jelly_action_target",
-          "columns": [
-            {
-              "expression": "target_resource_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "target_resource_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "jelly_action_jelly_team_id_jelly_team_id_fk": {
-          "name": "jelly_action_jelly_team_id_jelly_team_id_fk",
-          "tableFrom": "jelly_action",
-          "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "jelly_action_api_key_id_api_key_id_fk": {
-          "name": "jelly_action_api_key_id_api_key_id_fk",
-          "tableFrom": "jelly_action",
-          "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "jelly_action_user_id_user_id_fk": {
-          "name": "jelly_action_user_id_user_id_fk",
-          "tableFrom": "jelly_action",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "jelly_action_actor_idempotency_key": {
-          "name": "jelly_action_actor_idempotency_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "actor_key",
-            "idempotency_key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.api_key": {
       "name": "api_key",
       "schema": "",
@@ -412,13 +81,6 @@
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
-        },
-        "require_approval": {
-          "name": "require_approval",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {},
@@ -427,12 +89,8 @@
           "name": "api_key_created_by_user_id_fk",
           "tableFrom": "api_key",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -440,12 +98,8 @@
           "name": "api_key_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "api_key",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -455,17 +109,12 @@
         "api_key_key_prefix_unique": {
           "name": "api_key_key_prefix_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key_prefix"
-          ]
+          "columns": ["key_prefix"]
         },
         "api_key_name_jelly_team_id_unique": {
           "name": "api_key_name_jelly_team_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "name",
-            "jelly_team_id"
-          ]
+          "columns": ["name", "jelly_team_id"]
         }
       },
       "policies": {},
@@ -507,12 +156,8 @@
           "name": "api_key_field_scope_api_key_id_api_key_id_fk",
           "tableFrom": "api_key_field_scope",
           "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["api_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -522,11 +167,7 @@
         "api_key_field_scope_api_key_id_scope_resource_type_scope_field_unique": {
           "name": "api_key_field_scope_api_key_id_scope_resource_type_scope_field_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "api_key_id",
-            "scope_resource_type",
-            "scope_field"
-          ]
+          "columns": ["api_key_id", "scope_resource_type", "scope_field"]
         }
       },
       "policies": {},
@@ -568,12 +209,8 @@
           "name": "api_key_scope_api_key_id_api_key_id_fk",
           "tableFrom": "api_key_scope",
           "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["api_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -583,11 +220,7 @@
         "api_key_scope_api_key_id_scope_resource_type_scope_resource_id_unique": {
           "name": "api_key_scope_api_key_id_scope_resource_type_scope_resource_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "api_key_id",
-            "scope_resource_type",
-            "scope_resource_id"
-          ]
+          "columns": ["api_key_id", "scope_resource_type", "scope_resource_id"]
         }
       },
       "policies": {},
@@ -683,12 +316,8 @@
           "name": "audit_log_user_id_user_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -696,12 +325,8 @@
           "name": "audit_log_api_key_id_api_key_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["api_key_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -709,12 +334,8 @@
           "name": "audit_log_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "audit_log",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -831,12 +452,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -929,12 +546,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -944,9 +557,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -1036,9 +647,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1191,12 +800,8 @@
           "name": "comment_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "comment",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1204,12 +809,8 @@
           "name": "comment_author_id_jelly_contact_id_fk",
           "tableFrom": "comment",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1426,12 +1027,8 @@
           "name": "jelly_conversation_assignment_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_assignment",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1439,12 +1036,8 @@
           "name": "jelly_conversation_assignment_jelly_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_conversation_assignment",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "jelly_contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1491,12 +1084,8 @@
           "name": "jelly_conversation_label_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_label",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1504,12 +1093,8 @@
           "name": "jelly_conversation_label_label_id_jelly_label_id_fk",
           "tableFrom": "jelly_conversation_label",
           "tableTo": "jelly_label",
-          "columnsFrom": [
-            "label_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["label_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1586,12 +1171,8 @@
           "name": "jelly_conversation_mailbox_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_conversation_mailbox",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1599,12 +1180,8 @@
           "name": "jelly_conversation_mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_conversation_mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1785,12 +1362,8 @@
           "name": "jelly_message_conversation_id_jelly_conversation_id_fk",
           "tableFrom": "jelly_message",
           "tableTo": "jelly_conversation",
-          "columnsFrom": [
-            "conversation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["conversation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1798,12 +1371,8 @@
           "name": "jelly_message_sender_id_jelly_contact_id_fk",
           "tableFrom": "jelly_message",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "sender_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sender_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1881,12 +1450,8 @@
           "name": "jelly_message_attachment_message_id_jelly_message_id_fk",
           "tableFrom": "jelly_message_attachment",
           "tableTo": "jelly_message",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1939,12 +1504,8 @@
           "name": "jelly_message_contact_message_id_jelly_message_id_fk",
           "tableFrom": "jelly_message_contact",
           "tableTo": "jelly_message",
-          "columnsFrom": [
-            "message_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["message_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1952,12 +1513,8 @@
           "name": "jelly_message_contact_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_message_contact",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2034,12 +1591,8 @@
           "name": "jelly_mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2049,10 +1602,7 @@
         "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique": {
           "name": "jelly_mailbox_jelly_mailbox_id_jelly_team_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "jelly_mailbox_id",
-            "jelly_team_id"
-          ]
+          "columns": ["jelly_mailbox_id", "jelly_team_id"]
         }
       },
       "policies": {},
@@ -2094,12 +1644,8 @@
           "name": "jelly_mailbox_member_jelly_contact_id_jelly_contact_id_fk",
           "tableFrom": "jelly_mailbox_member",
           "tableTo": "jelly_contact",
-          "columnsFrom": [
-            "jelly_contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2107,12 +1653,8 @@
           "name": "jelly_mailbox_member_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_mailbox_member",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2163,13 +1705,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
-        },
-        "writes_enabled": {
-          "name": "writes_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
         }
       },
       "indexes": {},
@@ -2178,18 +1713,20 @@
           "name": "mailbox_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "mailbox",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "mailbox_jelly_mailbox_id_jelly_team_id_unique": {
+          "name": "mailbox_jelly_mailbox_id_jelly_team_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["jelly_mailbox_id", "jelly_team_id"]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2235,12 +1772,8 @@
           "name": "mailbox_member_marmalade_user_id_user_id_fk",
           "tableFrom": "mailbox_member",
           "tableTo": "user",
-          "columnsFrom": [
-            "marmalade_user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["marmalade_user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2248,700 +1781,12 @@
           "name": "mailbox_member_marmalade_mailbox_id_mailbox_id_fk",
           "tableFrom": "mailbox_member",
           "tableTo": "mailbox",
-          "columnsFrom": [
-            "marmalade_mailbox_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["marmalade_mailbox_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.jelly_circuit_state": {
-      "name": "jelly_circuit_state",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope_id": {
-          "name": "scope_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "consecutive_failures": {
-          "name": "consecutive_failures",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "paused_until": {
-          "name": "paused_until",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "paused_reason": {
-          "name": "paused_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_failure_at": {
-          "name": "last_failure_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_success_at": {
-          "name": "last_success_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "jelly_circuit_state_key": {
-          "name": "jelly_circuit_state_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "scope",
-            "scope_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.jelly_quota_bucket": {
-      "name": "jelly_quota_bucket",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope_id": {
-          "name": "scope_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "window": {
-          "name": "window",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "window_start": {
-          "name": "window_start",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "count": {
-          "name": "count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_jelly_quota_bucket_window": {
-          "name": "idx_jelly_quota_bucket_window",
-          "columns": [
-            {
-              "expression": "window",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "window_start",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "jelly_quota_bucket_key": {
-          "name": "jelly_quota_bucket_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "scope",
-            "scope_id",
-            "window",
-            "window_start"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.jelly_request_log": {
-      "name": "jelly_request_log",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "action_id": {
-          "name": "action_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "path": {
-          "name": "path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status_code": {
-          "name": "status_code",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "duration_ms": {
-          "name": "duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "retry_after_seconds": {
-          "name": "retry_after_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "actor_type": {
-          "name": "actor_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'system'"
-        },
-        "api_key_id": {
-          "name": "api_key_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_jelly_request_log_created_at": {
-          "name": "idx_jelly_request_log_created_at",
-          "columns": [
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_request_log_status": {
-          "name": "idx_jelly_request_log_status",
-          "columns": [
-            {
-              "expression": "status_code",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_request_log_path": {
-          "name": "idx_jelly_request_log_path",
-          "columns": [
-            {
-              "expression": "path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_request_log_action": {
-          "name": "idx_jelly_request_log_action",
-          "columns": [
-            {
-              "expression": "action_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "jelly_request_log_api_key_id_api_key_id_fk": {
-          "name": "jelly_request_log_api_key_id_api_key_id_fk",
-          "tableFrom": "jelly_request_log",
-          "tableTo": "api_key",
-          "columnsFrom": [
-            "api_key_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "jelly_request_log_user_id_user_id_fk": {
-          "name": "jelly_request_log_user_id_user_id_fk",
-          "tableFrom": "jelly_request_log",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.jelly_webhook_delivery": {
-      "name": "jelly_webhook_delivery",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "event": {
-          "name": "event",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "error": {
-          "name": "error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "duration_ms": {
-          "name": "duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "received_at": {
-          "name": "received_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_jelly_webhook_delivery_received": {
-          "name": "idx_jelly_webhook_delivery_received",
-          "columns": [
-            {
-              "expression": "received_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_jelly_webhook_delivery_event": {
-          "name": "idx_jelly_webhook_delivery_event",
-          "columns": [
-            {
-              "expression": "event",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "received_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.quota_policy": {
-      "name": "quota_policy",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope_id": {
-          "name": "scope_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "window": {
-          "name": "window",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ceiling": {
-          "name": "ceiling",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "note": {
-          "name": "note",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "quota_policy_key": {
-          "name": "quota_policy_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "scope",
-            "scope_id",
-            "window"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.usage_rollup": {
-      "name": "usage_rollup",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "bucket_hour": {
-          "name": "bucket_hour",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scope_id": {
-          "name": "scope_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "dimension": {
-          "name": "dimension",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "count": {
-          "name": "count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "error_count": {
-          "name": "error_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "p50_ms": {
-          "name": "p50_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "p95_ms": {
-          "name": "p95_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_usage_rollup_bucket": {
-          "name": "idx_usage_rollup_bucket",
-          "columns": [
-            {
-              "expression": "bucket_hour",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_usage_rollup_scope": {
-          "name": "idx_usage_rollup_scope",
-          "columns": [
-            {
-              "expression": "scope",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "scope_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "bucket_hour",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "usage_rollup_key": {
-          "name": "usage_rollup_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "bucket_hour",
-            "scope",
-            "scope_id",
-            "dimension",
-            "status"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.worker_heartbeat": {
-      "name": "worker_heartbeat",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "last_run_at": {
-          "name": "last_run_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "last_claimed_count": {
-          "name": "last_claimed_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "last_duration_ms": {
-          "name": "last_duration_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "last_error": {
-          "name": "last_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -2958,8 +1803,53 @@
           "primaryKey": true,
           "notNull": true
         },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "api_base_url": {
+          "name": "api_base_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'https://app.letsjelly.com'"
+        },
+        "api_token_encrypted": {
+          "name": "api_token_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "webhook_secret_encrypted": {
+          "name": "webhook_secret_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "credentials_updated_at": {
+          "name": "credentials_updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
@@ -3043,24 +1933,18 @@
           "name": "jelly_contact_jelly_team_id_jelly_team_id_fk",
           "tableFrom": "jelly_contact",
           "tableTo": "jelly_team",
-          "columnsFrom": [
-            "jelly_team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["jelly_team_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "jelly_contact_email_unique": {
-          "name": "jelly_contact_email_unique",
+        "jelly_contact_email_jelly_team_id_unique": {
+          "name": "jelly_contact_email_jelly_team_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email", "jelly_team_id"]
         }
       },
       "policies": {},

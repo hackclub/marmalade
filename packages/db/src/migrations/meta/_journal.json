@@ -40,15 +40,36 @@
     {
       "idx": 5,
       "version": "7",
-      "when": 1791204944285,
-      "tag": "0005_write_actions",
+      "when": 1791204882008,
+      "tag": "0005_team_credentials",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1791204987268,
-      "tag": "0006_admin_oversight",
+      "when": 1791204908044,
+      "tag": "0006_multi_team_prep",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792013097386,
+      "tag": "0007_multi_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792030356881,
+      "tag": "0008_write_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792067985690,
+      "tag": "0009_admin_oversight",
       "breakpoints": true
     }
   ]

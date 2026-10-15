@@ -32,7 +32,9 @@ async function sendEmailVerificationOTP({
     }),
   });
   if (!res.ok) {
-    throw new Error(`Failed to send OTP email: ${res.status} ${await res.text()}`);
+    throw new Error(
+      `Failed to send OTP email: ${res.status} ${await res.text()}`,
+    );
   }
 }
 

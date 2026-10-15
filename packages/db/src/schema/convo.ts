@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import { jellyTeam, jellyTeamContact } from "./team";
 
@@ -31,8 +32,21 @@ export const conversation = pgTable(
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
   },
   (table) => [
+    index("idx_conversation_jelly_team_id").on(table.jellyTeamId),
     index("idx_conversation_status").on(table.status),
     index("idx_conversation_created_at").on(table.createdAt),
     index("idx_conversation_last_message_at").on(table.lastMessageAt),
@@ -40,35 +54,93 @@ export const conversation = pgTable(
   ],
 );
 
-export const conversationAssignment = pgTable("jelly_conversation_assignment", {
-  id: serial("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversation.id, { onDelete: "cascade" }),
-  jellyContactId: text("jelly_contact_id")
-    .notNull()
-    .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const conversationAssignment = pgTable(
+  "jelly_conversation_assignment",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    jellyContactId: text("jelly_contact_id")
+      .notNull()
+      .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("idx_conversation_assignment_jelly_team_id").on(table.jellyTeamId),
+  ],
+);
 
-export const conversationLabel = pgTable("jelly_conversation_label", {
-  id: serial("id").primaryKey(),
-  conversationId: text("conversation_id")
-    .notNull()
-    .references(() => conversation.id, { onDelete: "cascade" }),
-  labelId: integer("label_id")
-    .notNull()
-    .references(() => label.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const conversationLabel = pgTable(
+  "jelly_conversation_label",
+  {
+    id: serial("id").primaryKey(),
+    conversationId: text("conversation_id")
+      .notNull()
+      .references(() => conversation.id, { onDelete: "cascade" }),
+    labelId: integer("label_id")
+      .notNull()
+      .references(() => label.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("idx_conversation_label_jelly_team_id").on(table.jellyTeamId),
+  ],
+);
 
-export const label = pgTable("jelly_label", {
-  id: serial("id").primaryKey(),
-  labelId: text("label_id").notNull(),
-  name: text("name").notNull(),
-  color: text("color"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const label = pgTable(
+  "jelly_label",
+  {
+    id: serial("id").primaryKey(),
+    labelId: text("label_id").notNull(),
+    name: text("name").notNull(),
+    color: text("color"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  // Jelly label ids are unique within a team, not across teams, and the sync
+  // upserts by label id. Without the team in the key, a second team's label
+  // would overwrite the first's.
+  (table) => [
+    unique().on(table.labelId, table.jellyTeamId),
+    index("idx_label_jelly_team_id").on(table.jellyTeamId),
+  ],
+);
 
 export const conversationMailbox = pgTable(
   "jelly_conversation_mailbox",
@@ -106,39 +178,86 @@ export const message = pgTable(
     metadata: jsonb("metadata"),
     sentAt: timestamp("sent_at", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
   },
   (table) => [
+    index("idx_message_jelly_team_id").on(table.jellyTeamId),
     index("idx_message_conversation_id").on(table.conversationId),
     index("idx_message_sent_at").on(table.sentAt),
     index("idx_message_created_at").on(table.createdAt),
   ],
 );
 
-export const messageContact = pgTable("jelly_message_contact", {
-  type: text("type").notNull(), // cc, from
-  id: serial("id").primaryKey(),
-  messageId: text("message_id")
-    .notNull()
-    .references(() => message.id, { onDelete: "cascade" }),
-  contactId: text("contact_id")
-    .notNull()
-    .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const messageContact = pgTable(
+  "jelly_message_contact",
+  {
+    type: text("type").notNull(), // cc, from
+    id: serial("id").primaryKey(),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => message.id, { onDelete: "cascade" }),
+    contactId: text("contact_id")
+      .notNull()
+      .references(() => jellyTeamContact.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [index("idx_message_contact_jelly_team_id").on(table.jellyTeamId)],
+);
 
-export const messageAttachment = pgTable("jelly_message_attachment", {
-  id: text("id").primaryKey(),
-  messageId: text("message_id")
-    .notNull()
-    .references(() => message.id, { onDelete: "cascade" }),
-  filename: text("filename").notNull(),
-  contentType: text("content_type"),
-  byteSize: integer("byte_size"),
-  url: text("url"),
-  inline: boolean("inline").notNull().default(false),
-  metadata: jsonb("metadata"),
-  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-});
+export const messageAttachment = pgTable(
+  "jelly_message_attachment",
+  {
+    id: text("id").primaryKey(),
+    messageId: text("message_id")
+      .notNull()
+      .references(() => message.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    contentType: text("content_type"),
+    byteSize: integer("byte_size"),
+    url: text("url"),
+    inline: boolean("inline").notNull().default(false),
+    metadata: jsonb("metadata"),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    index("idx_message_attachment_jelly_team_id").on(table.jellyTeamId),
+  ],
+);
 
 export const comment = pgTable(
   "comment",
@@ -153,8 +272,21 @@ export const comment = pgTable(
     }),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    /**
+     * Denormalised from the conversation this row hangs off.
+     *
+     * It could be reached through a join, but the point of the column is to
+     * make tenant isolation a single equality test that a policy or a `where`
+     * cannot get subtly wrong. Nullable because `db:push` is the deploy path
+     * and existing rows have no value yet; `backfillTeamIds()` fills them and
+     * every write path sets it.
+     */
+    jellyTeamId: text("jelly_team_id").references(() => jellyTeam.id, {
+      onDelete: "cascade",
+    }),
   },
   (table) => [
+    index("idx_comment_jelly_team_id").on(table.jellyTeamId),
     index("idx_comment_conversation_id").on(table.conversationId),
     index("idx_comment_created_at").on(table.createdAt),
   ],

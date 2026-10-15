@@ -6,20 +6,22 @@ import {
 } from "@marmalade-v2/db/schema/api";
 import { user as authUser } from "@marmalade-v2/db/schema/auth";
 import { jellyTeamContact } from "@marmalade-v2/db/schema/team";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/client";
 import { call } from "@orpc/server";
 import { and, eq } from "drizzle-orm";
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import z from "zod";
 import { hashSecret } from "../context";
 import {
+  isInstanceAdmin,
   mailboxScopedProcedure,
   publicProcedure,
   teamAdminProtectedProcedure,
+  teamIdOf,
   teamMemberProtectedProcedure,
 } from "../index";
 import { ACTION_TYPES } from "../lib/actions/catalogue";
+import { teamsForEmail } from "../lib/team";
 import { apiKeySchema } from "../schemas/output";
 import { auditRouter } from "./audit";
 
@@ -160,6 +162,7 @@ function aggregateKeys(
       mailboxIds: string[];
       resourceScopes: string[];
       actionScopes: string[];
+      teamIds: string[];
       fieldScopes: Array<{ resourceType: string; field: string }>;
       createdByName: string | null;
     }
@@ -181,6 +184,11 @@ function aggregateKeys(
       if (row.scopeResourceType === "action" && row.scopeResourceId) {
         if (!existing.actionScopes.includes(row.scopeResourceId)) {
           existing.actionScopes.push(row.scopeResourceId);
+        }
+      }
+      if (row.scopeResourceType === "team" && row.scopeResourceId) {
+        if (!existing.teamIds.includes(row.scopeResourceId)) {
+          existing.teamIds.push(row.scopeResourceId);
         }
       }
       if (row.fieldScopeResourceType && row.fieldScopeField) {
@@ -219,6 +227,10 @@ function aggregateKeys(
           row.scopeResourceType === "action" && row.scopeResourceId
             ? [row.scopeResourceId]
             : [],
+        teamIds:
+          row.scopeResourceType === "team" && row.scopeResourceId
+            ? [row.scopeResourceId]
+            : [],
         fieldScopes:
           row.fieldScopeResourceType && row.fieldScopeField
             ? [
@@ -251,6 +263,12 @@ export const apiKeyRouter = {
         // Write permissions. Absent means read-only: unlike field scopes,
         // an empty action scope list never widens into "allow everything".
         actionScopes: z.array(z.string().min(1)).optional(),
+        /**
+         * Further teams this key may act in, named with the active-team
+         * header at request time. The team the key is created under is
+         * always included and is the default.
+         */
+        teamIds: z.array(z.string().min(1)).optional(),
         fieldScopes: z
           .array(
             z.object({
@@ -271,6 +289,7 @@ export const apiKeyRouter = {
         mailboxIds: z.array(z.string()),
         resourceScopes: z.array(z.string()),
         actionScopes: z.array(z.string()),
+        teamIds: z.array(z.string()),
         fieldScopes: z.array(
           z.object({
             resourceType: z.string(),
@@ -309,8 +328,32 @@ export const apiKeyRouter = {
           : "apiKey" in ctx
             ? `api-key:${ctx.apiKey.id}`
             : "webhook";
-      const teamId =
-        "apiKey" in ctx ? ctx.apiKey.jellyTeamId : env.JELLY_TEAM_ID;
+      const teamId = teamIdOf(ctx);
+
+      // A key cannot be granted reach the person creating it does not have.
+      // For a session that is the teams they are a staff contact in; for a
+      // key minting another key it is the teams that key already holds.
+      const grantedTeamIds = (input.teamIds ?? []).filter(
+        (candidate) => candidate !== teamId,
+      );
+      if (grantedTeamIds.length > 0) {
+        const grantable = new Set(
+          "session" in ctx && ctx.session?.user?.email
+            ? (await teamsForEmail(ctx.session.user.email)).map(
+                (team) => team.id,
+              )
+            : "apiKey" in ctx
+              ? ctx.apiKey.teamIds
+              : [],
+        );
+        for (const candidate of grantedTeamIds) {
+          if (!grantable.has(candidate)) {
+            throw new ORPCError("FORBIDDEN", {
+              message: `Not authorized for team ${candidate}`,
+            });
+          }
+        }
+      }
 
       const uniqueName = await getUniqueKeyName(input.name, teamId);
 
@@ -372,6 +415,14 @@ export const apiKeyRouter = {
         }
       }
 
+      for (const extraTeamId of grantedTeamIds) {
+        scopes.push({
+          apiKeyId: key.id,
+          scopeResourceType: "team",
+          scopeResourceId: extraTeamId,
+        });
+      }
+
       if (scopes.length > 0) {
         await db.insert(apiKeyScope).values(scopes);
       }
@@ -404,6 +455,7 @@ export const apiKeyRouter = {
         mailboxIds: targetMailboxIds,
         resourceScopes: input.resourceScopes ?? [],
         actionScopes: input.actionScopes ?? [],
+        teamIds: [teamId, ...grantedTeamIds],
         fieldScopes: input.fieldScopes ?? [],
         expiresAt: input.expiresAt ?? null,
       };
@@ -432,8 +484,17 @@ export const apiKeyRouter = {
         });
       }
 
-      const teamId = "apiKey" in ctx ? ctx.apiKey.jellyTeamId : "";
-      const isAdmin = ctx.role === "admin" || ctx.role === "owner";
+      // Was `"apiKey" in ctx ? ctx.apiKey.jellyTeamId : ""`, so a session
+      // caller filtered the list on an empty team id and this route returned
+      // nothing at all to the web app.
+      const teamId = teamIdOf(ctx);
+      const isAdmin =
+        ctx.role === "admin" ||
+        ctx.role === "owner" ||
+        // An operator administers teams they hold no Jelly role in, so
+        // "admin of this team" has to include them or they see only the
+        // keys they happen to have created themselves.
+        ctx.role === "instance";
       const createdBy =
         "session" in ctx && ctx.session?.user?.id
           ? isAdmin
@@ -455,12 +516,15 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(jellyTeamContact.email, userEmail),
-            eq(jellyTeamContact.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyTeamContact.jellyTeamId, teamIdOf(context)),
           ),
         );
       const role = result[0]?.role ?? null;
-      const isAdmin = role === "admin" || role === "owner";
-      return listKeysForTeam(env.JELLY_TEAM_ID, isAdmin ? undefined : userId);
+      const isAdmin =
+        role === "admin" ||
+        role === "owner" ||
+        isInstanceAdmin(context.session?.user);
+      return listKeysForTeam(teamIdOf(context), isAdmin ? undefined : userId);
     }),
 
   revokeTeamKey: teamMemberProtectedProcedure
@@ -474,7 +538,7 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
-            eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
           ),
         );
 
@@ -504,6 +568,67 @@ export const apiKeyRouter = {
       );
 
       return { message: "API key revoked" };
+    }),
+
+  /**
+   * Cut off a key that was granted access to this team but issued by another.
+   *
+   * Revoking is the owning team's call — it would disable the key everywhere,
+   * including in the team that issued it. Dropping the grant is the right
+   * primitive for the team on the receiving end: it ends the access it
+   * controls and leaves the rest of the key alone.
+   */
+  revokeTeamAccess: teamAdminProtectedProcedure
+    .route({ method: "DELETE", path: "/keys/{keyId}/team-access" })
+    .input(z.object({ keyId: z.coerce.number().min(1) }))
+    .output(z.object({ message: z.string() }))
+    .handler(async ({ input, context }) => {
+      const teamId = teamIdOf(context);
+
+      const [key] = await db
+        .select({ jellyTeamId: apiKey.jellyTeamId })
+        .from(apiKey)
+        .where(eq(apiKey.id, input.keyId))
+        .limit(1);
+      if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
+      }
+      if (key.jellyTeamId === teamId) {
+        throw new ORPCError("BAD_REQUEST", {
+          message:
+            "This key belongs to this team. Revoke it instead of dropping " +
+            "its grant.",
+        });
+      }
+
+      const removed = await db
+        .delete(apiKeyScope)
+        .where(
+          and(
+            eq(apiKeyScope.apiKeyId, input.keyId),
+            eq(apiKeyScope.scopeResourceType, "team"),
+            eq(apiKeyScope.scopeResourceId, teamId),
+          ),
+        )
+        .returning({ id: apiKeyScope.id });
+
+      if (removed.length === 0) {
+        throw new ORPCError("NOT_FOUND", {
+          message: "This key has no access to this team",
+        });
+      }
+
+      await call(
+        auditRouter.create,
+        {
+          resource: "api_key",
+          action: "revoke_team_access",
+          resourceId: input.keyId.toString(),
+        },
+        { context },
+      );
+
+      return { message: "Team access removed" };
     }),
 
   revoke: mailboxScopedProcedure
@@ -540,6 +665,10 @@ export const apiKeyRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
+            // Without this a mailbox admin could revoke a key issued to
+            // another team, because a mailbox id is unique within a team
+            // rather than across them.
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
             eq(apiKeyScope.scopeResourceType, "mailbox"),
             eq(apiKeyScope.scopeResourceId, input.mailboxId),
           ),
@@ -598,6 +727,22 @@ export const apiKeyRouter = {
         .where(eq(apiKey.keyPrefix, keyPrefix));
 
       if (!key) {
+        throw new ORPCError("NOT_FOUND", { message: "API key not found" });
+      }
+
+      // This route is deliberately unauthenticated: presenting the key is
+      // the proof. So the whole key has to be checked. Matching the prefix
+      // alone meant the eight characters Marmalade prints next to every key
+      // in the UI were enough to revoke it, which turns a non-secret
+      // identifier into a remote off switch for anyone who has seen it.
+      const providedHash = Buffer.from(hashSecret(rawKey), "utf-8");
+      const storedHash = Buffer.from(key.secretHash, "utf-8");
+      if (
+        providedHash.length !== storedHash.length ||
+        !timingSafeEqual(providedHash, storedHash)
+      ) {
+        // Same answer as an unknown prefix: a wrong secret must not confirm
+        // that the prefix was right.
         throw new ORPCError("NOT_FOUND", { message: "API key not found" });
       }
 

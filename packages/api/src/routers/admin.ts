@@ -7,11 +7,10 @@ import {
   jellyRequestLog,
   usageRollup,
 } from "@marmalade-v2/db/schema/observability";
-import { env } from "@marmalade-v2/env/server";
 import { ORPCError } from "@orpc/server";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import z from "zod";
-import { teamAdminProtectedProcedure } from "../index";
+import { teamAdminProtectedProcedure, teamIdOf } from "../index";
 import {
   approveAction,
   cancelAction,
@@ -106,12 +105,12 @@ export const adminRouter = {
         ),
       }),
     )
-    .handler(async () => {
+    .handler(async ({ context }) => {
       const [worker, queue, quota, webhooks] = await Promise.all([
         workerHealth(),
-        queueHealth(env.JELLY_TEAM_ID),
-        quotaSnapshot(env.JELLY_TEAM_ID),
-        webhookHealth(),
+        queueHealth(teamIdOf(context)),
+        quotaSnapshot(teamIdOf(context)),
+        webhookHealth(teamIdOf(context)),
       ]);
 
       const alerts: Array<{
@@ -208,7 +207,7 @@ export const adminRouter = {
         ),
       }),
     )
-    .handler(async ({ input }) => {
+    .handler(async ({ input, context }) => {
       const since = new Date(Date.now() - WINDOWS[input.window as WindowKey]);
 
       const rows = await db
@@ -224,6 +223,10 @@ export const adminRouter = {
         .from(usageRollup)
         .where(
           and(
+            // Rollups for scope `api_key` and `user` are keyed by an id that
+            // says nothing about the team, so without this an admin of one
+            // team reads every team's consumers.
+            eq(usageRollup.jellyTeamId, teamIdOf(context)),
             eq(usageRollup.scope, input.scope),
             gte(usageRollup.bucketHour, since),
           ),
@@ -314,7 +317,7 @@ export const adminRouter = {
         .from(jellyAction)
         .where(
           and(
-            eq(jellyAction.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(jellyAction.jellyTeamId, teamIdOf(context)),
             gte(jellyAction.createdAt, since),
           ),
         )
@@ -362,8 +365,8 @@ export const adminRouter = {
         }),
       ),
     )
-    .handler(async ({ input }) => {
-      const conditions = [eq(jellyAction.jellyTeamId, env.JELLY_TEAM_ID)];
+    .handler(async ({ input, context }) => {
+      const conditions = [eq(jellyAction.jellyTeamId, teamIdOf(context))];
       if (input.status) conditions.push(eq(jellyAction.status, input.status));
       if (input.actionType) {
         conditions.push(eq(jellyAction.actionType, input.actionType));
@@ -505,7 +508,7 @@ export const adminRouter = {
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: `admin_${input.operation}`,
         resource: "jelly_action",
         resourceId: input.actionId,
@@ -529,7 +532,7 @@ export const adminRouter = {
     .output(z.object({ requeued: z.number() }))
     .handler(async ({ input, context }) => {
       const conditions = [
-        eq(jellyAction.jellyTeamId, env.JELLY_TEAM_ID),
+        eq(jellyAction.jellyTeamId, teamIdOf(context)),
         eq(jellyAction.status, "dead"),
       ];
       if (input.actionType) {
@@ -551,7 +554,7 @@ export const adminRouter = {
 
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "admin_requeue_dead",
         resource: "jelly_action",
         resourceId: "-1",
@@ -602,8 +605,8 @@ export const adminRouter = {
         }),
       ),
     )
-    .handler(async ({ input }) => {
-      const conditions = [eq(auditLog.jellyTeamId, env.JELLY_TEAM_ID)];
+    .handler(async ({ input, context }) => {
+      const conditions = [eq(auditLog.jellyTeamId, teamIdOf(context))];
       if (input.resource)
         conditions.push(eq(auditLog.resource, input.resource));
       if (input.action) conditions.push(eq(auditLog.action, input.action));
@@ -674,8 +677,10 @@ export const adminRouter = {
         }),
       ),
     )
-    .handler(async ({ input }) => {
-      const conditions = [];
+    .handler(async ({ input, context }) => {
+      // The request log is per team now, so the admin view of it has to be
+      // too: without this an admin of one team reads another team's traffic.
+      const conditions = [eq(jellyRequestLog.jellyTeamId, teamIdOf(context))];
       if (input.statusCode != null) {
         conditions.push(eq(jellyRequestLog.statusCode, input.statusCode));
       }
@@ -684,7 +689,7 @@ export const adminRouter = {
       return db
         .select()
         .from(jellyRequestLog)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .where(and(...conditions))
         .orderBy(desc(jellyRequestLog.createdAt))
         .limit(input.limit);
     }),
@@ -722,7 +727,7 @@ export const adminRouter = {
       await setQuotaPolicy(input);
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "set_quota_policy",
         resource: "quota_policy",
         resourceId: `${input.scope}:${input.scopeId}:${input.window}`,
@@ -746,7 +751,7 @@ export const adminRouter = {
       await clearQuotaPolicy(input);
       await db.insert(auditLog).values({
         userId: context.session.user.id,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: "clear_quota_policy",
         resource: "quota_policy",
         resourceId: `${input.scope}:${input.scopeId}:${input.window}`,
@@ -772,7 +777,7 @@ export const adminRouter = {
         .where(
           and(
             eq(apiKey.id, input.keyId),
-            eq(apiKey.jellyTeamId, env.JELLY_TEAM_ID),
+            eq(apiKey.jellyTeamId, teamIdOf(context)),
           ),
         );
 
@@ -783,7 +788,7 @@ export const adminRouter = {
       await db.insert(auditLog).values({
         userId: context.session.user.id,
         apiKeyId: input.keyId,
-        jellyTeamId: env.JELLY_TEAM_ID,
+        jellyTeamId: teamIdOf(context),
         action: input.requireApproval
           ? "require_key_approval"
           : "clear_key_approval",

@@ -12,6 +12,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 
+import { canAdministerTeam, roleLabel } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 import { toast } from "sonner";
 export const Route = createFileRoute("/_auth/team")({
@@ -66,7 +67,7 @@ export function MemberCard({
           <Button disabled variant="outline">
             🍊 Invite
           </Button>
-        ) : teamMemberRole == "owner" || teamMemberRole == "admin" ? (
+        ) : canAdministerTeam(teamMemberRole) ? (
           <>
             <Button disabled variant="outline">
               💤 Deactivate
@@ -107,7 +108,7 @@ function MembersRoute() {
         <CardHeader>
           <CardTitle>Your Team</CardTitle>
           <CardDescription>
-            View and manage your team as a <u>team {teamMember.role}</u>.
+            View and manage your team as <u>{roleLabel(teamMember.role)}</u>.
             Correspondents are not shown here — only owners, admins and members.
           </CardDescription>
           <CardAction>

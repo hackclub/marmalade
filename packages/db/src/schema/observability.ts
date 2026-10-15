@@ -34,6 +34,12 @@ export const jellyRequestLog = pgTable(
       onDelete: "set null",
     }),
     userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    /**
+     * Which team's budget this request spent. Nullable because `db:push` is
+     * the deploy path and rows written before the column exists have none;
+     * every write sets it.
+     */
+    jellyTeamId: text("jelly_team_id"),
     createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   },
   (t) => [
@@ -122,6 +128,12 @@ export const usageRollup = pgTable(
   {
     id: serial("id").primaryKey(),
     bucketHour: timestamp("bucket_hour", { mode: "date" }).notNull(),
+    /**
+     * Whose traffic this row describes. Without it a rollup for scope
+     * `api_key` or `user` says nothing about which team spent the budget,
+     * and an admin reading usage sees every team's.
+     */
+    jellyTeamId: text("jelly_team_id").notNull(),
     scope: text("scope").notNull(), // team | mailbox | api_key | user
     scopeId: text("scope_id").notNull(),
     // Request path for read traffic, action type for queued writes.
@@ -135,6 +147,7 @@ export const usageRollup = pgTable(
   (t) => [
     unique("usage_rollup_key").on(
       t.bucketHour,
+      t.jellyTeamId,
       t.scope,
       t.scopeId,
       t.dimension,
@@ -142,6 +155,7 @@ export const usageRollup = pgTable(
     ),
     index("idx_usage_rollup_bucket").on(t.bucketHour),
     index("idx_usage_rollup_scope").on(t.scope, t.scopeId, t.bucketHour),
+    index("idx_usage_rollup_team").on(t.jellyTeamId, t.bucketHour),
   ],
 );
 
@@ -181,6 +195,12 @@ export const jellyWebhookDelivery = pgTable(
   {
     id: serial("id").primaryKey(),
     event: text("event").notNull(),
+    /**
+     * Which team's webhook delivered this. Nullable because a delivery can
+     * be rejected before the team is known — an unknown slug, or a
+     * signature that matches nobody.
+     */
+    jellyTeamId: text("jelly_team_id"),
     status: text("status").notNull(), // accepted | skipped | rejected | failed
     error: text("error"),
     durationMs: integer("duration_ms"),
@@ -191,5 +211,6 @@ export const jellyWebhookDelivery = pgTable(
   (t) => [
     index("idx_jelly_webhook_delivery_received").on(t.receivedAt),
     index("idx_jelly_webhook_delivery_event").on(t.event, t.receivedAt),
+    index("idx_jelly_webhook_delivery_team").on(t.jellyTeamId, t.receivedAt),
   ],
 );

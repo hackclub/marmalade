@@ -26,6 +26,8 @@ export const WEBHOOK_FAILURE_LIMIT = 10;
 
 export async function recordWebhookDelivery(input: {
   event: string;
+  /** Null when the delivery was refused before a team could be resolved. */
+  jellyTeamId?: string | null;
   status: "accepted" | "skipped" | "rejected" | "failed";
   error?: string | null;
   durationMs?: number | null;
@@ -33,6 +35,7 @@ export async function recordWebhookDelivery(input: {
   try {
     await db.insert(jellyWebhookDelivery).values({
       event: input.event,
+      jellyTeamId: input.jellyTeamId ?? null,
       status: input.status,
       error: input.error ?? null,
       durationMs: input.durationMs ?? null,
@@ -42,7 +45,7 @@ export async function recordWebhookDelivery(input: {
   }
 }
 
-export async function webhookHealth(now = new Date()) {
+export async function webhookHealth(jellyTeamId: string, now = new Date()) {
   const perEvent = await db
     .select({
       event: jellyWebhookDelivery.event,
@@ -52,9 +55,12 @@ export async function webhookHealth(now = new Date()) {
     })
     .from(jellyWebhookDelivery)
     .where(
-      gte(
-        jellyWebhookDelivery.receivedAt,
-        new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      and(
+        eq(jellyWebhookDelivery.jellyTeamId, jellyTeamId),
+        gte(
+          jellyWebhookDelivery.receivedAt,
+          new Date(now.getTime() - 24 * 60 * 60 * 1000),
+        ),
       ),
     )
     .groupBy(jellyWebhookDelivery.event);
@@ -64,6 +70,7 @@ export async function webhookHealth(now = new Date()) {
   const recent = await db
     .select({ status: jellyWebhookDelivery.status })
     .from(jellyWebhookDelivery)
+    .where(eq(jellyWebhookDelivery.jellyTeamId, jellyTeamId))
     .orderBy(desc(jellyWebhookDelivery.receivedAt))
     .limit(WEBHOOK_FAILURE_LIMIT);
 
@@ -205,6 +212,7 @@ export async function rollUpUsage(
         durationMs: jellyRequestLog.durationMs,
         apiKeyId: jellyRequestLog.apiKeyId,
         userId: jellyRequestLog.userId,
+        jellyTeamId: jellyRequestLog.jellyTeamId,
       })
       .from(jellyRequestLog)
       .where(
@@ -220,6 +228,7 @@ export async function rollUpUsage(
     const groups = new Map<
       string,
       {
+        jellyTeamId: string;
         scope: string;
         scopeId: string;
         dimension: string;
@@ -229,16 +238,24 @@ export async function rollUpUsage(
     >();
 
     const add = (
+      jellyTeamId: string,
       scope: string,
       scopeId: string,
       dimension: string,
       status: string,
       duration: number,
     ) => {
-      const key = groupKey([scope, scopeId, dimension, status]);
+      const key = groupKey([jellyTeamId, scope, scopeId, dimension, status]);
       let group = groups.get(key);
       if (!group) {
-        group = { scope, scopeId, dimension, status, durations: [] };
+        group = {
+          jellyTeamId,
+          scope,
+          scopeId,
+          dimension,
+          status,
+          durations: [],
+        };
         groups.set(key, group);
       }
       group.durations.push(duration);
@@ -246,12 +263,26 @@ export async function rollUpUsage(
 
     for (const log of logs) {
       const status = statusClass(log.statusCode);
-      add("team", "all", log.path, status, log.durationMs);
+      // Rows written before the request log carried a team cannot be
+      // attributed, and guessing would hand one team another's traffic.
+      const team = log.jellyTeamId;
+      if (!team) continue;
+
+      // Was `add("team", "all", ...)`, from when there was only ever one
+      // team to roll up.
+      add(team, "team", team, log.path, status, log.durationMs);
       if (log.apiKeyId != null) {
-        add("api_key", String(log.apiKeyId), log.path, status, log.durationMs);
+        add(
+          team,
+          "api_key",
+          String(log.apiKeyId),
+          log.path,
+          status,
+          log.durationMs,
+        );
       }
       if (log.userId) {
-        add("user", log.userId, log.path, status, log.durationMs);
+        add(team, "user", log.userId, log.path, status, log.durationMs);
       }
     }
 
@@ -261,6 +292,7 @@ export async function rollUpUsage(
         sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * q))] ?? 0;
       return {
         bucketHour: bucketStart,
+        jellyTeamId: group.jellyTeamId,
         scope: group.scope,
         scopeId: group.scopeId,
         dimension: group.dimension,
@@ -280,6 +312,7 @@ export async function rollUpUsage(
         .onConflictDoUpdate({
           target: [
             usageRollup.bucketHour,
+            usageRollup.jellyTeamId,
             usageRollup.scope,
             usageRollup.scopeId,
             usageRollup.dimension,

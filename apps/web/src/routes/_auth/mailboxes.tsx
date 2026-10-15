@@ -15,6 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { MemberCard } from "./team";
 
+import { canAdministerTeam, roleLabel } from "@/lib/roles";
 import { orpc } from "@/utils/orpc";
 
 export const Route = createFileRoute("/_auth/mailboxes")({
@@ -120,7 +121,7 @@ function MailboxCard({
 
       <div className="flex flex-row items-center justify-end gap-2">
         {!mailbox.marmaladeMailbox ? (
-          teamMember.role == "owner" || teamMember.role == "admin" ? (
+          canAdministerTeam(teamMember.role) ? (
             <Button onClick={handleCreateMailbox} variant="outline">
               🍊 Link
             </Button>
@@ -139,7 +140,7 @@ function MailboxCard({
           </Button>
         )}
 
-        {teamMember.role == "owner" || teamMember.role == "admin" ? (
+        {canAdministerTeam(teamMember.role) ? (
           <>
             {mailbox.marmaladeMailbox && mailbox.marmaladeMailbox.active ? (
               <Button onClick={handleDeactivateMailbox} variant="outline">
@@ -165,7 +166,10 @@ function MailboxCard({
             {mailbox.jellyMailbox.members.map((member: any) => (
               <MemberCard
                 member={{
-                  jelly: { ...member.jelly, role: "team " + member.jelly.role },
+                  jelly: {
+                    ...member.jelly,
+                    role: roleLabel(member.jelly.role),
+                  },
                   marmalade: member.marmalade,
                 }}
                 teamMemberRole={teamMember.role}
@@ -192,7 +196,7 @@ function MailboxCard({
                 }
                 extraActions={
                   member.marmalade ? (
-                    teamMember.role == "owner" || teamMember.role == "admin" ? (
+                    canAdministerTeam(teamMember.role) ? (
                       mailbox.marmaladeMailbox.members.find(
                         (m: any) => m.jelly.id == member.jelly.id,
                       ) ? (
@@ -292,7 +296,8 @@ function MailboxesRoute() {
         <CardHeader className="items-center justify-between">
           <CardTitle>Your Mailboxes</CardTitle>
           <CardDescription>
-            View and manage your mailboxes as a <u>team {teamMember.role}</u>
+            View and manage your mailboxes as{" "}
+            <u>{roleLabel(teamMember.role)}</u>
           </CardDescription>
           <CardAction>
             <Button onClick={handleResyncMailboxes} className="mb-4">
@@ -306,7 +311,11 @@ function MailboxesRoute() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : mailboxes.data?.length === 0 ? (
-            <p className="py-4 text-center">No mailboxes yet. Add one above!</p>
+            <p className="text-muted-foreground py-4 text-center">
+              {canAdministerTeam(teamMember.role)
+                ? "No Jelly mailboxes have synced for this team yet. Press Resync Mailboxes."
+                : "You are not a member of any mailbox in this team yet."}
+            </p>
           ) : (
             <ul className="space-y-2">
               {mailboxes.data?.map((mailbox) => (

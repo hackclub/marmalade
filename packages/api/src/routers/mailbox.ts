@@ -414,20 +414,10 @@ export const mailboxRouter = {
       // one, because the control to do that lives on the row that is not
       // shown. Admins get the team's mailboxes instead, registered or not.
       if (canAdministerTeam(context.role)) {
+        const teamId = teamIdOf(context);
+
         const rows = await db
-          .select({
-            jelly_mailbox: jellyMailbox,
-            mailbox: marmaladeMailbox,
-            jellyMemberCount: sql<number>`coalesce((
-              select count(*)::int from ${jellyMailboxMember}
-              where ${jellyMailboxMember.jellyMailboxId} = ${jellyMailbox.jellyMailboxId}
-                and ${jellyMailboxMember.jellyTeamId} = ${jellyMailbox.jellyTeamId}
-            ), 0)`,
-            marmaladeMemberCount: sql<number>`coalesce((
-              select count(*)::int from ${marmaladeMailboxMember}
-              where ${marmaladeMailboxMember.marmaladeMailboxId} = ${marmaladeMailbox.id}
-            ), 0)`,
-          })
+          .select({ jelly_mailbox: jellyMailbox, mailbox: marmaladeMailbox })
           .from(jellyMailbox)
           // Left, not inner: an unregistered mailbox is exactly the one an
           // admin needs to see.
@@ -438,23 +428,97 @@ export const mailboxRouter = {
               eq(jellyMailbox.jellyTeamId, marmaladeMailbox.jellyTeamId),
             ),
           )
-          .where(eq(jellyMailbox.jellyTeamId, teamIdOf(context)));
+          .where(eq(jellyMailbox.jellyTeamId, teamId));
 
-        return rows.map((row) => ({
-          jellyMailbox: {
-            ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
-            memberCount: row.jellyMemberCount,
-            members: [],
-          },
-          marmaladeMailbox: row.mailbox
-            ? {
-                ...filterFieldsByScope(context, "mailbox", row.mailbox),
-                memberCount: row.marmaladeMemberCount,
-                members: [],
-              }
-            : null,
-          marmaladeMailboxMembership: null,
-        }));
+        // Members are fetched, not counted with a subquery. Counting alone
+        // produced a card headed "Jelly Mailbox Members (29)" above an empty
+        // list, because the heading came from the count and the list from an
+        // array that was never filled. Both now derive from the same rows,
+        // so they cannot disagree.
+        const jellyMembers = await db
+          .select({
+            jellyMailboxId: jellyMailboxMember.jellyMailboxId,
+            contact: jellyTeamContact,
+            marmalade: authUser,
+          })
+          .from(jellyMailboxMember)
+          .innerJoin(
+            jellyTeamContact,
+            and(
+              eq(jellyMailboxMember.jellyContactId, jellyTeamContact.id),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          )
+          .leftJoin(authUser, eq(jellyTeamContact.email, authUser.email))
+          .where(eq(jellyMailboxMember.jellyTeamId, teamId));
+
+        const marmaladeMembers = await db
+          .select({
+            marmaladeMailboxId: marmaladeMailboxMember.marmaladeMailboxId,
+            marmalade: authUser,
+            contact: jellyTeamContact,
+          })
+          .from(marmaladeMailboxMember)
+          .innerJoin(
+            marmaladeMailbox,
+            and(
+              eq(
+                marmaladeMailboxMember.marmaladeMailboxId,
+                marmaladeMailbox.id,
+              ),
+              eq(marmaladeMailbox.jellyTeamId, teamId),
+            ),
+          )
+          .innerJoin(
+            authUser,
+            eq(marmaladeMailboxMember.marmaladeUserId, authUser.id),
+          )
+          .leftJoin(
+            jellyTeamContact,
+            and(
+              eq(jellyTeamContact.email, authUser.email),
+              eq(jellyTeamContact.jellyTeamId, teamId),
+            ),
+          );
+
+        return rows.map((row) => {
+          const jelly = jellyMembers
+            .filter(
+              (member) =>
+                member.jellyMailboxId === row.jelly_mailbox.jellyMailboxId,
+            )
+            .map((member) => ({
+              jelly: member.contact,
+              marmalade: member.marmalade,
+            }));
+
+          const granted = row.mailbox
+            ? marmaladeMembers
+                .filter(
+                  (member) => member.marmaladeMailboxId === row.mailbox!.id,
+                )
+                .map((member) => ({
+                  jelly: member.contact,
+                  marmalade: member.marmalade,
+                }))
+            : [];
+
+          return {
+            jellyMailbox: {
+              ...filterFieldsByScope(context, "mailbox", row.jelly_mailbox),
+              memberCount: jelly.length,
+              members: jelly,
+            },
+            marmaladeMailbox: row.mailbox
+              ? {
+                  ...filterFieldsByScope(context, "mailbox", row.mailbox),
+                  memberCount: granted.length,
+                  members: granted,
+                }
+              : null,
+            marmaladeMailboxMembership: null,
+          };
+        });
       }
 
       const results = ((await db

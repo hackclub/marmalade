@@ -1,4 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+
+import { orpc } from "@/utils/orpc";
 
 const links = [
   { to: "/admin/dashboard", label: "Health" },
@@ -8,9 +11,16 @@ const links = [
 ] as const;
 
 export function AdminNav() {
+  // Connecting a team is instance work, so the tab is only there for
+  // someone who can do it.
+  const mine = useQuery(orpc.team.listMine.queryOptions());
+  const all = mine.data?.isInstanceOperator
+    ? [...links, { to: "/admin", label: "Teams" } as const]
+    : links;
+
   return (
     <nav className="mb-4 flex gap-4 border-b pb-2 text-sm">
-      {links.map(({ to, label }) => (
+      {all.map(({ to, label }) => (
         <Link
           key={to}
           to={to}

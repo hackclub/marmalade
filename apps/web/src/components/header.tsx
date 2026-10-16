@@ -12,7 +12,6 @@ const internalLinks = [
   { to: "/team", label: "Team" },
   { to: "/keys", label: "Keys" },
   { to: "/admin/users", label: "Users" },
-  { to: "/admin/dashboard", label: "Admin" },
 ] as const;
 
 const externalLinks = [
@@ -39,8 +38,13 @@ export default function Header() {
               {label}
             </Link>
           ))}
+          {/*
+            One entry. The oversight pages carry their own sub-navigation,
+            so a second top-level link to one of them was two tabs both
+            called Admin.
+          */}
           {showAdmin && (
-            <Link key="/admin" to="/admin">
+            <Link key="/admin/dashboard" to="/admin/dashboard">
               Admin
             </Link>
           )}

@@ -63,8 +63,11 @@ export const auditRouter = {
         jellyTeamId,
         action: input.action,
         resource: input.resource,
-        resourceId: input.resourceId ?? "-1",
-        status: input.status ?? "unknown",
+        // A row is written after the work it records succeeded, so success
+        // is the honest default. "unknown" said nothing and was what almost
+        // every row ended up holding.
+        resourceId: input.resourceId ?? "-",
+        status: input.status ?? "success",
         changes: input.changes ?? null,
         metadata: input.metadata ?? null,
         ipAddress,

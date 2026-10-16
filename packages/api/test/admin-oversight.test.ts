@@ -11,11 +11,13 @@ import {
   jellyWebhookDelivery,
   usageRollup,
 } from "@marmalade-v2/db/schema/observability";
+import { eq } from "drizzle-orm";
 
 import { resetDb, testDb } from "./db";
 import { ALPHA, BETA, BETA_ADMIN, PERSON, seedTwoTeams } from "./seed";
 
 const { adminRouter } = await import("../src/routers/admin");
+const { auditRouter } = await import("../src/routers/audit");
 const { resolveTeamById } = await import("../src/lib/team");
 
 async function adminContext(
@@ -135,5 +137,43 @@ describe("the admin surfaces show the caller's own team", () => {
         { context: await adminContext(PERSON, BETA) },
       ),
     ).rejects.toThrow(/forbidden/i);
+  });
+});
+
+describe("audit entries say what happened", () => {
+  it("records success rather than unknown by default", async () => {
+    // Almost every row read "unknown", because the default said so and
+    // nobody passed a status.
+    await call(
+      auditRouter.create,
+      { resource: "mailbox", action: "resync" },
+      { context: await adminContext(BETA_ADMIN, BETA) },
+    );
+
+    const [row] = await testDb
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.jellyTeamId, BETA));
+    expect(row?.status).toBe("success");
+  });
+
+  it("keeps the metadata it is given", async () => {
+    await call(
+      auditRouter.create,
+      {
+        resource: "team",
+        action: "resync",
+        resourceId: BETA,
+        metadata: { added: 3, markedGone: 1 },
+      },
+      { context: await adminContext(BETA_ADMIN, BETA) },
+    );
+
+    const [row] = await testDb
+      .select()
+      .from(auditLog)
+      .where(eq(auditLog.jellyTeamId, BETA));
+    expect(row?.resourceId).toBe(BETA);
+    expect(row?.metadata).toEqual({ added: 3, markedGone: 1 });
   });
 });

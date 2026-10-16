@@ -73,14 +73,12 @@ function AdminRoute() {
   const mine = useQuery(orpc.team.listMine.queryOptions());
   const isOperator = mine.data?.isInstanceOperator ?? false;
 
-  // Team admins get the audit log for their own team and nothing else here;
-  // the team list and the onboarding form are instance operation.
+  // Instance operation only. The audit log lives at /admin/audit, which
+  // has filters and resolves actor names.
   const teams = useQuery({
     ...orpc.instance.listTeams.queryOptions(),
     enabled: isOperator,
   });
-
-  const audit = useQuery(orpc.audit.list.queryOptions());
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["instance"] });
@@ -175,59 +173,6 @@ function AdminRoute() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 py-10">
-      <Card>
-        <CardHeader>
-          <CardTitle>Audit log</CardTitle>
-          <CardDescription>
-            What has been done in{" "}
-            <strong>{mine.data?.activeSlug ?? "this team"}</strong>. Scoped to
-            the selected team, so switching teams changes what is listed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {audit.isPending ? (
-            <Loader2 className="animate-spin" />
-          ) : audit.error ? (
-            <p className="text-muted-foreground text-sm">
-              {audit.error.message}
-            </p>
-          ) : audit.data?.length === 0 ? (
-            <p className="text-muted-foreground text-sm">
-              Nothing recorded for this team yet.
-            </p>
-          ) : (
-            <ul className="space-y-1 text-sm">
-              {audit.data
-                ?.slice()
-                .sort(
-                  (a, b) =>
-                    new Date(b.timestamp).getTime() -
-                    new Date(a.timestamp).getTime(),
-                )
-                .slice(0, 100)
-                .map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex flex-wrap items-baseline gap-2 border-b py-1 last:border-0"
-                  >
-                    <code className="text-xs">
-                      {new Date(entry.timestamp).toISOString()}
-                    </code>
-                    <Badge variant="outline">{entry.action}</Badge>
-                    <span>{entry.resource}</span>
-                    <span className="text-muted-foreground text-xs">
-                      {entry.resourceId}
-                    </span>
-                    {entry.status !== "success" && (
-                      <Badge variant="destructive">{entry.status}</Badge>
-                    )}
-                  </li>
-                ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-
       {!isOperator ? null : (
         <>
           <Card>

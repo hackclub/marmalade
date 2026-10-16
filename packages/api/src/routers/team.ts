@@ -414,6 +414,15 @@ export const teamRouter = {
         {
           resource: "team",
           action: "resync",
+          resourceId: teamId,
+          // A resync that changed nothing and one that removed half the
+          // team were previously the same row.
+          metadata: {
+            seenInJelly: teamMembers.length,
+            added: newTeamMembers.length,
+            updated: updatedTeamMembers.length,
+            markedGone: removedTeamMembers.length,
+          },
         },
         {
           context,

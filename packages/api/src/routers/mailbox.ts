@@ -748,7 +748,8 @@ export const mailboxRouter = {
         {
           resource: "mailbox",
           action: "create",
-          resourceId: newMailbox[0]?.id.toString() ?? undefined,
+          resourceId: input.jellyMailboxId,
+          metadata: { marmaladeMailboxId: newMailbox[0]?.id ?? null },
         },
         {
           context,
@@ -854,6 +855,12 @@ export const mailboxRouter = {
         {
           resource: "mailbox",
           action: "resync",
+          resourceId: teamId,
+          metadata: {
+            seenInJelly: mailboxes.length,
+            added: newMailboxes.length,
+            markedGone: removedMailboxes.length,
+          },
         },
         {
           context,
@@ -949,6 +956,14 @@ export const mailboxRouter = {
         {
           resource: "mailbox_member",
           action: "resync",
+          // Which mailbox, rather than a sentinel: this runs once per
+          // mailbox and the rows were indistinguishable.
+          resourceId: input.mailboxId,
+          metadata: {
+            seenInJelly: mailboxMembers.length,
+            added: newMembers.length,
+            removed: removedMembers.length,
+          },
         },
         {
           context,
@@ -1025,7 +1040,14 @@ export const mailboxRouter = {
         {
           resource: "mailbox_member",
           action: "create",
-          resourceId: newMember[0]?.id.toString() ?? undefined,
+          // The person granted, not the row id. A serial says nothing to
+          // whoever reads this back.
+          resourceId: input.marmaladeMemberId,
+          metadata: {
+            jellyMailboxId: mailbox[0].jellyMailboxId,
+            marmaladeMailboxId: mailbox[0].id,
+            grantId: newMember[0]?.id ?? null,
+          },
         },
         {
           context,
@@ -1177,7 +1199,7 @@ export const mailboxRouter = {
         });
       }
 
-      const result = await db
+      const [updated] = await db
         .update(marmaladeMailbox)
         .set({ active: false })
         .where(
@@ -1185,8 +1207,9 @@ export const mailboxRouter = {
             eq(marmaladeMailbox.id, input.marmaladeMailboxId),
             eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
           ),
-        );
-      if (result.rowCount === 0) {
+        )
+        .returning({ jellyMailboxId: marmaladeMailbox.jellyMailboxId });
+      if (!updated) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
         });
@@ -1196,8 +1219,9 @@ export const mailboxRouter = {
         auditRouter.create,
         {
           resource: "mailbox",
-          resourceId: input.marmaladeMailboxId.toString() ?? undefined,
+          resourceId: input.marmaladeMailboxId.toString(),
           action: "deactivate",
+          metadata: { jellyMailboxId: updated.jellyMailboxId },
         },
         {
           context,
@@ -1220,7 +1244,7 @@ export const mailboxRouter = {
           message: "User is not authenticated",
         });
       }
-      const result = await db
+      const [updated] = await db
         .update(marmaladeMailbox)
         .set({ active: true })
         .where(
@@ -1228,8 +1252,9 @@ export const mailboxRouter = {
             eq(marmaladeMailbox.id, input.marmaladeMailboxId),
             eq(marmaladeMailbox.jellyTeamId, teamIdOf(context)),
           ),
-        );
-      if (result.rowCount === 0) {
+        )
+        .returning({ jellyMailboxId: marmaladeMailbox.jellyMailboxId });
+      if (!updated) {
         throw new ORPCError("NOT_FOUND", {
           message: "Mailbox not found",
         });
@@ -1239,8 +1264,9 @@ export const mailboxRouter = {
         auditRouter.create,
         {
           resource: "mailbox",
-          resourceId: input.marmaladeMailboxId.toString() ?? undefined,
+          resourceId: input.marmaladeMailboxId.toString(),
           action: "activate",
+          metadata: { jellyMailboxId: updated.jellyMailboxId },
         },
         {
           context,

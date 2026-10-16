@@ -86,7 +86,9 @@ function AuditRoute() {
               <span className="font-medium">{entry.action}</span>
               <span className="text-muted-foreground">
                 {entry.resource}
-                {entry.resourceId !== "-1" && `/${entry.resourceId}`}
+                {entry.resourceId !== "-1" &&
+                  entry.resourceId !== "-" &&
+                  `/${entry.resourceId}`}
               </span>
               <span className="text-muted-foreground ml-auto text-xs">
                 {entry.userName ??

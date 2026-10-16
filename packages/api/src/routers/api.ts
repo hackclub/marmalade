@@ -443,6 +443,17 @@ export const apiKeyRouter = {
           resource: "api_key",
           action: "create",
           resourceId: key.id.toString(),
+          // What the key can reach, which is the part worth being able to
+          // read back later. Never the secret or its hash.
+          metadata: {
+            name: uniqueName,
+            keyPrefix,
+            mailboxIds: targetMailboxIds,
+            resourceScopes: input.resourceScopes ?? [],
+            actionScopes: input.actionScopes ?? [],
+            teamIds: [teamId, ...grantedTeamIds],
+            expiresAt: input.expiresAt ?? null,
+          },
         },
         { context: ctx },
       );
